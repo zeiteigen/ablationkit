@@ -217,8 +217,11 @@ async function status(
       : forWhat === "start"
         ? state === "running" || ended
         : ended || (reached !== undefined && Number(reached["step"] ?? 0) >= (step ?? 0));
+  // "running", "starting, staging", "running (job ended (worker exit 75))": the provider's word
+  // only when it adds something.
+  const provider = r?.provider_state;
   const where = r
-    ? `${state}${r.staging && r.staging !== "submitted" ? `, ${r.staging}` : ""}${r.provider_state ? ` (${r.provider_state})` : ""}`
+    ? `${state}${r.staging && r.staging !== "submitted" ? `, ${r.staging}` : ""}${provider && !provider.startsWith(state) ? ` (${provider})` : ""}`
     : state;
   const view: Json = {
     job_id: j.job_id,
