@@ -223,6 +223,158 @@ args = ["mcp"]</code></pre>
       before asking an agent to run substantial work.
      </p>
     </section>
+    <section id="agent-containers">
+     <h2>
+      Run your agent in a container
+     </h2>
+     <p>
+      Optionally, AblationKit can run your harness for you in a rootless Podman container, so that what the agent itself does is bounded too. The container has no GPU (its GPU work runs as jobs, which the compute limit counts), no network except the hosts the project allows, and no view of AblationKit's own home. Its local jobs run in job containers that do get the GPU. Your agent still uses the same
+      <code>
+       ablationkit_*
+      </code>
+      tools.
+     </p>
+     <ol class="akg-steps">
+      <li>
+       <h3>
+        Prepare this machine once
+       </h3>
+       <p>
+        Install Podman and tmux (on Arch Linux,
+        <code>
+         sudo pacman -S podman passt tmux
+        </code>
+        ), then run
+        <code>
+         ablationkit agent doctor
+        </code>
+        and
+        <code>
+         ablationkit agent image build
+        </code>
+        . For GPU jobs, also generate a CDI spec:
+        <code>
+         sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
+        </code>
+        .
+       </p>
+      </li>
+      <li>
+       <h3>
+        Start a session
+       </h3>
+       <p>
+        In the registered checkout, run
+        <code>
+         ablationkit agent start
+        </code>
+        (Claude Code), or add
+        <code>
+         --harness codex
+        </code>
+        or
+        <code>
+         --harness shell
+        </code>
+        . Arguments after
+        <code>
+         --
+        </code>
+        go to the harness. Your terminal attaches to the container's. The first time, sign the harness in inside it; the container keeps its own home per project. Detach with Ctrl-b d, and come back with
+        <code>
+         ablationkit agent attach SESSION
+        </code>
+        .
+       </p>
+      </li>
+      <li>
+       <h3>
+        Watch and steer it
+       </h3>
+       <p>
+        <strong>
+         Settings → Agent sessions
+        </strong>
+        and
+        <strong>
+         Project settings → Agents
+        </strong>
+        list each container session. There you can:
+       </p>
+       <ul>
+        <li>
+         <strong>
+          Terminal
+         </strong>
+         shows its screen, read-only.
+        </li>
+        <li>
+         <strong>
+          Egress
+         </strong>
+         lists every connection it made and every one that was refused, with an
+         <strong>
+          Allow
+         </strong>
+         button for a refused host.
+        </li>
+        <li>
+         <strong>
+          Pause
+         </strong>
+         freezes it,
+         <strong>
+          Resume
+         </strong>
+         thaws it, and
+         <strong>
+          Stop
+         </strong>
+         ends it.
+        </li>
+       </ul>
+       <p>
+        When the compute limit refuses one of its jobs, the session is paused until you resume it. Its
+        <strong>
+         Account
+        </strong>
+        shows what the container was given, where it connected, and what it changed.
+       </p>
+      </li>
+      <li>
+       <h3>
+        Decide what it may reach
+       </h3>
+       <p>
+        <code>
+         ablationkit agent allow HOST
+        </code>
+        adds a host to the project's allowlist.
+        <code>
+         ablationkit agent config edit
+        </code>
+        sets the rest:
+       </p>
+       <ul>
+        <li>
+         paths agents must not see (held-out data, evaluation code) and paths they may only read;
+        </li>
+        <li>
+         whether job containers get the GPU and network;
+        </li>
+        <li>
+         protected evaluations, whose pinned command an agent can run against data it cannot read;
+        </li>
+        <li>
+         credentials the proxy adds, so that the secret never enters the container.
+        </li>
+       </ul>
+      </li>
+     </ol>
+     <p>
+      Limits: the agent can still run CPU experiments in its shell within the container's limits. Hidden files inside the checkout stay in Git history, so keep protected data out of the repository. HTTPS connections are recorded by host only. The container sees your real checkout, so its record of changed files includes your own edits made meanwhile.
+     </p>
+    </section>
     <footer>
      <a href="index.html">
       Guide home

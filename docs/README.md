@@ -7,7 +7,7 @@ Maintained docs first, grouped by what you are doing; the historical record (spe
 - [User guide](guide/index.html): task-oriented HTML documentation, also available in UI → Docs. Open the file directly for offline reading, or copy `docs/guide/` to a static host; no build is required.
 
 - [CLI guide](cli.md): the researcher's and the operator's `ablationkit` commands by task (the coordinator, projects, backups, remote compute, giving an agent `ablationkit mcp`, extension authoring, Level 2 builds). Research itself happens in the web UI.
-- [Agents: policy, tasks and MCP](autonomy/README.md): what an agent may ask AblationKit to do ([project permissions](autonomy/project-permissions.md), the compute limit, [deployment gates](autonomy/deployment-gates.md)) and how agents report in through `ablationkit mcp`: agent sessions, the MCP tools and tasks ([agent-first work](autonomy/agent-first.md)).
+- [Agents: policy, tasks and MCP](autonomy/README.md): what an agent may ask AblationKit to do ([project permissions](autonomy/project-permissions.md), the compute limit, [deployment gates](autonomy/deployment-gates.md)) and how agents report in through `ablationkit mcp`: agent sessions, the MCP tools and tasks ([agent-first work](autonomy/agent-first.md)), and [agent containers](autonomy/agent-containers.md), the opt-in mode in which agents run in rootless Podman containers.
 - [Extensions](extensions/README.md): manifest, contribution points, capabilities, SDKs, trust labels, [backends](extensions/backends.md) and three tutorials.
 - [Troubleshooting](troubleshooting/README.md).
 - Agent Skills for Claude Code and Codex: [`skills/`](../skills/README.md).

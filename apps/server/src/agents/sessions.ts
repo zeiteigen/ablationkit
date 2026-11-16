@@ -20,6 +20,8 @@ export interface AgentSessionStart {
   readonly harness: string;
   readonly label: string;
   readonly cwd: string;
+  /** Minted by the coordinator for an agent container (ADR 0061), not through the login socket. */
+  readonly container_session?: string;
 }
 
 /** What the researcher sees of one agent session (or of an agent token minted before ADR 0040). */
@@ -33,6 +35,8 @@ export interface AgentSessionView {
   readonly last_used_at?: string;
   readonly expires_at?: string;
   readonly idle_timeout_sec?: number;
+  /** The agent container it runs in (ADR 0061), when it does. */
+  readonly container_session?: string;
   readonly live: boolean;
   readonly ended_at?: string;
   readonly end_reason?: string;
@@ -66,16 +70,26 @@ export class AgentSessionService {
       const minted = svc.tokens.mint("agent", {
         scope: { project_id: input.project_id },
         label: input.label,
-        agentSession: { harness: input.harness, label: input.label, cwd: input.cwd },
+        agentSession: {
+          harness: input.harness,
+          label: input.label,
+          cwd: input.cwd,
+          ...(input.container_session ? { container_session: input.container_session } : {}),
+        },
       });
       svc.audit.record({
         actor: { kind: "agent", id: minted.record.token_id },
-        listener: "login",
+        listener: input.container_session ? "internal" : "login",
         action: "auth.agent_session.start",
         outcome: "allowed",
         project_id: input.project_id,
         target: minted.record.token_id,
-        details: { harness: input.harness, label: input.label, cwd: input.cwd },
+        details: compact({
+          harness: input.harness,
+          label: input.label,
+          cwd: input.cwd,
+          container_session: input.container_session,
+        }),
       });
       return minted;
     } catch (e) {
@@ -110,6 +124,14 @@ export class AgentSessionService {
     if (record?.kind !== "agent")
       throw new HttpError(404, "agent_session_not_found", "no such agent session");
     const ended = svc.tokens.revoke(tokenId, reason);
+    // A contained session's container goes with its token (ADR 0061).
+    const sid = record.agent_session?.container_session;
+    if (ended && sid)
+      try {
+        svc.containers.stop(sid, by, reason);
+      } catch {
+        // It had already ended.
+      }
     svc.audit.record({
       actor: { kind: "human", id: by },
       listener: "human",
@@ -173,6 +195,7 @@ export class AgentSessionService {
           last_used_at: s?.last_used_at,
           expires_at: t.expires_at,
           idle_timeout_sec: s?.idle_timeout_sec,
+          container_session: s?.container_session,
           live: svc.tokens.isLive(t),
           ended_at: ended,
           end_reason:

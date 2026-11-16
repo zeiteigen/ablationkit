@@ -7,6 +7,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
+    "@ablationkit/agent-containers": "workspace:*",
     "@ablationkit/auth": "workspace:*",
     "@ablationkit/autonomy-policy": "workspace:*",
     "@ablationkit/builtin-llm": "workspace:*",

@@ -1,0 +1,126 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "project_id": "custom-architecture-lab",
+      "revision": 1,
+      "updated_at": "2026-11-16T10:00:00Z",
+      "updated_by": "system",
+      "image": "localhost/ablationkit-agent:1",
+      "agent": { "cpus": 4, "memory_mb": 8192, "pids_max": 4096 },
+      "egress": { "mode": "allowlist", "allow": ["pypi.org", "*.hf.co", "example.com:8443"] },
+      "hidden": [],
+      "read_only": [],
+      "jobs": { "gpu": "all", "network": "none" },
+      "evaluations": [],
+      "credentials": [],
+      "host_code": "refuse",
+      "pause_on_compute_limit": true
+    },
+    {
+      "schema_version": 1,
+      "project_id": "custom-architecture-lab",
+      "revision": 3,
+      "updated_at": "2026-11-16T10:00:00Z",
+      "updated_by": "0123456789abcdef",
+      "image": "ghcr.io/lab/agent:2",
+      "agent": { "cpus": 8, "memory_mb": 16384, "pids_max": 8192 },
+      "egress": { "mode": "open", "allow": [] },
+      "hidden": ["eval", "/data/heldout"],
+      "read_only": ["data"],
+      "jobs": { "gpu": "none", "network": "egress" },
+      "evaluations": [
+        {
+          "name": "heldout",
+          "description": "Accuracy on the held-out split.",
+          "command": ["python", "eval/score.py"],
+          "environment": "uv",
+          "mounts": ["eval", "/data/heldout"],
+          "runtime_max_sec": 3600
+        }
+      ],
+      "credentials": [
+        {
+          "name": "hf",
+          "upstream": "https://huggingface.co",
+          "header": "authorization",
+          "prefix": "Bearer ",
+          "from_env": "HF_TOKEN",
+          "env": { "HF_ENDPOINT": "{url}" }
+        }
+      ],
+      "host_code": "allow",
+      "pause_on_compute_limit": false
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "egress mode is allowlist or open",
+      "value": {
+        "schema_version": 1,
+        "project_id": "custom-architecture-lab",
+        "revision": 1,
+        "updated_at": "2026-11-16T10:00:00Z",
+        "updated_by": "system",
+        "image": "localhost/ablationkit-agent:1",
+        "agent": { "cpus": 4, "memory_mb": 8192, "pids_max": 4096 },
+        "egress": { "mode": "anything", "allow": [] },
+        "hidden": [],
+        "read_only": [],
+        "jobs": { "gpu": "all", "network": "none" },
+        "evaluations": [],
+        "credentials": [],
+        "host_code": "refuse",
+        "pause_on_compute_limit": true
+      }
+    },
+    {
+      "reason": "a host pattern with a path",
+      "value": {
+        "schema_version": 1,
+        "project_id": "custom-architecture-lab",
+        "revision": 1,
+        "updated_at": "2026-11-16T10:00:00Z",
+        "updated_by": "system",
+        "image": "localhost/ablationkit-agent:1",
+        "agent": { "cpus": 4, "memory_mb": 8192, "pids_max": 4096 },
+        "egress": { "mode": "allowlist", "allow": ["example.com/path"] },
+        "hidden": [],
+        "read_only": [],
+        "jobs": { "gpu": "all", "network": "none" },
+        "evaluations": [],
+        "credentials": [],
+        "host_code": "refuse",
+        "pause_on_compute_limit": true
+      }
+    },
+    {
+      "reason": "a credential upstream over plain http",
+      "value": {
+        "schema_version": 1,
+        "project_id": "custom-architecture-lab",
+        "revision": 1,
+        "updated_at": "2026-11-16T10:00:00Z",
+        "updated_by": "system",
+        "image": "localhost/ablationkit-agent:1",
+        "agent": { "cpus": 4, "memory_mb": 8192, "pids_max": 4096 },
+        "egress": { "mode": "allowlist", "allow": [] },
+        "hidden": [],
+        "read_only": [],
+        "jobs": { "gpu": "all", "network": "none" },
+        "evaluations": [],
+        "credentials": [
+          {
+            "name": "hf",
+            "upstream": "http://huggingface.co",
+            "header": "authorization",
+            "from_env": "HF_TOKEN",
+            "env": {}
+          }
+        ],
+        "host_code": "refuse",
+        "pause_on_compute_limit": true
+      }
+    }
+  ]
+}

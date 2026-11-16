@@ -27,6 +27,7 @@
     "test:inference": "ABLATIONKIT_INFERENCE_E2E=1 bun test apps/server/test/inference-e2e.test.ts --timeout 900000",
     "test:llm": "ABLATIONKIT_LLM_E2E=1 bun test apps/server/test/llm-e2e.test.ts --timeout 900000",
     "test:restore": "ABLATIONKIT_RESTORE_E2E=1 bun test apps/server/test/restore-e2e.test.ts --timeout 1800000",
+    "test:containers": "ABLATIONKIT_CONTAINERS_E2E=1 bun test apps/server/test/containers-e2e.test.ts --timeout 1800000",
     "web:build": "bun apps/web/build.ts",
     "web:dev": "bun apps/web/build.ts --watch",
     "test:web": "ABLATIONKIT_WEB_E2E=1 bun test apps/web/e2e --timeout 120000",

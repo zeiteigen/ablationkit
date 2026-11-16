@@ -315,6 +315,7 @@ Schema: [`job-record.v1.schema.json`](../../packages/protocol/schemas/job-record
 | `submitted_by` | object | yes | Who submitted a job. |
 | `compute_weight_hundredths` | integer | no | Agent jobs (ADR 0037): the weight of the job's target when it was submitted, in hundredths. Every attempt's wall time times this weight counts against the project's `compute.limit_hours`; changing the target's weight later does not change it. |
 | `via_extension` | string | no | Submitted through this extension backend's broker (`compute.remote`, ADR 0024); only it may read or cancel the job there. |
+| `container` | object | no | Set on jobs a contained agent session submits (ADR 0061): each local attempt runs in a job container of its own. |
 | `state` | `AttemptState` | yes | State of the latest attempt. |
 | `attempts` | array of `AttemptId` | yes | Attempt IDs, oldest first. |
 | `created_at` | `Timestamp` | yes | RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds. |
@@ -847,6 +848,92 @@ Schema: [`research-direction.v1.schema.json`](../../packages/protocol/schemas/re
 | `updated_at` | `Timestamp` | yes | RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds. |
 | `revision` | integer | yes |  |
 
+## ContainerConfig (v1)
+
+How a project's agent containers and their jobs run (ADR 0061). The researcher's: no agent route reads or writes it.
+
+Schema: [`container-config.v1.schema.json`](../../packages/protocol/schemas/container-config.v1.schema.json)
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `schema_version` | `1` | yes |  |
+| `project_id` | `ProjectId` | yes | Stable project identifier (lowercase slug). Never a path; paths live in the local registry. |
+| `revision` | integer | yes |  |
+| `updated_at` | `Timestamp` | yes | RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds. |
+| `updated_by` | string | yes |  |
+| `image` | string | yes | The image agent and job containers run (glibc, a shell, Git, CA certificates). AblationKit's own is built by `ablationkit agent image build`. |
+| `agent` | object | yes | The agent container's own limits (kernel-enforced by its cgroup). It has no GPU. |
+| `egress` | object | yes |  |
+| `hidden` | array of string | yes | Paths neither the agent container nor an ordinary job container can see (held-out data, evaluation code). Inside the checkout the working tree is hidden, not Git history: keep protected files out of the repository. |
+| `read_only` | array of string | yes | Checkout paths the agent container can read but not change. |
+| `jobs` | object | yes |  |
+| `evaluations` | array of object | yes |  |
+| `credentials` | array of object | yes |  |
+| `host_code` | any JSON | yes | Agent operations that run project code on this machine outside a container (extension builds and runs): `refuse` for contained sessions, or `allow` them. |
+| `pause_on_compute_limit` | boolean | yes | Freeze a contained session when the compute limit refuses its job; the researcher resumes it. |
+
+## ContainerSessionRecord (v1)
+
+One agent container session (ADR 0061): the harness in its container, the agent session token minted for it, what the container was given, and the provenance recorded at its start and end.
+
+Schema: [`container-session-record.v1.schema.json`](../../packages/protocol/schemas/container-session-record.v1.schema.json)
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `schema_version` | `1` | yes |  |
+| `session_id` | `ContainerSessionId` | yes | An agent container session: `c-` and twelve hex digits. |
+| `project_id` | `ProjectId` | yes | Stable project identifier (lowercase slug). Never a path; paths live in the local registry. |
+| `token_id` | string | yes | The agent session token minted for it. |
+| `harness` | `ContainerHarness` | yes | What runs in the agent container: Claude Code, Codex, or a plain shell (to set the container up or look around). |
+| `label` | string | yes |  |
+| `args` | array of string | yes | Extra arguments given to the harness. |
+| `checkout` | string | yes |  |
+| `container` | string | yes |  |
+| `image` | string | yes |  |
+| `image_id` | string | no |  |
+| `harness_version` | string | no |  |
+| `config_revision` | integer | yes |  |
+| `state` | `ContainerSessionState` | yes | `exited`: the harness ended (its exit code is recorded). `failed`: the container did not start. `lost`: the container was gone without an exit being recorded. |
+| `paused_by` | any JSON | no |  |
+| `started_by` | string | yes |  |
+| `created_at` | `Timestamp` | yes | RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds. |
+| `started_at` | `Timestamp` | no | RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds. |
+| `ended_at` | `Timestamp` | no | RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds. |
+| `exit_code` | integer | no |  |
+| `error` | string | no |  |
+| `supervisor` | object | yes | Where the terminal the container is attached to lives: a tmux server in a transient systemd unit, or a detached process. |
+| `boundary` | object | yes | What the container was given when it started, as applied. |
+| `start` | object | no | The checkout's commit and uncommitted files, and the project environment's packages, at a point of the session. |
+| `end` | object | no | The checkout's commit and uncommitted files, and the project environment's packages, at a point of the session. |
+| `files_changed` | array of object | no | Between the start and end snapshots, from Git: the bind-mounted checkout also shows the researcher's own edits made meanwhile. |
+| `packages_changed` | object | no |  |
+| `commands` | array of object | no | Shell commands as the harness's own transcript recorded them (the agent can write its home, so this is its account, not the coordinator's record). |
+| `control` | array of object | yes |  |
+
+## EgressRecord (v1)
+
+One connection out of an agent or job container through its egress proxy.
+
+Schema: [`egress-record.v1.schema.json`](../../packages/protocol/schemas/egress-record.v1.schema.json)
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `schema_version` | `1` | yes |  |
+| `at` | `Timestamp` | yes | RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds. |
+| `owner` | any JSON | yes | The container session, or the job attempt, it came from. |
+| `kind` | any JSON | yes | `connect`: an HTTPS tunnel (only the host is known). `http`: a plain HTTP request (method and path known). `credential`: a request through a credential route. |
+| `host` | string | yes |  |
+| `port` | integer | yes |  |
+| `method` | string | no |  |
+| `path` | string | no |  |
+| `credential` | string | no |  |
+| `outcome` | any JSON | yes |  |
+| `reason` | string | no |  |
+| `status` | integer | no |  |
+| `bytes_up` | integer | no |  |
+| `bytes_down` | integer | no |  |
+| `duration_ms` | integer | no |  |
+
 ## DeploymentRecord (v1)
 
 A deployment request and its lifecycle (§7.7.4 item 5): pinned model, named target, exposure, TTL and budget. A preview is never a public deployment.
@@ -1259,6 +1346,16 @@ Schema: [`source-build-record.v1.schema.json`](../../packages/protocol/schemas/s
 | `ComputeLimit` | object |  |  |
 | `ComputeLimitRefusals` | object |  | Agent submissions refused since the last admitted one under this policy revision: one notification per burst. |
 | `ConsoleStream` | undefined |  | `log`: a Python logging record from the SDK handler. `system`: a note from AblationKit itself. |
+| `ContainerAgentLimits` | object |  | The agent container's own limits (kernel-enforced by its cgroup). It has no GPU. |
+| `ContainerBoundary` | object |  | What the container was given when it started, as applied. |
+| `ContainerEgress` | object |  |  |
+| `ContainerHarness` | undefined |  | What runs in the agent container: Claude Code, Codex, or a plain shell (to set the container up or look around). |
+| `ContainerJobs` | object |  |  |
+| `ContainerPackagesChanged` | object |  |  |
+| `ContainerSessionId` | string | `^c-[a-f0-9]{12}$` | An agent container session: `c-` and twelve hex digits. |
+| `ContainerSessionState` | undefined |  | `exited`: the harness ended (its exit code is recorded). `failed`: the container did not start. `lost`: the container was gone without an exit being recorded. |
+| `ContainerSnapshot` | object |  | The checkout's commit and uncommitted files, and the project environment's packages, at a point of the session. |
+| `ContainerSupervisor` | object |  | Where the terminal the container is attached to lives: a tmux server in a transient systemd unit, or a detached process. |
 | `ConversationSource` | undefined |  | Where an external conversation lives. |
 | `DeclaredRetention` | object |  | The data-retention policy this evaluation's traces were recorded under. |
 | `DeploymentGates` | object |  |  |
@@ -1314,6 +1411,7 @@ Schema: [`source-build-record.v1.schema.json`](../../packages/protocol/schemas/s
 | `InferenceSessionTimings` | object |  | `start_ms`: process start to ready. `load_ms`: model download and load alone. |
 | `InferenceTask` | undefined |  | Task adapter chosen from the model's signature and metadata. |
 | `JobActor` | object |  | Who submitted a job. |
+| `JobContainer` | object |  | Set on jobs a contained agent session submits (ADR 0061): each local attempt runs in a job container of its own. |
 | `JobGates` | object |  | Jobs an agent submits: on this machine, or to a remote compute target. |
 | `JobId` | string | `^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$` | AblationKit job identifier. |
 | `JobLimits` | object |  | CPU, memory, time and task limits for one attempt. |

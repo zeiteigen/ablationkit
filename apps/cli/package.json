@@ -7,12 +7,13 @@
     "ablationkit": "./src/main.ts"
   },
   "dependencies": {
+    "@ablationkit/agent-containers": "workspace:*",
+    "@ablationkit/builtin-llm": "workspace:*",
+    "@ablationkit/compute-targets": "workspace:*",
     "@ablationkit/core": "workspace:*",
     "@ablationkit/extension-host": "workspace:*",
     "@ablationkit/protocol": "workspace:*",
     "@ablationkit/server": "workspace:*",
-    "@ablationkit/compute-targets": "workspace:*",
-    "@ablationkit/builtin-llm": "workspace:*",
     "@ablationkit/vault": "workspace:*"
   },
   "devDependencies": {

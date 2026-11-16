@@ -9,6 +9,7 @@
  * and the session's account compare the second with the first. Every check here is advice: nothing
  * is refused for it.
  */
+
 import { computeUsage, roundHours } from "@ablationkit/autonomy-policy";
 import type { ResearchActor } from "@ablationkit/protocol";
 import {
@@ -18,6 +19,7 @@ import {
   type RunAccount,
   type RunStanding,
 } from "@ablationkit/vault";
+import type { ContainerAccount } from "../agents/containers.ts";
 import { HttpError } from "../http.ts";
 import type { Services } from "../services.ts";
 import { compact } from "../state/audit.ts";
@@ -73,6 +75,12 @@ export interface SessionAccount {
   };
   /** Checks on what it wrote, as they stand now (not frozen when it ended). */
   readonly checks: { code: string; ref: string; message: string }[];
+  /**
+   * When the session ran in an agent container (ADR 0061): what the container was given, where it
+   * connected through its proxy, what changed in the checkout and the environment, and the
+   * commands its harness recorded (the last is the agent's own account).
+   */
+  readonly container?: ContainerAccount;
 }
 
 export class WitnessService {
@@ -260,6 +268,7 @@ export class WitnessService {
         edition,
       }),
       checks,
+      container: svc.containers.account(tokenId),
     }) as SessionAccount;
   }
 

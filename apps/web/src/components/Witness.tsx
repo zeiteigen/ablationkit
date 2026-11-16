@@ -318,6 +318,26 @@ export interface SessionAccountView {
     edition?: string;
   };
   checks: { code: string; ref: string; message: string }[];
+  /** When the session ran in an agent container (ADR 0061). */
+  container?: {
+    session_id: string;
+    state: string;
+    harness: string;
+    harness_version?: string;
+    image: string;
+    image_id?: string;
+    boundary: { egress: string; hidden: string[]; read_only: string[] };
+    paused: number;
+    egress: {
+      connections: number;
+      allowed: { host: string; count: number }[];
+      denied: { host: string; count: number }[];
+    };
+    files_changed?: { path: string; status: string }[];
+    packages_changed?: { added: unknown[]; removed: unknown[]; changed: unknown[] };
+    commands: { count: number; recent: string[] };
+    works: { work_id: string; title: string; host: string; reached: boolean }[];
+  };
 }
 
 const word = (s: string | undefined) => (s ? s.replace("_", " ") : "none");
@@ -397,6 +417,31 @@ export function SessionAccount(props: { tokenId: string; base?: string; compact?
                 : "none"}
             </Row>
             <Row k="Weighted hours">{a.record.weighted_hours}</Row>
+            {a.container ? (
+              <>
+                <Row k="Container">
+                  {a.container.harness} in <span className="mono">{a.container.image}</span>,{" "}
+                  {a.container.state}
+                  {a.container.paused ? `, paused ${a.container.paused}×` : ""}; no GPU, egress{" "}
+                  {a.container.boundary.egress}, {a.container.boundary.hidden.length} hidden
+                </Row>
+                <Row k="Egress">
+                  {a.container.egress.connections} connections to{" "}
+                  {a.container.egress.allowed.length} hosts
+                  {a.container.egress.denied.length
+                    ? `; refused: ${a.container.egress.denied.map((d) => d.host).join(", ")}`
+                    : ""}
+                </Row>
+                <Row k="Changed">
+                  {a.container.files_changed
+                    ? `${a.container.files_changed.length} files`
+                    : "recorded when it ends"}
+                  {a.container.packages_changed
+                    ? `; packages +${a.container.packages_changed.added.length} −${a.container.packages_changed.removed.length} ~${a.container.packages_changed.changed.length}`
+                    : ""}
+                </Row>
+              </>
+            ) : null}
             <Row k="Tasks">
               {a.record.tasks.length
                 ? joined(
@@ -449,6 +494,27 @@ export function SessionAccount(props: { tokenId: string; base?: string; compact?
                 : "none"}
             </Row>
             <Row k="Edition">{a.account.edition ? noteLink(a.account.edition) : "none"}</Row>
+            {a.container ? (
+              <>
+                <Row k="Commands">
+                  {a.container.commands.count} in its harness's transcript (its own record)
+                </Row>
+                {a.container.works.length ? (
+                  <Row k="Works it recorded">
+                    {a.container.works.map((w) => (
+                      <div key={w.work_id}>
+                        {w.title}:{" "}
+                        {w.reached ? (
+                          `reached ${w.host}`
+                        ) : (
+                          <Badge tone="warn">no connection to {w.host}</Badge>
+                        )}
+                      </div>
+                    ))}
+                  </Row>
+                ) : null}
+              </>
+            ) : null}
           </dl>
         </section>
       </div>

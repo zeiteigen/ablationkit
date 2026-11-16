@@ -1,0 +1,144 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "session_id": "c-0123456789ab",
+      "project_id": "custom-architecture-lab",
+      "token_id": "0123456789abcdef",
+      "harness": "claude-code",
+      "label": "ALiBi sweep",
+      "args": [],
+      "checkout": "/home/r/lab",
+      "container": "ak-agent-c-0123456789ab",
+      "image": "localhost/ablationkit-agent:1",
+      "image_id": "sha256:0123",
+      "harness_version": "2.1.325 (Claude Code)",
+      "config_revision": 1,
+      "state": "running",
+      "started_by": "fedcba9876543210",
+      "created_at": "2026-11-16T10:00:00Z",
+      "started_at": "2026-11-16T10:00:01Z",
+      "supervisor": { "mode": "systemd", "unit": "ak-agent-c-0123456789ab.service" },
+      "boundary": {
+        "gpu": false,
+        "network": "none",
+        "egress": "allowlist",
+        "hidden": ["/home/r/lab/eval"],
+        "read_only": [],
+        "cpus": 4,
+        "memory_mb": 8192,
+        "pids_max": 4096
+      },
+      "start": { "at": "2026-11-16T10:00:00Z", "head": "abcdef1", "dirty": [], "packages": [] },
+      "control": []
+    },
+    {
+      "schema_version": 1,
+      "session_id": "c-0123456789ab",
+      "project_id": "custom-architecture-lab",
+      "token_id": "0123456789abcdef",
+      "harness": "codex",
+      "label": "codex in a container",
+      "args": ["--model", "gpt-5"],
+      "checkout": "/home/r/lab",
+      "container": "ak-agent-c-0123456789ab",
+      "image": "localhost/ablationkit-agent:1",
+      "config_revision": 2,
+      "state": "exited",
+      "started_by": "fedcba9876543210",
+      "created_at": "2026-11-16T10:00:00Z",
+      "ended_at": "2026-11-16T12:00:00Z",
+      "exit_code": 0,
+      "supervisor": { "mode": "direct" },
+      "boundary": {
+        "gpu": false,
+        "network": "none",
+        "egress": "open",
+        "hidden": [],
+        "read_only": [],
+        "cpus": 2,
+        "memory_mb": 4096,
+        "pids_max": 1024
+      },
+      "files_changed": [{ "path": "train.py", "status": "M" }],
+      "packages_changed": {
+        "added": [{ "name": "einops", "version": "0.8.0" }],
+        "removed": [],
+        "changed": [{ "name": "torch", "version": "2.5.1", "previous": "2.5.0" }]
+      },
+      "commands": [{ "at": "2026-11-16T10:05:00Z", "command": "uv run pytest" }],
+      "control": [
+        {
+          "at": "2026-11-16T11:00:00Z",
+          "action": "pause",
+          "by": "system",
+          "reason": "compute limit"
+        }
+      ]
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "an agent container never has the GPU",
+      "value": {
+        "schema_version": 1,
+        "session_id": "c-0123456789ab",
+        "project_id": "custom-architecture-lab",
+        "token_id": "0123456789abcdef",
+        "harness": "claude-code",
+        "label": "x",
+        "args": [],
+        "checkout": "/home/r/lab",
+        "container": "ak-agent-c-0123456789ab",
+        "image": "img",
+        "config_revision": 1,
+        "state": "running",
+        "started_by": "h",
+        "created_at": "2026-11-16T10:00:00Z",
+        "supervisor": { "mode": "direct" },
+        "boundary": {
+          "gpu": true,
+          "network": "none",
+          "egress": "allowlist",
+          "hidden": [],
+          "read_only": [],
+          "cpus": 4,
+          "memory_mb": 8192,
+          "pids_max": 4096
+        },
+        "control": []
+      }
+    },
+    {
+      "reason": "an unknown harness",
+      "value": {
+        "schema_version": 1,
+        "session_id": "c-0123456789ab",
+        "project_id": "custom-architecture-lab",
+        "token_id": "0123456789abcdef",
+        "harness": "cursor",
+        "label": "x",
+        "args": [],
+        "checkout": "/home/r/lab",
+        "container": "ak-agent-c-0123456789ab",
+        "image": "img",
+        "config_revision": 1,
+        "state": "running",
+        "started_by": "h",
+        "created_at": "2026-11-16T10:00:00Z",
+        "supervisor": { "mode": "direct" },
+        "boundary": {
+          "gpu": false,
+          "network": "none",
+          "egress": "allowlist",
+          "hidden": [],
+          "read_only": [],
+          "cpus": 4,
+          "memory_mb": 8192,
+          "pids_max": 4096
+        },
+        "control": []
+      }
+    }
+  ]
+}

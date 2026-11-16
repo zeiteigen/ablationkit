@@ -10,6 +10,7 @@
 import { type ReactNode, useEffect, useState } from "react";
 import { api, useApi, useEvents } from "../api.ts";
 import { useShell } from "../app.tsx";
+import { AgentContainers } from "../components/AgentContainers.tsx";
 import { AgentPermissions, type AgentUsage } from "../components/AgentPermissions.tsx";
 import { AgentSessions } from "../components/AgentSessions.tsx";
 import { BackendProjectPage } from "../components/BackendPage.tsx";
@@ -414,6 +415,7 @@ function ProjectSettings(props: { pid: string; base: string }) {
         <div className="stack">
           <AgentPermissions pid={props.pid} />
           <AgentSessions pid={props.pid} />
+          <AgentContainers pid={props.pid} />
         </div>
       </section>
       <section className="ps" id="shown">

@@ -1,11 +1,13 @@
 /**
  * Settings (spec §2.2, ADR 0055): three tabs. Preferences (the session, the SDK, notifications),
- * Agent sessions (every project's, ADR 0040: ending one revokes its token) and System (the
+ * Agent sessions (every project's, ADR 0040: ending one revokes its token; and the agent
+ * containers they run in, ADR 0061) and System (the
  * coordinator's health, delivery, backups and build, at `/system`). Privileged actions need only
  * the signed-in session (ADR 0037).
  */
 import { useState } from "react";
 import { api, useApi } from "../api.ts";
+import { AgentContainers } from "../components/AgentContainers.tsx";
 import { AgentSessions } from "../components/AgentSessions.tsx";
 import { Badge, ErrorBox, KV, Loading, Page, Tabs, useAction } from "../components/ui.tsx";
 import { fmtTime } from "../lib/format.ts";
@@ -46,7 +48,12 @@ export function SettingsPage(props: { tab: SettingsTab }) {
       lede="Your preferences, every project's agent sessions, and the coordinator's health."
       tabs={<Tabs items={SETTINGS_TABS} active={tab.id} />}
     >
-      {tab.id === "agents" ? <AgentSessions /> : null}
+      {tab.id === "agents" ? (
+        <div className="stack">
+          <AgentSessions />
+          <AgentContainers />
+        </div>
+      ) : null}
       {tab.id === "system" ? <SystemSection /> : null}
       {tab.id === "preferences" ? <Preferences /> : null}
     </Page>

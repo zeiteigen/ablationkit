@@ -46,7 +46,7 @@ export interface MintOptions {
   /** Worker tokens: `launch` may only perform the remote handshake. */
   purpose?: "upload" | "launch";
   /** Agent tokens minted for one agent session (ADR 0040). */
-  agentSession?: Pick<AgentSessionInfo, "harness" | "label" | "cwd">;
+  agentSession?: Pick<AgentSessionInfo, "harness" | "label" | "cwd" | "container_session">;
 }
 
 export interface MintedToken {

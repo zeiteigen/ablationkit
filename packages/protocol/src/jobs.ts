@@ -18,6 +18,7 @@ import {
   VariantId,
 } from "./common.ts";
 import { WeightHundredths } from "./compute.ts";
+import { AttemptContainer, JobContainer } from "./containers.ts";
 import { MlprojectRunInfo } from "./lifecycle.ts";
 import { JobLimits, MetricsFormat } from "./limits.ts";
 import { RemoteAttemptInfo, TargetId } from "./remote.ts";
@@ -169,6 +170,7 @@ export const JobRecord = Type.Object(
           "Submitted through this extension backend's broker (`compute.remote`, ADR 0024); only it may read or cancel the job there.",
       }),
     ),
+    container: Type.Optional(JobContainer),
     state: describe(AttemptState, "State of the latest attempt."),
     attempts: Type.Array(AttemptId, { description: "Attempt IDs, oldest first." }),
     created_at: Timestamp,
@@ -195,6 +197,7 @@ export const SupervisorInfo = Type.Object(
     reason: Type.Optional(Type.String({ maxLength: 2000 })),
     unit: Type.Optional(Type.String({ maxLength: 256, description: "systemd scope of the job." })),
     collector_unit: Type.Optional(Type.String({ maxLength: 256 })),
+    container: Type.Optional(AttemptContainer),
   },
   { title: "SupervisorInfo", additionalProperties: false },
 );

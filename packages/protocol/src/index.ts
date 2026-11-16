@@ -2,6 +2,7 @@ import type { TObject } from "@sinclair/typebox";
 import { Agenda, AgendaSeen } from "./agenda.ts";
 import { TokenStore } from "./auth.ts";
 import { ComputeLimitState, ComputeWeights } from "./compute.ts";
+import { ContainerConfig, ContainerSessionRecord, EgressRecord } from "./containers.ts";
 import { AuditRecord, CoordinatorSettings, ProjectRegistry } from "./coordinator.ts";
 import { DeploymentRecord } from "./deployments.ts";
 import { ResearchDirection } from "./directions.ts";
@@ -55,6 +56,7 @@ export * from "./agenda.ts";
 export * from "./auth.ts";
 export * from "./common.ts";
 export * from "./compute.ts";
+export * from "./containers.ts";
 export * from "./coordinator.ts";
 export * from "./deployments.ts";
 export * from "./directions.ts";
@@ -198,6 +200,14 @@ export const SCHEMAS: readonly SchemaEntry[] = [
     file: "research-direction.v1",
     schema: ResearchDirection,
   },
+  { name: "ContainerConfig", version: 1, file: "container-config.v1", schema: ContainerConfig },
+  {
+    name: "ContainerSessionRecord",
+    version: 1,
+    file: "container-session-record.v1",
+    schema: ContainerSessionRecord,
+  },
+  { name: "EgressRecord", version: 1, file: "egress-record.v1", schema: EgressRecord },
   {
     name: "DeploymentRecord",
     version: 1,
@@ -350,6 +360,9 @@ export const validateProjectActionPolicy = compileValidator(ProjectActionPolicy)
 /** Tasks written before ADR 0039 (dispatch, T3 bindings, plans, modes) load as lean tasks. */
 export const validateResearchTask = compileStoredValidator(ResearchTask, upgradeTaskV1);
 export const validateResearchDirection = compileValidator(ResearchDirection);
+export const validateContainerConfig = compileValidator(ContainerConfig);
+export const validateContainerSessionRecord = compileValidator(ContainerSessionRecord);
+export const validateEgressRecord = compileValidator(EgressRecord);
 /**
  * Approvals are gone (ADR 0037): a request that was waiting for one, or was rejected, is closed.
  * A requester's task from its token is gone too (ADR 0039).

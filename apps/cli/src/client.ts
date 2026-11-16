@@ -112,8 +112,9 @@ function forgetSession(home: string, base: string): void {
 }
 
 /**
- * `method path` at `base` with a bearer token and a JSON body. An unreachable coordinator is
- * CoordinatorUnavailable, naming `what`; the response is returned whatever its status.
+ * `method path` at `base` (a URL, or `unix:<socket>`) with a bearer token and a JSON body. An
+ * unreachable coordinator is CoordinatorUnavailable, naming `what`; the response is returned
+ * whatever its status.
  */
 export async function send(
   base: string,
@@ -123,15 +124,18 @@ export async function send(
   body?: unknown,
   what = base,
 ): Promise<Response> {
+  // `unix:/path/to.sock`: an agent container's agent socket (ADR 0061).
+  const unix = base.startsWith("unix:") ? base.slice(5) : undefined;
   try {
-    return await fetch(`${base}${path}`, {
+    return await fetch(unix ? `http://localhost${path}` : `${base}${path}`, {
       method,
       headers: {
         ...(token ? { authorization: `Bearer ${token}` } : {}),
         ...(body === undefined ? {} : { "content-type": "application/json" }),
       },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-    });
+      ...(unix ? { unix } : {}),
+    } as RequestInit);
   } catch (e) {
     throw new CoordinatorUnavailable(`cannot reach ${what}: ${(e as Error).message}`);
   }

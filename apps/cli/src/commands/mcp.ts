@@ -739,10 +739,15 @@ export const OPERATIONS: readonly Operation[] = [
   {
     id: "job.submit",
     description:
-      "Run a command as an AblationKit job in this project's checkout, tracked as an MLflow run: on this machine, or on a remote compute target. The project policy decides (jobs.run_local; jobs.submit_remote and its allowed targets): a refusal is policy_denied and names the field. Every job needs runtime_max_sec; its time limit x its target's weight must fit in what is left of the compute limit (compute_limit_reached otherwise).",
+      "Run a command as an AblationKit job in this project's checkout, tracked as an MLflow run: on this machine, or on a remote compute target. The project policy decides (jobs.run_local; jobs.submit_remote and its allowed targets): a refusal is policy_denied and names the field. Every job needs runtime_max_sec; its time limit x its target's weight must fit in what is left of the compute limit (compute_limit_reached otherwise). In an agent container (ADR 0061) a job on this machine runs in a job container with the GPU and without network unless the project allows it: sync the environment (uv sync) before you submit. There, `evaluation` runs one of the researcher's protected evaluations instead of a command: its pinned command against your current code, with data you cannot see; you read its metrics, not its console.",
     inputSchema: obj(
       {
-        command: strs("argv to run, e.g. ['python', 'train.py', '--lr', '0.1']."),
+        command: strs(
+          "argv to run, e.g. ['python', 'train.py', '--lr', '0.1']. Required unless `evaluation` is given.",
+        ),
+        evaluation: str(
+          "In an agent container only: the name of a protected evaluation to run (the researcher pins its command, data and time limit; ignore command, runtime_max_sec and env).",
+        ),
         runtime_max_sec: int(
           "Wall-clock limit in seconds; the job is stopped when it is reached. Every job needs one: the coordinator refuses a job without it (time_limit_required).",
           1,
@@ -781,13 +786,14 @@ export const OPERATIONS: readonly Operation[] = [
         task_id: TASK_ID,
         agenda_item: AGENDA_ITEM,
       },
-      ["command", "description"],
+      ["description"],
     ),
     run: (api, a) => {
       const limits = pick(a, ["runtime_max_sec", "memory_max_bytes", "cpu_quota_percent"]);
       return api.request("POST", `${base(api)}/jobs`, {
         ...pick(a, [
           "command",
+          "evaluation",
           "target_id",
           "run_name",
           "description",
@@ -2550,6 +2556,50 @@ export class AgentSession implements McpSession {
   }
 }
 
+/**
+ * The session of an agent in an agent container (ADR 0061): the coordinator minted its token
+ * before the container started and put it in the session's run directory, mounted read-only; the
+ * agent API is the session's own socket there. Nothing to start or end: the session ends with the
+ * container.
+ */
+export class ContainedSession implements McpSession {
+  harness: string;
+
+  constructor(
+    private readonly o: {
+      readonly socket: string;
+      readonly tokenFile: string;
+      readonly project: string;
+      readonly harness?: string;
+    },
+  ) {
+    this.harness = harnessName(o.harness);
+  }
+
+  async start(): Promise<Started> {
+    let token: string;
+    try {
+      token = (await Bun.file(this.o.tokenFile).text()).trim();
+    } catch {
+      throw new UsageError(
+        `no agent session token at ${this.o.tokenFile}: this agent container's session has ended`,
+      );
+    }
+    const id = /^aka_([a-f0-9]{16})\./.exec(token)?.[1] ?? "";
+    return {
+      token,
+      token_id: id,
+      project_id: this.o.project,
+      agent_api: `unix:${this.o.socket}`,
+    };
+  }
+
+  async api(): Promise<AgentApi> {
+    const s = await this.start();
+    return agentApi(s.agent_api, s.token, s.project_id);
+  }
+}
+
 /** The agent API at `url` with `token`, for one project. */
 export function agentApi(url: string, token: string, project: string): AgentApi {
   // The directions not yet shown to this session, as the last response said; the agenda revision
@@ -2730,14 +2780,17 @@ export async function handleMcp(
 }
 
 const MCP_USAGE = `usage: ablationkit mcp [--project ID] [--label TEXT] [--harness NAME]
+       ablationkit mcp --contained
 
 An MCP server over stdio for one agent session (ADR 0040). Add it to your harness, e.g.
   claude mcp add ablationkit -- ablationkit mcp
 It starts an agent session for the project of the directory it runs in (or --project) through the
-local coordinator, and ends it when the harness closes it. Agents use AblationKit only through it.`;
+local coordinator, and ends it when the harness closes it. Agents use AblationKit only through it.
+--contained: inside an agent container (ADR 0061), where the coordinator already started the
+session; the container's environment names its socket, token file and project.`;
 
 export async function mcpCommand(argv: readonly string[], ctx: CliContext): Promise<number> {
-  const args = parseArgs(argv, ["help"]);
+  const args = parseArgs(argv, ["help", "contained"]);
   if (args.flags["help"] === true || args.positional[0] === "help") {
     ctx.out(`${MCP_USAGE}\n`);
     return 0;
@@ -2746,15 +2799,32 @@ export async function mcpCommand(argv: readonly string[], ctx: CliContext): Prom
   const project = flag(args, "project");
   const label = flag(args, "label");
   const harness = flag(args, "harness");
-  const session = new AgentSession({
-    home: ctx.home,
-    cwd: process.cwd(),
-    ...(project ? { project } : {}),
-    ...(label ? { label } : {}),
-    ...(harness ? { harness } : {}),
-  });
+  let session: McpSession & { end?: () => Promise<void> };
+  if (args.flags["contained"] === true) {
+    const socket = ctx.env["ABLATIONKIT_AGENT_SOCKET"];
+    const tokenFile = ctx.env["ABLATIONKIT_AGENT_TOKEN_FILE"];
+    const contained = project ?? ctx.env["ABLATIONKIT_PROJECT"];
+    if (!socket || !tokenFile || !contained)
+      throw new UsageError(
+        "--contained runs inside an AblationKit agent container, whose environment sets ABLATIONKIT_AGENT_SOCKET, ABLATIONKIT_AGENT_TOKEN_FILE and ABLATIONKIT_PROJECT",
+      );
+    session = new ContainedSession({
+      socket,
+      tokenFile,
+      project: contained,
+      ...(harness ? { harness } : {}),
+    });
+  } else
+    session = new AgentSession({
+      home: ctx.home,
+      cwd: process.cwd(),
+      ...(project ? { project } : {}),
+      ...(label ? { label } : {}),
+      ...(harness ? { harness } : {}),
+    });
+  const endSession = () => session.end?.() ?? Promise.resolve();
   const stop = () => {
-    void session.end().finally(() => process.exit(0));
+    void endSession().finally(() => process.exit(0));
   };
   process.once("SIGTERM", stop);
   process.once("SIGINT", stop);
@@ -2800,7 +2870,7 @@ export async function mcpCommand(argv: readonly string[], ctx: CliContext): Prom
     }
   } finally {
     // stdin closed: the harness ended the session.
-    await session.end();
+    await endSession();
   }
   return 0;
 }

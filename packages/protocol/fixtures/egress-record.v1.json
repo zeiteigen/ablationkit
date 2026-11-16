@@ -1,0 +1,67 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "at": "2026-11-16T10:00:00Z",
+      "owner": "c-0123456789ab",
+      "kind": "connect",
+      "host": "pypi.org",
+      "port": 443,
+      "outcome": "allowed",
+      "bytes_up": 512,
+      "bytes_down": 40960,
+      "duration_ms": 120
+    },
+    {
+      "schema_version": 1,
+      "at": "2026-11-16T10:00:00Z",
+      "owner": "j-0123456789ab-a1",
+      "kind": "http",
+      "host": "example.org",
+      "port": 80,
+      "method": "GET",
+      "path": "/data.csv",
+      "outcome": "denied",
+      "reason": "example.org:80 is not on the egress allowlist"
+    },
+    {
+      "schema_version": 1,
+      "at": "2026-11-16T10:00:00Z",
+      "owner": "c-0123456789ab",
+      "kind": "credential",
+      "credential": "hf",
+      "host": "huggingface.co",
+      "port": 443,
+      "method": "GET",
+      "path": "/api/models",
+      "outcome": "allowed",
+      "status": 200
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "an outcome that is not allowed, denied or error",
+      "value": {
+        "schema_version": 1,
+        "at": "2026-11-16T10:00:00Z",
+        "owner": "c-0123456789ab",
+        "kind": "connect",
+        "host": "pypi.org",
+        "port": 443,
+        "outcome": "maybe"
+      }
+    },
+    {
+      "reason": "a port out of range",
+      "value": {
+        "schema_version": 1,
+        "at": "2026-11-16T10:00:00Z",
+        "owner": "c-0123456789ab",
+        "kind": "connect",
+        "host": "pypi.org",
+        "port": 70000,
+        "outcome": "allowed"
+      }
+    }
+  ]
+}

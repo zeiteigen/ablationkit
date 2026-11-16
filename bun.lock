@@ -17,6 +17,7 @@
         "ablationkit": "./src/main.ts",
       },
       "dependencies": {
+        "@ablationkit/agent-containers": "workspace:*",
         "@ablationkit/builtin-llm": "workspace:*",
         "@ablationkit/compute-targets": "workspace:*",
         "@ablationkit/core": "workspace:*",
@@ -43,6 +44,7 @@
       "name": "@ablationkit/server",
       "version": "0.1.0",
       "dependencies": {
+        "@ablationkit/agent-containers": "workspace:*",
         "@ablationkit/auth": "workspace:*",
         "@ablationkit/autonomy-policy": "workspace:*",
         "@ablationkit/builtin-llm": "workspace:*",
@@ -80,6 +82,13 @@
         "@types/react-dom": "19.3.0",
         "d3": "7.9.0",
         "playwright-core": "1.64.1",
+      },
+    },
+    "packages/agent-containers": {
+      "name": "@ablationkit/agent-containers",
+      "version": "0.1.0",
+      "dependencies": {
+        "@ablationkit/protocol": "workspace:*",
       },
     },
     "packages/auth": {
@@ -210,6 +219,8 @@
     },
   },
   "packages": {
+    "@ablationkit/agent-containers": ["@ablationkit/agent-containers@workspace:packages/agent-containers"],
+
     "@ablationkit/auth": ["@ablationkit/auth@workspace:packages/auth"],
 
     "@ablationkit/autonomy-policy": ["@ablationkit/autonomy-policy@workspace:packages/autonomy-policy"],

@@ -70,6 +70,9 @@ FILES = {
     "VaultWork": "vault-work.v1.json",
     "VaultSetAside": "vault-set-aside.v1.json",
     "ResearchDirection": "research-direction.v1.json",
+    "ContainerConfig": "container-config.v1.json",
+    "ContainerSessionRecord": "container-session-record.v1.json",
+    "EgressRecord": "egress-record.v1.json",
 }
 
 

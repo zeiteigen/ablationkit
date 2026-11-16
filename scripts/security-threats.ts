@@ -64,7 +64,7 @@ export const AREAS: readonly Area[] = [
           srv("security-agent", "a misbehaving agent cannot widen anything through its own API"),
         ],
         limit:
-          "The session is the only gate: whoever holds one (a stolen cookie or CLI session file, or a process running as the researcher that asks the login socket for a link) can make privileged writes. Agents working through `ablationkit mcp` cannot; one that goes around it as the researcher's user (the login socket, `~/.ablationkit`) can, unless its harness's sandbox denies it that directory (ADR 0040; the agent guard writes that denial for Claude Code and Codex, AUTH-10).",
+          "The session is the only gate: whoever holds one (a stolen cookie or CLI session file, or a process running as the researcher that asks the login socket for a link) can make privileged writes. Agents working through `ablationkit mcp` cannot; one that goes around it as the researcher's user (the login socket, `~/.ablationkit`) can, unless its harness's sandbox denies it that directory (ADR 0040; the agent guard writes that denial for Claude Code and Codex, AUTH-10) or it runs in an agent container (CTR-1).",
       },
       {
         id: "AUTH-4",
@@ -173,6 +173,114 @@ export const AREAS: readonly Area[] = [
         ],
         limit:
           "AblationKit writes the configuration; the harness enforces it. Claude Code's permission rules bind its own file tools and the Bash file commands it recognizes, not arbitrary programs (a Python one-liner or a socket client); its sandbox entries bind Bash at the OS level only when the researcher turns on `sandbox.enabled`, which the guard never sets. Codex enforces its profile with bubblewrap and seccomp (measured with codex-cli 0.167.0: the home, the login socket and the owned `.ablationkit/` paths refused, `extensions/` writable), but only for a trusted project and when no `--sandbox` or legacy `sandbox_mode` takes precedence. Neither covers an agent run outside these harnesses or with their sandbox bypassed, and a Codex agent can still edit `.claude/settings.local.json`.",
+      },
+    ],
+  },
+  {
+    title: "Agent containers",
+    threats: [
+      {
+        id: "CTR-1",
+        threat:
+          "An agent in an agent container reaches the coordinator's home, the login socket, the CLI's saved session or another session's token, and acts as the researcher",
+        control:
+          "The container (rootless Podman, `--userns keep-id`, every capability dropped, no new privileges) mounts only the checkout, AblationKit's tree read-only, the harness, bun and uv read-only, the agent's home and the environment volumes, and the session's run directory read-only. The coordinator mints the session's token for the container (never through the login socket); the session's agent socket accepts only that token. The coordinator's home is masked should it sit inside the checkout or the tree, as are the coordinator-owned parts of `.ablationkit/` (ADR 0061)",
+        level: "enforced",
+        proofs: [
+          srv("containers", "start: a token minted for the container"),
+          srv("containers", "the agent socket takes only the session's own token"),
+          unit(
+            "packages/agent-containers/test/containers.test.ts",
+            "the agent container has no network, GPU, privileges or coordinator home",
+          ),
+          {
+            file: `${S}containers-e2e.test.ts`,
+            test: "a contained shell meets the boundary",
+            suite: "test:containers",
+          },
+        ],
+        limit:
+          "Enforced by the kernel through Podman for what runs in the container; a kernel or runtime escape is out of scope. The harness's own sign-in lives in the container's home and is readable by the agent. Agents in the researcher's own harness, outside a container, are covered only by AUTH-10.",
+      },
+      {
+        id: "CTR-2",
+        threat:
+          "A contained agent runs GPU experiments in its own shell, outside the compute limit and the runs the witness accounts for",
+        control:
+          "The agent container gets no devices: GPU work runs as jobs, in job containers that get the GPU through CDI, each admitted under the compute limit and recorded as runs",
+        level: "enforced",
+        proofs: [
+          unit(
+            "packages/agent-containers/test/containers.test.ts",
+            "the agent container has no network, GPU, privileges or coordinator home",
+          ),
+          unit(
+            "packages/agent-containers/test/containers.test.ts",
+            "a job container gets the GPU, no network and the spool",
+          ),
+        ],
+        limit:
+          "CPU experiments in the agent's shell remain possible within the container's CPU and memory limits, and are not seen.",
+      },
+      {
+        id: "CTR-3",
+        threat:
+          "A contained agent or its job sends data out, or reaches this machine's own services (the coordinator, MLflow) or the local network",
+        control:
+          "Agent and job containers have `--network none`. The only way out is the session's (or attempt's) egress proxy: it applies the project's allowlist plus the harness's own hosts at each connection, resolves names itself, connects only to public addresses, and records every connection with its outcome; job containers have no proxy unless `jobs.network: egress`",
+        level: "enforced",
+        proofs: [
+          srv("egress", "a CONNECT tunnel to an allowed host carries the bytes and is recorded"),
+          srv("egress", "a host off the allowlist is refused with the reason, and recorded"),
+          srv("egress", "an allowed name that resolves to this machine is refused"),
+          srv("containers", "egress goes through the session's proxy"),
+          unit(
+            "packages/agent-containers/test/containers.test.ts",
+            "only public addresses are reachable",
+          ),
+        ],
+        limit:
+          "An allowed host can carry data out (a repository, a paste on an allowed service); HTTPS is recorded by host only; egress mode `open` allows any public host and only records it.",
+      },
+      {
+        id: "CTR-4",
+        threat: "An agent reads held-out data or evaluation code, or changes how it is scored",
+        control:
+          "Hidden paths are not mounted (outside the checkout) or masked (inside it) in agent and ordinary job containers; a protected evaluation's pinned command, environment and time limit run in a job container with its hidden paths read-only and no network, and its console is withheld from agents (`protected_evaluation`); outside a container an evaluation is refused",
+        level: "enforced",
+        proofs: [
+          srv("containers", "a protected evaluation runs the pinned command, its console withheld"),
+          srv("containers", "start: a token minted for the container"),
+        ],
+        limit:
+          "Masking hides the working tree, not Git history: protected files belong outside the repository. The evaluated code is the agent's and sees the mounted data while it runs; it could encode what it read in the metrics or parameters it logs.",
+      },
+      {
+        id: "CTR-5",
+        threat:
+          "A contained agent gets its code run on this machine outside any container through AblationKit (a local job, an extension build or run)",
+        control:
+          "A contained session's local jobs run only in job containers (a job that cannot be containerized is refused, never run on the host); extension install, build, action and execute are refused for contained sessions unless the project sets `host_code: allow`",
+        level: "enforced",
+        proofs: [
+          srv("containers", "a contained session's jobs run in job containers"),
+          srv(
+            "containers",
+            "host code is refused for contained sessions unless the project allows it",
+          ),
+        ],
+        limit:
+          "Remote targets run jobs where they always did. Models a contained job logged are loaded on this machine when the researcher runs inference or an evaluation on them.",
+      },
+      {
+        id: "CTR-6",
+        threat: "API keys and tokens the agent's work needs are copied into the container",
+        control:
+          "Credential routes: the container calls `http://127.0.0.1:3129/<name>/…` and the proxy forwards it with the secret, read from the coordinator's environment or a file at each request; job containers get only the job's and the SDK's environment, not the coordinator's",
+        level: "enforced",
+        proofs: [srv("egress", "the secret is added on the way out")],
+        limit:
+          "Only for tools that take a configurable endpoint. The harness's own model sign-in is in the container's home.",
       },
     ],
   },

@@ -158,6 +158,66 @@
         "collector_unit": {
           "maxLength": 256,
           "type": "string"
+        },
+        "container": {
+          "title": "AttemptContainer",
+          "description": "The job container a contained session's local attempt ran in (ADR 0061).",
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "name",
+            "image",
+            "gpu",
+            "network",
+            "mounts"
+          ],
+          "properties": {
+            "name": {
+              "pattern": "^ak-job-[A-Za-z0-9._-]{1,200}$",
+              "type": "string"
+            },
+            "image": {
+              "maxLength": 512,
+              "type": "string"
+            },
+            "image_id": {
+              "maxLength": 200,
+              "type": "string"
+            },
+            "gpu": {
+              "anyOf": [
+                {
+                  "const": "all",
+                  "type": "string"
+                },
+                {
+                  "const": "none",
+                  "type": "string"
+                }
+              ]
+            },
+            "network": {
+              "anyOf": [
+                {
+                  "const": "none",
+                  "type": "string"
+                },
+                {
+                  "const": "egress",
+                  "type": "string"
+                }
+              ]
+            },
+            "mounts": {
+              "maxItems": 64,
+              "description": "Hidden paths mounted read-only for a protected evaluation.",
+              "type": "array",
+              "items": {
+                "maxLength": 4096,
+                "type": "string"
+              }
+            }
+          }
         }
       }
     },

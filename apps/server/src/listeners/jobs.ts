@@ -302,11 +302,62 @@ export const AGENT_JOB_ROUTES: readonly Route<AgentHandler>[] = [
     handler: agentOp("job.submit", async (c) => {
       const pid = c.params["id"] as string;
       requireProject(c.svc, c.token, pid);
-      const body = await readJsonBody(c.req);
-      const { accept_cost: _a, ...given } = submitInput(body, pid, {
+      const raw = await readJsonBody(c.req);
+      // A contained session's jobs run in job containers (ADR 0061); a protected evaluation runs
+      // the researcher's pinned command, never the agent's.
+      const sessionId = c.token.agent_session?.container_session;
+      const evaluation = typeof raw["evaluation"] === "string" ? raw["evaluation"] : undefined;
+      if (raw["evaluation"] !== undefined && evaluation === undefined)
+        throw new HttpError(
+          400,
+          "invalid_request",
+          "`evaluation` is a protected evaluation's name",
+        );
+      if (evaluation && !sessionId)
+        throw new HttpError(
+          400,
+          "evaluation_needs_container",
+          "protected evaluations run only for agents in an agent container (ADR 0061): outside one, the data they protect is not hidden from you",
+        );
+      let body = raw;
+      if (evaluation) {
+        const e = c.svc.containers.config(pid).evaluations.find((x) => x.name === evaluation);
+        if (!e)
+          throw new HttpError(
+            404,
+            "evaluation_not_found",
+            `the project has no protected evaluation ${evaluation}`,
+          );
+        if (raw["target_id"] !== undefined)
+          throw new HttpError(
+            400,
+            "invalid_request",
+            "a protected evaluation runs on this machine",
+          );
+        const keep = [
+          "run_name",
+          "description",
+          "study_id",
+          "variant_id",
+          "task_id",
+          "agenda_item",
+        ];
+        body = {
+          ...Object.fromEntries(keep.filter((k) => raw[k] !== undefined).map((k) => [k, raw[k]])),
+          command: e.command,
+          environment: e.environment,
+          ...(e.cwd ? { cwd: e.cwd } : {}),
+          limits: { runtime_max_sec: e.runtime_max_sec },
+          run_name: typeof raw["run_name"] === "string" ? raw["run_name"] : `evaluation ${e.name}`,
+        };
+      }
+      const { accept_cost: _a, ...parsed } = submitInput(body, pid, {
         kind: "agent",
         id: c.token.token_id,
       });
+      const given = sessionId
+        ? { ...parsed, container: { session_id: sessionId, ...(evaluation ? { evaluation } : {}) } }
+        : parsed;
       // A task the job is recorded under: one of this project's, still open (ADR 0039).
       if (given.task_id) c.svc.tasks.requireOpen(pid, given.task_id);
       // The agenda item it serves, by its canonical ID (ADR 0058); an unknown one is refused.
@@ -330,7 +381,7 @@ export const AGENT_JOB_ROUTES: readonly Route<AgentHandler>[] = [
           );
         weight = c.svc.compute.admit(pid, targetId ?? "local", runtime);
       } catch (e) {
-        if (e instanceof HttpError)
+        if (e instanceof HttpError) {
           agentAudit(
             c,
             "job.submit",
@@ -339,6 +390,8 @@ export const AGENT_JOB_ROUTES: readonly Route<AgentHandler>[] = [
             { command: input.command[0], code: e.code, ...e.extra },
             e.message,
           );
+          if (e.code === "compute_limit_reached") c.svc.containers.computeLimitRefused(c.token);
+        }
         throw e;
       }
       const { job } = c.svc.jobs.submit({
@@ -396,6 +449,12 @@ export const AGENT_JOB_ROUTES: readonly Route<AgentHandler>[] = [
     path: "/api/v1/jobs/:id/attempts/:attemptId/console",
     handler: agentOp("job.console", async (c) => {
       const j = ownJob(c);
+      if (j.container?.evaluation)
+        throw new HttpError(
+          403,
+          "protected_evaluation",
+          `job ${j.job_id} is the protected evaluation ${j.container.evaluation}: its console may show the data it protects, so only the researcher reads it; its metrics are in its run`,
+        );
       const a = c.svc.jobs.requireAttempt(j.job_id, c.params["attemptId"] as string);
       return consoleResponse(c.svc, a, new URL(c.req.url));
     }),

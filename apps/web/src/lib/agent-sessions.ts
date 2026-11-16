@@ -17,6 +17,8 @@ export interface AgentSession {
   last_used_at?: string;
   expires_at?: string;
   idle_timeout_sec?: number;
+  /** The agent container it runs in (ADR 0061). */
+  container_session?: string;
   live: boolean;
   ended_at?: string;
   end_reason?: string;

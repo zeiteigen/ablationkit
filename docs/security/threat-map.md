@@ -22,7 +22,7 @@ Tests marked with a script name need that script (`bun run test:web`, `bun run t
 
 **Control:** Privileged writes exist only on the human API and need a human session; agent and worker tokens are refused there and their listeners have no such routes. No second factor (ADR 0037). **Level:** authoritative.
 
-**Limit:** The session is the only gate: whoever holds one (a stolen cookie or CLI session file, or a process running as the researcher that asks the login socket for a link) can make privileged writes. Agents working through `ablationkit mcp` cannot; one that goes around it as the researcher's user (the login socket, `~/.ablationkit`) can, unless its harness's sandbox denies it that directory (ADR 0040; the agent guard writes that denial for Claude Code and Codex, AUTH-10).
+**Limit:** The session is the only gate: whoever holds one (a stolen cookie or CLI session file, or a process running as the researcher that asks the login socket for a link) can make privileged writes. Agents working through `ablationkit mcp` cannot; one that goes around it as the researcher's user (the login socket, `~/.ablationkit`) can, unless its harness's sandbox denies it that directory (ADR 0040; the agent guard writes that denial for Claude Code and Codex, AUTH-10) or it runs in an agent container (CTR-1).
 
 - `listeners.test.ts`: privileged human actions are on the human table only
 - `listeners.test.ts`: privileged human routes do not exist there
@@ -95,6 +95,66 @@ Tests marked with a script name need that script (`bun run test:web`, `bun run t
 - `agent-guard.test.ts`: created files go in .git/info/exclude once
 - `coordinator.test.ts`: registration and remap apply the agent guard to the checkout
 - `commands.test.ts`: project guard re-applies it without a coordinator
+
+## Agent containers
+
+### CTR-1: An agent in an agent container reaches the coordinator's home, the login socket, the CLI's saved session or another session's token, and acts as the researcher
+
+**Control:** The container (rootless Podman, `--userns keep-id`, every capability dropped, no new privileges) mounts only the checkout, AblationKit's tree read-only, the harness, bun and uv read-only, the agent's home and the environment volumes, and the session's run directory read-only. The coordinator mints the session's token for the container (never through the login socket); the session's agent socket accepts only that token. The coordinator's home is masked should it sit inside the checkout or the tree, as are the coordinator-owned parts of `.ablationkit/` (ADR 0061). **Level:** enforced.
+
+**Limit:** Enforced by the kernel through Podman for what runs in the container; a kernel or runtime escape is out of scope. The harness's own sign-in lives in the container's home and is readable by the agent. Agents in the researcher's own harness, outside a container, are covered only by AUTH-10.
+
+- `containers.test.ts`: start: a token minted for the container
+- `containers.test.ts`: the agent socket takes only the session's own token
+- `containers.test.ts`: the agent container has no network, GPU, privileges or coordinator home
+- `containers-e2e.test.ts`: a contained shell meets the boundary (`test:containers`)
+
+### CTR-2: A contained agent runs GPU experiments in its own shell, outside the compute limit and the runs the witness accounts for
+
+**Control:** The agent container gets no devices: GPU work runs as jobs, in job containers that get the GPU through CDI, each admitted under the compute limit and recorded as runs. **Level:** enforced.
+
+**Limit:** CPU experiments in the agent's shell remain possible within the container's CPU and memory limits, and are not seen.
+
+- `containers.test.ts`: the agent container has no network, GPU, privileges or coordinator home
+- `containers.test.ts`: a job container gets the GPU, no network and the spool
+
+### CTR-3: A contained agent or its job sends data out, or reaches this machine's own services (the coordinator, MLflow) or the local network
+
+**Control:** Agent and job containers have `--network none`. The only way out is the session's (or attempt's) egress proxy: it applies the project's allowlist plus the harness's own hosts at each connection, resolves names itself, connects only to public addresses, and records every connection with its outcome; job containers have no proxy unless `jobs.network: egress`. **Level:** enforced.
+
+**Limit:** An allowed host can carry data out (a repository, a paste on an allowed service); HTTPS is recorded by host only; egress mode `open` allows any public host and only records it.
+
+- `egress.test.ts`: a CONNECT tunnel to an allowed host carries the bytes and is recorded
+- `egress.test.ts`: a host off the allowlist is refused with the reason, and recorded
+- `egress.test.ts`: an allowed name that resolves to this machine is refused
+- `containers.test.ts`: egress goes through the session's proxy
+- `containers.test.ts`: only public addresses are reachable
+
+### CTR-4: An agent reads held-out data or evaluation code, or changes how it is scored
+
+**Control:** Hidden paths are not mounted (outside the checkout) or masked (inside it) in agent and ordinary job containers; a protected evaluation's pinned command, environment and time limit run in a job container with its hidden paths read-only and no network, and its console is withheld from agents (`protected_evaluation`); outside a container an evaluation is refused. **Level:** enforced.
+
+**Limit:** Masking hides the working tree, not Git history: protected files belong outside the repository. The evaluated code is the agent's and sees the mounted data while it runs; it could encode what it read in the metrics or parameters it logs.
+
+- `containers.test.ts`: a protected evaluation runs the pinned command, its console withheld
+- `containers.test.ts`: start: a token minted for the container
+
+### CTR-5: A contained agent gets its code run on this machine outside any container through AblationKit (a local job, an extension build or run)
+
+**Control:** A contained session's local jobs run only in job containers (a job that cannot be containerized is refused, never run on the host); extension install, build, action and execute are refused for contained sessions unless the project sets `host_code: allow`. **Level:** enforced.
+
+**Limit:** Remote targets run jobs where they always did. Models a contained job logged are loaded on this machine when the researcher runs inference or an evaluation on them.
+
+- `containers.test.ts`: a contained session's jobs run in job containers
+- `containers.test.ts`: host code is refused for contained sessions unless the project allows it
+
+### CTR-6: API keys and tokens the agent's work needs are copied into the container
+
+**Control:** Credential routes: the container calls `http://127.0.0.1:3129/<name>/…` and the proxy forwards it with the secret, read from the coordinator's environment or a file at each request; job containers get only the job's and the SDK's environment, not the coordinator's. **Level:** enforced.
+
+**Limit:** Only for tools that take a configurable endpoint. The harness's own model sign-in is in the container's home.
+
+- `egress.test.ts`: the secret is added on the way out
 
 ## Policy escalation
 

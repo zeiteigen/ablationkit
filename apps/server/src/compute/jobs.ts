@@ -24,6 +24,7 @@ import {
   signalDetached,
 } from "@ablationkit/process-supervisor";
 import {
+  type AttemptContainer,
   type AttemptRecord,
   type AttemptState,
   type CollectorManifest,
@@ -115,6 +116,8 @@ export interface SubmitInput {
   readonly compute_weight_hundredths?: number;
   /** Set by the backend broker for `compute.submit` (never by the extension itself). */
   readonly via_extension?: string;
+  /** A contained agent session's job (ADR 0061): each local attempt runs in a job container. */
+  readonly container?: JobRecord["container"];
 }
 
 export interface JobServiceOptions {
@@ -150,6 +153,26 @@ export interface JobServiceOptions {
   ) => LogTraceInput | undefined | Promise<LogTraceInput | undefined>;
   /** Remote attempts (ADR 0023). */
   readonly remote?: () => RemoteService | undefined;
+  /** Job containers for jobs a contained agent session submits (ADR 0061). */
+  readonly containers?: () => JobContainers | undefined;
+}
+
+/** What the job runner asks of the agent containers service (ADR 0061). */
+export interface JobContainers {
+  contained(job: JobRecord): boolean;
+  checkJob(job: JobRecord): void;
+  containerizeJob(
+    job: JobRecord,
+    a: {
+      readonly attemptId: string;
+      readonly spool: string;
+      readonly argv: readonly string[];
+      readonly cwd: string;
+      readonly env: Readonly<Record<string, string>>;
+    },
+  ): { argv: string[]; container: AttemptContainer };
+  attemptEnded(attemptId: string, container: string | undefined): void;
+  attemptCancelled(container: string | undefined): void;
 }
 
 function newJobId(): string {
@@ -546,6 +569,7 @@ export class JobService {
         ? { compute_weight_hundredths: input.compute_weight_hundredths }
         : {}),
       ...(input.via_extension ? { via_extension: input.via_extension } : {}),
+      ...(input.container ? { container: { ...input.container } } : {}),
       state: "starting",
       attempts: [],
       created_at: ts,
@@ -589,6 +613,8 @@ export class JobService {
     }
     // Ask the collector to stop the job; it records the exit and delivers it.
     const sent = signalDetached(this.collectorInfo(a), "SIGTERM");
+    if (a.supervisor.container)
+      this.o.containers?.()?.attemptCancelled(a.supervisor.container.name);
     if (!sent && a.pid) {
       // The collector is gone: stop the job's own unit or group directly.
       if (a.supervisor.unit && a.supervisor.mode === "systemd")
@@ -617,11 +643,21 @@ export class JobService {
       throw new HttpError(400, "invalid_request", `no directory ${cwd} in the project checkout`);
   }
 
-  private buildEnv(job: JobRecord, attemptId: string, spool: SpoolLayout): Record<string, string> {
+  /**
+   * The job's environment. `host`: on top of the coordinator's own (minus `ABLATIONKIT_*`); a job
+   * container (ADR 0061) gets only the job's variables and the SDK's.
+   */
+  private buildEnv(
+    job: JobRecord,
+    attemptId: string,
+    spool: SpoolLayout,
+    host = true,
+  ): Record<string, string> {
     const env: Record<string, string> = {};
-    for (const [k, v] of Object.entries(process.env)) {
-      if (v !== undefined && !k.startsWith("ABLATIONKIT_")) env[k] = v;
-    }
+    if (host)
+      for (const [k, v] of Object.entries(process.env)) {
+        if (v !== undefined && !k.startsWith("ABLATIONKIT_")) env[k] = v;
+      }
     Object.assign(env, job.env);
     const py = [
       ...SDK_PYTHONPATH,
@@ -644,6 +680,17 @@ export class JobService {
     const attemptId = `${job.job_id}-a${number}`;
     const probe = this.probe();
     const ts = this.o.now().toISOString();
+    // A contained session's job (ADR 0061): its job container is planned before anything starts,
+    // so a missing runtime, image or GPU is a refusal, not a failed attempt.
+    const containers = job.target_id ? undefined : this.o.containers?.();
+    const inContainer = containers?.contained(job) === true;
+    if (job.container && !job.target_id && !inContainer)
+      throw new HttpError(
+        503,
+        "container_runtime_unavailable",
+        "this job came from an agent container session and runs only in a job container, which this coordinator cannot start",
+      );
+    if (inContainer) containers?.checkJob(job);
     // Tracking first: a full outbox is backpressure, and nothing has started yet.
     try {
       this.o.tracking.startRun(
@@ -679,10 +726,28 @@ export class JobService {
     mkdirSync(spool.root, { recursive: true, mode: 0o700 });
     writeFileSync(spool.token, `${minted.token}\n`, { mode: 0o600 });
     const uv = this.o.uv ?? process.env["ABLATIONKIT_UV"] ?? "uv";
-    const argv =
+    let argv =
       job.environment === "uv"
         ? [uv, "run", "--frozen", "--project", project.path, "--", ...job.command]
         : [...job.command];
+    const cwd = job.cwd ? resolve(project.path, job.cwd) : project.path;
+    let container: AttemptContainer | undefined;
+    let containerError: string | undefined;
+    if (inContainer && containers) {
+      try {
+        const planned = containers.containerizeJob(job, {
+          attemptId,
+          spool: spool.root,
+          argv,
+          cwd,
+          env: this.buildEnv(job, attemptId, spool, false),
+        });
+        argv = planned.argv;
+        container = planned.container;
+      } catch (e) {
+        containerError = `could not plan the job container: ${(e as Error).message}`.slice(0, 2000);
+      }
+    }
     const unit = `ak-job-${attemptId}`;
     const manifest: CollectorManifest = {
       schema_version: 1,
@@ -693,7 +758,7 @@ export class JobService {
       token_file: spool.token,
       project_path: project.path,
       argv,
-      cwd: job.cwd ? resolve(project.path, job.cwd) : project.path,
+      cwd,
       env: this.buildEnv(job, attemptId, spool),
       limits: job.limits,
       mode: probe.mode,
@@ -722,6 +787,7 @@ export class JobService {
         enforcement: probe.enforcement,
         reason: probe.reason,
         unit: probe.mode === "systemd" ? `${unit}.scope` : undefined,
+        container,
       }),
       collector: {},
       token_id: minted.record.token_id,
@@ -734,6 +800,7 @@ export class JobService {
       updated_at: ts,
     });
     try {
+      if (containerError) throw new Error(containerError);
       const info = this.launchCollector(attemptId, probe.mode);
       attempt = {
         ...attempt,
@@ -907,6 +974,8 @@ export class JobService {
     // Worker tokens stay valid for the grace period so late uploads still land (spec §7.11).
     this.o.tokens.markJobTerminal(a.job_id, this.o.now());
     this.closeConsole(a.attempt_id);
+    if (a.supervisor.container)
+      this.o.containers?.()?.attemptEnded(a.attempt_id, a.supervisor.container.name);
     return done;
   }
 

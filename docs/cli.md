@@ -48,6 +48,18 @@ Settings for remote compute: `worker.host: "tailscale"`, `remote.worker_url`, an
 
 An agent's jobs need a time limit and count against the project's compute limit; its deployments are decided by the policy ([deployment gates](autonomy/deployment-gates.md)).
 
+### Agent containers (ADR 0061)
+
+Run your harness in a rootless Podman container instead of on this machine: no GPU, no network but the project's egress allowlist, no view of `~/.ablationkit`, and its local jobs in job containers with the GPU. Opt-in; needs Podman and tmux ([agent containers](autonomy/agent-containers.md)).
+
+| Task | Commands |
+| --- | --- |
+| Check and prepare | `ablationkit agent doctor` (Podman rootless, tmux, the GPU's CDI spec); `ablationkit agent image build [--tag IMAGE]` builds `localhost/ablationkit-agent:1` once |
+| Start a session | in a registered checkout: `ablationkit agent start [--harness claude-code\|codex\|shell] [--label TEXT] [--harness-binary PATH] [--detach] [-- HARNESS_ARGS…]`. The harness binary and uv are found on your PATH (version-manager shims skipped); the terminal attaches unless `--detach`. Detach with Ctrl-b d |
+| Return to it, list, read | `ablationkit agent attach SESSION`; `agent list [--project ID]`; `agent show SESSION`; `agent screen SESSION` (the terminal now); `agent egress SESSION [--denied]` |
+| Control it | `ablationkit agent pause SESSION [--reason T]` (freezes it), `agent resume SESSION`, `agent stop SESSION` (ends it and its token); also in the web UI |
+| What containers may reach | `ablationkit agent allow HOST…` (egress allowlist: `pypi.org`, `*.hf.co`, `example.com:8443`); `agent config [show\|edit\|set FILE]` for the rest: hidden and read-only paths, job containers' GPU and network, protected evaluations, credentials, host code, pausing at the compute limit |
+
 ## Extensions and source changes
 
 | Task | Commands |

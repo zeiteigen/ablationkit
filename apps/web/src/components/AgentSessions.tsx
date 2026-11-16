@@ -29,7 +29,8 @@ export function AgentSessions(props: { pid?: string }) {
       <p className="small muted">
         An agent session starts when the agent&apos;s harness runs <code>ablationkit mcp</code>: it
         gets a token for one project, and its jobs and records are attributed to it. Ending a
-        session revokes its token. A session token is identity, not a sandbox.
+        session revokes its token. A session token is identity, not a sandbox, except for a
+        contained session, which runs in an agent container (below).
       </p>
       <ErrorBox error={list.error ?? end.error} />
       {!list.data ? <Loading /> : null}
@@ -56,7 +57,12 @@ export function AgentSessions(props: { pid?: string }) {
                 <tr key={s.token_id}>
                   <td>
                     {s.label ?? <span className="faint">older agent token</span>}{" "}
-                    <span className="faint small">{s.harness ?? ""}</span>
+                    <span className="faint small">{s.harness ?? ""}</span>{" "}
+                    {s.container_session ? (
+                      <Badge tone="info" title={`agent container ${s.container_session}`}>
+                        contained
+                      </Badge>
+                    ) : null}
                     <div className="mono small faint">{s.token_id}</div>
                   </td>
                   {props.pid ? null : <td className="mono small">{s.project_id}</td>}

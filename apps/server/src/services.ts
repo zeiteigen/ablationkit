@@ -4,6 +4,7 @@ import type { StorageFinding } from "@ablationkit/core";
 import type { TrustedOrigin } from "@ablationkit/protocol";
 import type { MlflowSidecar, SidecarStatus, TrackingService } from "@ablationkit/tracking-mlflow";
 import type { ComputeLimitService } from "./agents/compute-limit.ts";
+import type { ContainerService } from "./agents/containers.ts";
 import type { PolicyService } from "./agents/policy.ts";
 import type { AgentSessionService } from "./agents/sessions.ts";
 import type { BuildService } from "./builds.ts";
@@ -55,6 +56,8 @@ export interface Services {
   readonly tokens: TokenStore;
   /** Agent session tokens `ablationkit mcp` mints through the login socket (ADR 0040). */
   readonly agentSessions: AgentSessionService;
+  /** Agent containers: the harness in a rootless container, its sockets and job containers (ADR 0061). */
+  readonly containers: ContainerService;
   readonly loginCodes: OneTimeStore<{ origin: string }>;
   readonly audit: AuditLog;
   readonly events: EventHub;

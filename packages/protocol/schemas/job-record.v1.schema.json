@@ -318,6 +318,28 @@
       "description": "Submitted through this extension backend's broker (`compute.remote`, ADR 0024); only it may read or cancel the job there.",
       "type": "string"
     },
+    "container": {
+      "title": "JobContainer",
+      "description": "Set on jobs a contained agent session submits (ADR 0061): each local attempt runs in a job container of its own.",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "session_id"
+      ],
+      "properties": {
+        "session_id": {
+          "title": "ContainerSessionId",
+          "description": "The contained session that submitted the job.",
+          "pattern": "^c-[a-f0-9]{12}$",
+          "type": "string"
+        },
+        "evaluation": {
+          "pattern": "^[a-z][a-z0-9_-]{0,39}$",
+          "description": "A protected evaluation's name: its pinned command ran, not the agent's.",
+          "type": "string"
+        }
+      }
+    },
     "state": {
       "title": "AttemptState",
       "description": "State of the latest attempt.",

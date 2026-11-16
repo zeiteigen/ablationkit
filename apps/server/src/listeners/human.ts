@@ -19,6 +19,7 @@ import { AGENDA_OPS } from "./agenda.ts";
 import { BACKEND_MANAGEMENT_OPS, BACKEND_OPS } from "./backends.ts";
 import { audit, bearer, checkHost, notFound } from "./common.ts";
 import { COMPUTE_OPS, COMPUTE_ROUTES } from "./compute.ts";
+import { CONTAINER_ROUTES } from "./containers.ts";
 import { DEPLOYMENT_OPS, POLICY_OPS } from "./deployments.ts";
 import { DIRECTION_OPS } from "./directions.ts";
 import { EXTENSION_OPS } from "./extensions.ts";
@@ -604,6 +605,7 @@ export const HUMAN_ROUTES: readonly Route<HumanHandler>[] = [
   ...JOB_ROUTES,
   ...REMOTE_ROUTES,
   ...COMPUTE_ROUTES,
+  ...CONTAINER_ROUTES,
   ...SHELL_ROUTES,
   ...[
     ...TASK_OPS.filter((op) => !op.agentOnly),

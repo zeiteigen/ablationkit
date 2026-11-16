@@ -1,0 +1,17 @@
+# AblationKit's agent and job container image (ADR 0061): the operating system and common tools.
+# The harness (Claude Code, Codex), bun and uv are not in it: they are mounted read-only from this
+# machine, so a container runs the versions the researcher runs. The project's Python comes from
+# uv, into the project's environment volume. Built by `ablationkit agent image build`.
+FROM docker.io/library/debian:bookworm-slim
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      bash ca-certificates curl git git-lfs jq less locales procps ripgrep unzip xz-utils \
+      build-essential pkg-config python3 python3-venv \
+ && rm -rf /var/lib/apt/lists/*
+
+ENV LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8
+
+LABEL org.opencontainers.image.title="ablationkit-agent" \
+      org.opencontainers.image.description="AblationKit agent and job containers (ADR 0061)"

@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ablationkit:schema:egress-record.v1",
+  "title": "EgressRecord",
+  "description": "One connection out of an agent or job container through its egress proxy.",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schema_version",
+    "at",
+    "owner",
+    "kind",
+    "host",
+    "port",
+    "outcome"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "type": "number"
+    },
+    "at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "owner": {
+      "description": "The container session, or the job attempt, it came from.",
+      "anyOf": [
+        {
+          "title": "ContainerSessionId",
+          "description": "An agent container session: `c-` and twelve hex digits.",
+          "pattern": "^c-[a-f0-9]{12}$",
+          "type": "string"
+        },
+        {
+          "title": "AttemptId",
+          "description": "Identifier of one attempt of a job.",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+          "type": "string"
+        }
+      ]
+    },
+    "kind": {
+      "description": "`connect`: an HTTPS tunnel (only the host is known). `http`: a plain HTTP request (method and path known). `credential`: a request through a credential route.",
+      "anyOf": [
+        {
+          "const": "connect",
+          "type": "string"
+        },
+        {
+          "const": "http",
+          "type": "string"
+        },
+        {
+          "const": "credential",
+          "type": "string"
+        }
+      ]
+    },
+    "host": {
+      "maxLength": 260,
+      "type": "string"
+    },
+    "port": {
+      "minimum": 0,
+      "maximum": 65535,
+      "type": "integer"
+    },
+    "method": {
+      "maxLength": 16,
+      "type": "string"
+    },
+    "path": {
+      "maxLength": 2000,
+      "type": "string"
+    },
+    "credential": {
+      "maxLength": 32,
+      "type": "string"
+    },
+    "outcome": {
+      "anyOf": [
+        {
+          "const": "allowed",
+          "type": "string"
+        },
+        {
+          "const": "denied",
+          "type": "string"
+        },
+        {
+          "const": "error",
+          "type": "string"
+        }
+      ]
+    },
+    "reason": {
+      "maxLength": 500,
+      "type": "string"
+    },
+    "status": {
+      "minimum": 0,
+      "maximum": 999,
+      "type": "integer"
+    },
+    "bytes_up": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "bytes_down": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "duration_ms": {
+      "minimum": 0,
+      "type": "integer"
+    }
+  }
+}

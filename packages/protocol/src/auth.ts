@@ -4,6 +4,7 @@
  */
 import { type Static, Type } from "@sinclair/typebox";
 import { AttemptId, describe, JobId, ProjectId, Timestamp } from "./common.ts";
+import { ContainerSessionId } from "./containers.ts";
 
 export const TokenId = Type.String({
   title: "TokenId",
@@ -55,6 +56,12 @@ export const AgentSessionInfo = Type.Object(
       description: "The session ends after this long without a request.",
       minimum: 60,
     }),
+    container_session: Type.Optional(
+      describe(
+        ContainerSessionId,
+        "Set when the session runs in an agent container (ADR 0061): the coordinator minted the token for the container, its jobs run in job containers, and the container is its boundary.",
+      ),
+    ),
   },
   {
     title: "AgentSessionInfo",

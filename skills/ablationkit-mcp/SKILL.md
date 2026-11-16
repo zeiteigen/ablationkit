@@ -50,6 +50,15 @@ words. Call it again to keep waiting; do other work between calls if there is an
 - Everything you create (jobs, records, tasks) is attributed to your session. That is identity,
   not a sandbox: the project policy and the compute limit apply to you, and the researcher sees
   what you did.
+- **In an agent container** (`ABLATIONKIT_CONTAINED=1` in your environment): the researcher
+  started your harness in a rootless container. You have no GPU, so run GPU work as jobs, which
+  go to job containers with the GPU. Jobs have no network by default, so run `uv sync` in your
+  shell before you submit. The network goes through a proxy that allows only the project's
+  hosts; a `403` from `AblationKit egress` names the host, so ask the researcher to allow it
+  rather than working around it. Some paths may be hidden or read-only by design. A protected
+  evaluation runs with `ablationkit_job submit` and `evaluation: NAME`, not a command; you read
+  its metrics, not its console. The researcher can pause you; your session ends with the
+  container.
 
 ## Start with `ablationkit_project`
 
@@ -202,6 +211,10 @@ don't retry it unchanged and don't work around it.
 | `human_only` | A researcher-only operation | Ask the researcher |
 | `held_out_guarded` | A held-out golden set: only the researcher changes it | Propose cases in a separate set |
 | `already_imported` | That run's files were imported before (it names the run) | Use that run; don't import twice |
+| `contained_host_code` | In an agent container, an extension build or run (it would run code outside the container) | Ask the researcher to run it, or to allow host code for the project |
+| `protected_evaluation` | Reading a protected evaluation's console | Read its run's metrics instead |
+| `evaluation_needs_container` | `evaluation` outside an agent container | Run your own evaluation command, or ask the researcher to start you in a container |
+| `container_gpu_unavailable`, `container_image_missing`, `container_runtime_unavailable` | A contained job cannot get its job container | Tell the researcher what the message says; it is theirs to fix |
 | `not_found`, `invalid_request` | Wrong ID or arguments; for a note, the message says what to change (a title over 80 characters, a gist over 180, a claim without a standing) | Check the ID with a list tool, fix the arguments |
 
 ## What only the researcher does

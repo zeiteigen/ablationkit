@@ -164,6 +164,12 @@
                 "description": "The session ends after this long without a request.",
                 "minimum": 60,
                 "type": "integer"
+              },
+              "container_session": {
+                "title": "ContainerSessionId",
+                "description": "Set when the session runs in an agent container (ADR 0061): the coordinator minted the token for the container, its jobs run in job containers, and the container is its boundary.",
+                "pattern": "^c-[a-f0-9]{12}$",
+                "type": "string"
               }
             }
           }

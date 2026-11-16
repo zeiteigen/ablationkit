@@ -179,11 +179,20 @@ function withAgenda(svc: Services, token: TokenRecord, res: Response): Response 
   }
 }
 
-export function agentFetch(svc: Services, port: () => number): (req: Request) => Promise<Response> {
+/**
+ * The agent API's request handler. On the TCP listener the Host header is checked (port); on an
+ * agent container's own socket (ADR 0061) there is no Host to check and only that session's token
+ * (`onlyToken`) is accepted.
+ */
+export function agentFetch(
+  svc: Services,
+  port: () => number,
+  opts: { readonly onlyToken?: string } = {},
+): (req: Request) => Promise<Response> {
   const router = new Router(AGENT_ROUTES);
   return async (req) => {
     try {
-      checkHost(req, port());
+      if (opts.onlyToken === undefined) checkHost(req, port());
       const url = new URL(req.url);
       const m = router.match(req.method, url.pathname);
       if (m.kind !== "found") throw notFound();
@@ -191,7 +200,11 @@ export function agentFetch(svc: Services, port: () => number): (req: Request) =>
       if (h.auth === "none")
         return await h.run({ req, params: m.params, svc, token: undefined as never });
       const t = bearer(req);
-      const token = t ? svc.tokens.verify(t, "agent") : undefined;
+      const verified = t ? svc.tokens.verify(t, "agent") : undefined;
+      const token =
+        opts.onlyToken === undefined || verified?.token_id === opts.onlyToken
+          ? verified
+          : undefined;
       if (!token) {
         svc.audit.record({
           actor: { kind: "agent" },
@@ -204,6 +217,34 @@ export function agentFetch(svc: Services, port: () => number): (req: Request) =>
         throw new HttpError(401, "unauthenticated", "a valid agent token is required");
       }
       svc.tokens.touch(token);
+      // A contained session (ADR 0061) does not run project code on this machine outside a
+      // container unless the researcher allowed it.
+      if (svc.containers.hostCodeRefused(token, h.action)) {
+        svc.audit.record({
+          actor: { kind: "agent", id: token.token_id },
+          listener: "agent",
+          action: h.action,
+          outcome: "denied",
+          project_id: token.scope.project_id,
+          target: `${req.method} ${m.route.path}`,
+          reason: "contained session: host code refused",
+        });
+        return withAgenda(
+          svc,
+          token,
+          withDirections(
+            svc,
+            token,
+            toErrorResponse(
+              new HttpError(
+                403,
+                "contained_host_code",
+                `${h.action} runs project code on this machine outside the agent container; the project's container settings refuse it for contained sessions (host_code). The researcher can run it from the web UI.`,
+              ),
+            ),
+          ),
+        );
+      }
       let res: Response;
       try {
         res = await h.run({ req, params: m.params, svc, token });

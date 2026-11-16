@@ -25,6 +25,7 @@ import {
   TrackingService,
 } from "@ablationkit/tracking-mlflow";
 import { ComputeLimitService } from "./agents/compute-limit.ts";
+import { ContainerService, type ContainerServiceOptions } from "./agents/containers.ts";
 import { PolicyService } from "./agents/policy.ts";
 import { AgentSessionService } from "./agents/sessions.ts";
 import { BuildService } from "./builds.ts";
@@ -112,6 +113,13 @@ export interface CoordinatorOptions {
   readonly bridgeCommand?: readonly string[];
   /** How often idle inference sessions are checked for expiry (tests). Default 5 s. */
   readonly inferenceSweepMs?: number;
+  /** Agent containers (tests): the runtime and tmux binaries, CDI paths, timings, DNS. */
+  readonly containers?: Partial<
+    Pick<
+      ContainerServiceOptions,
+      "podman" | "tmux" | "tree" | "monitorMs" | "resolve" | "cdiSpecs" | "pauseDelayMs"
+    >
+  >;
   /** Trace retention sweep interval (tests set 0 to disable). Default one hour. */
   readonly llmRetentionSweepMs?: number;
   /** Start with every extension inactive (`coordinator start --safe-mode`, ADR 0022). */
@@ -325,6 +333,7 @@ export class Coordinator {
           (svcRef as Services).backends.ingest(pid, "trace.logged", payload, ctx),
         remote: () => remoteRef,
         sdkPythonPaths: (pid) => (svcRef as Services).backends.sdkPythonPaths(pid),
+        containers: () => svcRef?.containers,
       });
       jobs.load();
       for (const p of jobs.loadProblems) unreadable("job record", p);
@@ -497,6 +506,15 @@ export class Coordinator {
         startedAt,
         tokens,
         agentSessions: new AgentSessionService(() => svcRef as Services),
+        containers: new ContainerService({
+          svc: () => svcRef as Services,
+          paths,
+          now,
+          log,
+          agentFetch: (tokenId) => agentFetch(svcRef as Services, () => 0, { onlyToken: tokenId }),
+          ...(process.env["ABLATIONKIT_UV"] ? { uv: process.env["ABLATIONKIT_UV"] } : {}),
+          ...options.containers,
+        }),
         loginCodes: new OneTimeStore<{ origin: string }>(LOGIN_CODE_TTL_MS, now),
         audit,
         events,
@@ -616,6 +634,8 @@ export class Coordinator {
       jobs.start();
       compute.start();
       svc.agentSessions.start();
+      // Agent containers: live sessions get their sockets back, ended ones are finalized.
+      svc.containers.startMonitor();
       // Remote attempts: staging a crash interrupted is not retried; watch workers and providers.
       remote.recover();
       remote.startWatchdog();
@@ -679,6 +699,7 @@ export class Coordinator {
     this.services.jobs.stop();
     this.services.compute.stop();
     this.services.agentSessions.stop();
+    this.services.containers.stopAll();
     this.services.remote.stop();
     this.services.research.stop();
     this.services.deployments.stopAll();

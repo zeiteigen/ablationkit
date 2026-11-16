@@ -72,7 +72,11 @@
       <strong>
        Compute weights
       </strong>
-      to set per-target weights. The weights determine how execution time counts toward the agent limit; they are not a currency price. A session identifies the agent and attributes its work. Its Git access and sandbox come from the harness.
+      to set per-target weights. The weights determine how execution time counts toward the agent limit; they are not a currency price. A session identifies the agent and attributes its work. Its Git access and sandbox come from the harness, unless you run it in an
+      <a href="getting-started.html#agent-containers">
+       agent container
+      </a>
+      , where AblationKit decides what it can reach and pauses it when the compute limit refuses its job.
      </p>
      <aside class="akg-callout">
       <h3>

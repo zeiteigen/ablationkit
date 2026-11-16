@@ -27,6 +27,7 @@ ListenHost = Annotated[str, StringConstraints(pattern="^[A-Za-z0-9.:\\[\\]-]{1,2
 ListenPort = Annotated[int, Field(ge=0, le=65535)]
 TokenId = Annotated[str, StringConstraints(pattern="^[a-f0-9]{16}$")]
 TokenKind = Literal["session", "agent", "worker"]
+ContainerSessionId = Annotated[str, StringConstraints(pattern="^c-[a-f0-9]{12}$")]
 TrackingRunRef = Annotated[str, StringConstraints(pattern="^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")]
 MlflowExperimentName = Annotated[str, StringConstraints(min_length=1, max_length=500)]
 MlflowExperimentId = Annotated[str, StringConstraints(pattern="^[A-Za-z0-9_-]{1,64}$")]
@@ -137,6 +138,16 @@ TaskOutcome = Literal["supported", "not_supported", "inconclusive"]
 DirectionId = Annotated[str, StringConstraints(pattern="^dir-[0-9]{8}-[a-z0-9]{6}$")]
 DirectionKind = Literal["ask", "doubt", "do", "focus", "park", "rule"]
 DirectionStatus = Literal["open", "acknowledged", "answered", "declined", "closed", "withdrawn"]
+HostPattern = Annotated[
+    str,
+    StringConstraints(
+        pattern="^(\\*|(\\*\\.)?[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[0-9]{1,5})?)$",
+        min_length=1,
+        max_length=260,
+    ),
+]
+ContainerHarness = Literal["claude-code", "codex", "shell"]
+ContainerSessionState = Literal["starting", "running", "paused", "exited", "failed", "lost"]
 DeploymentKind = Literal["preview_local", "remote_research", "persistent", "public"]
 LoggedModelId = Annotated[str, StringConstraints(pattern="^m-[A-Za-z0-9]{1,64}$")]
 RegisteredModelName = Annotated[
@@ -545,6 +556,10 @@ class AgentSessionInfo(ProtocolModel):
     )
     idle_timeout_sec: Annotated[int, Field(ge=60)] = Field(
         description="The session ends after this long without a request."
+    )
+    container_session: ContainerSessionId | None = Field(
+        default=None,
+        description="Set when the session runs in an agent container (ADR 0061): the coordinator minted the token for the container, its jobs run in job containers, and the container is its boundary.",
     )
 
 
@@ -1006,6 +1021,18 @@ class JobActor(ProtocolModel):
     id: Annotated[str, StringConstraints(max_length=200)] | None = Field(default=None)
 
 
+class JobContainer(ProtocolModel):
+    """Set on jobs a contained agent session submits (ADR 0061): each local attempt runs in a job container of its own."""
+
+    session_id: ContainerSessionId = Field(
+        description="The contained session that submitted the job."
+    )
+    evaluation: Annotated[str, StringConstraints(pattern="^[a-z][a-z0-9_-]{0,39}$")] | None = Field(
+        default=None,
+        description="A protected evaluation's name: its pinned command ran, not the agent's.",
+    )
+
+
 class JobRecord(ProtocolModel):
     """One logical job submission. Retries add attempts; each attempt has its own run."""
 
@@ -1100,6 +1127,10 @@ class JobRecord(ProtocolModel):
             description="Submitted through this extension backend's broker (`compute.remote`, ADR 0024); only it may read or cancel the job there.",
         )
     )
+    container: JobContainer | None = Field(
+        default=None,
+        description="Set on jobs a contained agent session submits (ADR 0061): each local attempt runs in a job container of its own.",
+    )
     state: AttemptState = Field(description="State of the latest attempt.")
     attempts: list[AttemptId] = Field(description="Attempt IDs, oldest first.")
     created_at: Timestamp = Field(
@@ -1108,6 +1139,19 @@ class JobRecord(ProtocolModel):
     updated_at: Timestamp = Field(
         description="RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds."
     )
+
+
+class AttemptContainer(ProtocolModel):
+    """The job container a contained session's local attempt ran in (ADR 0061)."""
+
+    name: Annotated[str, StringConstraints(pattern="^ak-job-[A-Za-z0-9._-]{1,200}$")]
+    image: Annotated[str, StringConstraints(max_length=512)]
+    image_id: Annotated[str, StringConstraints(max_length=200)] | None = Field(default=None)
+    gpu: Literal["all", "none"]
+    network: Literal["none", "egress"]
+    mounts: Annotated[
+        list[Annotated[str, StringConstraints(max_length=4096)]], Field(max_length=64)
+    ] = Field(description="Hidden paths mounted read-only for a protected evaluation.")
 
 
 class SupervisorInfo(ProtocolModel):
@@ -1122,6 +1166,10 @@ class SupervisorInfo(ProtocolModel):
         default=None, description="systemd scope of the job."
     )
     collector_unit: Annotated[str, StringConstraints(max_length=256)] | None = Field(default=None)
+    container: AttemptContainer | None = Field(
+        default=None,
+        description="The job container a contained session's local attempt ran in (ADR 0061).",
+    )
 
 
 class CollectorHealth(ProtocolModel):
@@ -2713,6 +2761,292 @@ class ResearchDirection(ProtocolModel):
         description="RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds."
     )
     revision: Annotated[int, Field(ge=1)]
+
+
+class ContainerAgentLimits(ProtocolModel):
+    """The agent container's own limits (kernel-enforced by its cgroup). It has no GPU."""
+
+    cpus: Annotated[int, Field(ge=1, le=512)]
+    memory_mb: Annotated[int, Field(ge=256, le=4194304)]
+    pids_max: Annotated[int, Field(ge=64, le=1000000)]
+
+
+class ContainerEgress(ProtocolModel):
+    mode: Literal["allowlist", "open"] = Field(
+        description="`allowlist`: only `allow` and the harness's own hosts. `open`: any host, every connection still recorded."
+    )
+    allow: Annotated[list[HostPattern], Field(max_length=512)]
+
+
+class ContainerJobs(ProtocolModel):
+    gpu: Literal["all", "none"] = Field(
+        description="`all`: every GPU the CDI spec names (`nvidia.com/gpu=all`)."
+    )
+    network: Literal["none", "egress"] = Field(
+        description="`none`: no network at all (the environment must be synced by the agent first). `egress`: the project's allowlist through the attempt's own proxy."
+    )
+
+
+class ContainerEvaluation(ProtocolModel):
+    """A protected evaluation (ADR 0061, after ADR 0033): the researcher pins its command and the hidden data it reads; a contained agent can run it (`evaluation` on job submit) but never read its data, its console or its command's source when that is hidden."""
+
+    name: Annotated[str, StringConstraints(pattern="^[a-z][a-z0-9_-]{0,39}$")]
+    description: Annotated[str, StringConstraints(min_length=1, max_length=2000)]
+    command: Annotated[
+        list[Annotated[str, StringConstraints(max_length=8192)]],
+        Field(min_length=1, max_length=256),
+    ] = Field(
+        description="argv, pinned by the researcher. Run from `cwd` in the checkout against the agent's current code, in a job container with the evaluation's `mounts` read-only and no network."
+    )
+    environment: Literal["uv", "none"]
+    cwd: (
+        Annotated[str, StringConstraints(pattern="^[^/].*$", min_length=1, max_length=1024)] | None
+    ) = Field(
+        default=None,
+        description="A path relative to the checkout (no `..` segments: checked in code).",
+    )
+    mounts: Annotated[
+        list[Annotated[str, StringConstraints(min_length=1, max_length=4096)]], Field(max_length=32)
+    ] = Field(
+        description="Hidden paths (from the config's `hidden`) this evaluation reads, mounted read-only into its job container only."
+    )
+    runtime_max_sec: Annotated[int, Field(ge=1, le=604800)]
+
+
+class ContainerCredential(ProtocolModel):
+    """A credential the egress proxy adds to requests, so the secret never enters the container: the container calls `http://127.0.0.1:<port>/<name>/…` and the proxy forwards it to `upstream` with the header set."""
+
+    name: Annotated[str, StringConstraints(pattern="^[a-z][a-z0-9-]{0,31}$")]
+    upstream: Annotated[str, StringConstraints(pattern="^https://[^/?#]+/?$", max_length=512)] = (
+        Field(description="The service, e.g. `https://huggingface.co`.")
+    )
+    header: Annotated[str, StringConstraints(pattern="^[A-Za-z][A-Za-z0-9-]{0,63}$")] = Field(
+        description="The header the secret is sent in, e.g. `authorization` or `x-api-key`."
+    )
+    prefix: Annotated[str, StringConstraints(max_length=32)] | None = Field(
+        default=None, description="Put before the secret, e.g. `Bearer `."
+    )
+    from_env: Annotated[str, StringConstraints(pattern="^[A-Za-z_][A-Za-z0-9_]{0,127}$")] | None = (
+        Field(
+            default=None, description="The coordinator's environment variable holding the secret."
+        )
+    )
+    from_file: Annotated[str, StringConstraints(pattern="^/.*$", max_length=4096)] | None = Field(
+        default=None, description="A file on this machine holding the secret (its first line)."
+    )
+    env: dict[str, Annotated[str, StringConstraints(max_length=4096)]] = Field(
+        description="Environment variables set in the agent container, with `{url}` replaced by this credential's route inside the container (e.g. `HF_ENDPOINT: {url}`). Names are checked in code."
+    )
+
+
+class ContainerConfig(ProtocolModel):
+    """How a project's agent containers and their jobs run (ADR 0061). The researcher's: no agent route reads or writes it."""
+
+    schema_version: Annotated[Literal[1], BeforeValidator(reject_bool)]
+    project_id: ProjectId = Field(
+        description="Stable project identifier (lowercase slug). Never a path; paths live in the local registry."
+    )
+    revision: Annotated[int, Field(ge=1)]
+    updated_at: Timestamp = Field(
+        description="RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds."
+    )
+    updated_by: Annotated[str, StringConstraints(max_length=200)]
+    image: Annotated[str, StringConstraints(min_length=1, max_length=512)] = Field(
+        description="The image agent and job containers run (glibc, a shell, Git, CA certificates). AblationKit's own is built by `ablationkit agent image build`."
+    )
+    agent: ContainerAgentLimits = Field(
+        description="The agent container's own limits (kernel-enforced by its cgroup). It has no GPU."
+    )
+    egress: ContainerEgress
+    hidden: Annotated[
+        list[Annotated[str, StringConstraints(min_length=1, max_length=4096)]], Field(max_length=64)
+    ] = Field(
+        description="Paths neither the agent container nor an ordinary job container can see (held-out data, evaluation code). Inside the checkout the working tree is hidden, not Git history: keep protected files out of the repository."
+    )
+    read_only: Annotated[
+        list[Annotated[str, StringConstraints(pattern="^[^/].*$", min_length=1, max_length=1024)]],
+        Field(max_length=64),
+    ] = Field(description="Checkout paths the agent container can read but not change.")
+    jobs: ContainerJobs
+    evaluations: Annotated[list[ContainerEvaluation], Field(max_length=32)]
+    credentials: Annotated[list[ContainerCredential], Field(max_length=16)]
+    host_code: Literal["refuse", "allow"] = Field(
+        description="Agent operations that run project code on this machine outside a container (extension builds and runs): `refuse` for contained sessions, or `allow` them."
+    )
+    pause_on_compute_limit: bool = Field(
+        description="Freeze a contained session when the compute limit refuses its job; the researcher resumes it."
+    )
+
+
+class ContainerSupervisor(ProtocolModel):
+    """Where the terminal the container is attached to lives: a tmux server in a transient systemd unit, or a detached process."""
+
+    mode: Literal["systemd", "direct"]
+    unit: Annotated[str, StringConstraints(max_length=256)] | None = Field(default=None)
+
+
+class ContainerBoundary(ProtocolModel):
+    """What the container was given when it started, as applied."""
+
+    gpu: Literal[False]
+    network: Literal["none"]
+    egress: Literal["allowlist", "open"]
+    hidden: Annotated[
+        list[Annotated[str, StringConstraints(max_length=4096)]], Field(max_length=128)
+    ]
+    read_only: Annotated[
+        list[Annotated[str, StringConstraints(max_length=4096)]], Field(max_length=128)
+    ]
+    cpus: Annotated[int, Field(ge=1)]
+    memory_mb: Annotated[int, Field(ge=1)]
+    pids_max: Annotated[int, Field(ge=1)]
+
+
+class ContainerPackage(ProtocolModel):
+    name: Annotated[str, StringConstraints(max_length=200)]
+    version: Annotated[str, StringConstraints(max_length=100)]
+    previous: Annotated[str, StringConstraints(max_length=100)] | None = Field(
+        default=None, description="Changed: the old version."
+    )
+
+
+class ContainerSnapshot(ProtocolModel):
+    """The checkout's commit and uncommitted files, and the project environment's packages, at a point of the session."""
+
+    at: Timestamp = Field(
+        description="RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds."
+    )
+    head: Annotated[str, StringConstraints(pattern="^[a-f0-9]{7,64}$")] | None = Field(default=None)
+    dirty: Annotated[
+        list[Annotated[str, StringConstraints(max_length=4096)]], Field(max_length=500)
+    ]
+    packages: Annotated[list[ContainerPackage], Field(max_length=5000)]
+
+
+class ContainerFileChange(ProtocolModel):
+    path: Annotated[str, StringConstraints(max_length=4096)]
+    status: Annotated[str, StringConstraints(max_length=8)] = Field(
+        description="Git's status letters (A, M, D, R, ??)."
+    )
+
+
+class ContainerPackagesChanged(ProtocolModel):
+    added: Annotated[list[ContainerPackage], Field(max_length=2000)]
+    removed: Annotated[list[ContainerPackage], Field(max_length=2000)]
+    changed: Annotated[list[ContainerPackage], Field(max_length=2000)]
+
+
+class ContainerCommand(ProtocolModel):
+    at: Timestamp | None = Field(
+        default=None,
+        description="RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+    )
+    command: Annotated[str, StringConstraints(max_length=2000)]
+
+
+class ContainerControl(ProtocolModel):
+    at: Timestamp = Field(
+        description="RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds."
+    )
+    action: Literal["pause", "resume", "stop"]
+    by: Annotated[str, StringConstraints(max_length=200)]
+    reason: Annotated[str, StringConstraints(max_length=500)] | None = Field(default=None)
+
+
+class ContainerSessionRecord(ProtocolModel):
+    """One agent container session (ADR 0061): the harness in its container, the agent session token minted for it, what the container was given, and the provenance recorded at its start and end."""
+
+    schema_version: Annotated[Literal[1], BeforeValidator(reject_bool)]
+    session_id: ContainerSessionId = Field(
+        description="An agent container session: `c-` and twelve hex digits."
+    )
+    project_id: ProjectId = Field(
+        description="Stable project identifier (lowercase slug). Never a path; paths live in the local registry."
+    )
+    token_id: Annotated[str, StringConstraints(pattern="^[a-f0-9]{16}$")] = Field(
+        description="The agent session token minted for it."
+    )
+    harness: ContainerHarness = Field(
+        description="What runs in the agent container: Claude Code, Codex, or a plain shell (to set the container up or look around)."
+    )
+    label: Annotated[str, StringConstraints(min_length=1, max_length=200)]
+    args: Annotated[
+        list[Annotated[str, StringConstraints(max_length=4096)]], Field(max_length=64)
+    ] = Field(description="Extra arguments given to the harness.")
+    checkout: Annotated[str, StringConstraints(pattern="^/.*$", max_length=4096)]
+    container: Annotated[str, StringConstraints(pattern="^ak-agent-c-[a-f0-9]{12}$")]
+    image: Annotated[str, StringConstraints(max_length=512)]
+    image_id: Annotated[str, StringConstraints(max_length=200)] | None = Field(default=None)
+    harness_version: Annotated[str, StringConstraints(max_length=200)] | None = Field(default=None)
+    config_revision: Annotated[int, Field(ge=1)]
+    state: ContainerSessionState = Field(
+        description="`exited`: the harness ended (its exit code is recorded). `failed`: the container did not start. `lost`: the container was gone without an exit being recorded."
+    )
+    paused_by: Literal["researcher", "compute_limit"] | None = Field(default=None)
+    started_by: Annotated[str, StringConstraints(max_length=200)]
+    created_at: Timestamp = Field(
+        description="RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds."
+    )
+    started_at: Timestamp | None = Field(
+        default=None,
+        description="RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+    )
+    ended_at: Timestamp | None = Field(
+        default=None,
+        description="RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+    )
+    exit_code: int | None = Field(default=None)
+    error: Annotated[str, StringConstraints(max_length=2000)] | None = Field(default=None)
+    supervisor: ContainerSupervisor = Field(
+        description="Where the terminal the container is attached to lives: a tmux server in a transient systemd unit, or a detached process."
+    )
+    boundary: ContainerBoundary = Field(
+        description="What the container was given when it started, as applied."
+    )
+    start: ContainerSnapshot | None = Field(
+        default=None,
+        description="The checkout's commit and uncommitted files, and the project environment's packages, at a point of the session.",
+    )
+    end: ContainerSnapshot | None = Field(
+        default=None,
+        description="The checkout's commit and uncommitted files, and the project environment's packages, at a point of the session.",
+    )
+    files_changed: Annotated[list[ContainerFileChange], Field(max_length=2000)] | None = Field(
+        default=None,
+        description="Between the start and end snapshots, from Git: the bind-mounted checkout also shows the researcher's own edits made meanwhile.",
+    )
+    packages_changed: ContainerPackagesChanged | None = Field(default=None)
+    commands: Annotated[list[ContainerCommand], Field(max_length=1000)] | None = Field(
+        default=None,
+        description="Shell commands as the harness's own transcript recorded them (the agent can write its home, so this is its account, not the coordinator's record).",
+    )
+    control: Annotated[list[ContainerControl], Field(max_length=1000)]
+
+
+class EgressRecord(ProtocolModel):
+    """One connection out of an agent or job container through its egress proxy."""
+
+    schema_version: Annotated[Literal[1], BeforeValidator(reject_bool)]
+    at: Timestamp = Field(
+        description="RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds."
+    )
+    owner: ContainerSessionId | AttemptId = Field(
+        description="The container session, or the job attempt, it came from."
+    )
+    kind: Literal["connect", "http", "credential"] = Field(
+        description="`connect`: an HTTPS tunnel (only the host is known). `http`: a plain HTTP request (method and path known). `credential`: a request through a credential route."
+    )
+    host: Annotated[str, StringConstraints(max_length=260)]
+    port: Annotated[int, Field(ge=0, le=65535)]
+    method: Annotated[str, StringConstraints(max_length=16)] | None = Field(default=None)
+    path: Annotated[str, StringConstraints(max_length=2000)] | None = Field(default=None)
+    credential: Annotated[str, StringConstraints(max_length=32)] | None = Field(default=None)
+    outcome: Literal["allowed", "denied", "error"]
+    reason: Annotated[str, StringConstraints(max_length=500)] | None = Field(default=None)
+    status: Annotated[int, Field(ge=0, le=999)] | None = Field(default=None)
+    bytes_up: Annotated[int, Field(ge=0)] | None = Field(default=None)
+    bytes_down: Annotated[int, Field(ge=0)] | None = Field(default=None)
+    duration_ms: Annotated[int, Field(ge=0)] | None = Field(default=None)
 
 
 class DeploymentProvider(ProtocolModel):
@@ -4312,6 +4646,9 @@ MODELS: dict[str, type[ProtocolModel]] = {
     "ProjectActionPolicy": ProjectActionPolicy,
     "ResearchTask": ResearchTask,
     "ResearchDirection": ResearchDirection,
+    "ContainerConfig": ContainerConfig,
+    "ContainerSessionRecord": ContainerSessionRecord,
+    "EgressRecord": EgressRecord,
     "DeploymentRecord": DeploymentRecord,
     "ModelLink": ModelLink,
     "RegistryVersionLink": RegistryVersionLink,
@@ -4373,6 +4710,9 @@ SCHEMA_VERSIONS: dict[str, int] = {
     "ProjectActionPolicy": 2,
     "ResearchTask": 2,
     "ResearchDirection": 1,
+    "ContainerConfig": 1,
+    "ContainerSessionRecord": 1,
+    "EgressRecord": 1,
     "DeploymentRecord": 1,
     "ModelLink": 1,
     "RegistryVersionLink": 1,
@@ -4406,6 +4746,7 @@ __all__ = [
     "AgentSessionInfo",
     "ArtifactCapabilityConfig",
     "ArtifactStoreSettings",
+    "AttemptContainer",
     "AttemptId",
     "AttemptRecord",
     "AttemptSnapshot",
@@ -4433,6 +4774,24 @@ __all__ = [
     "ComputeWeights",
     "ConsoleRecord",
     "ConsoleStream",
+    "ContainerAgentLimits",
+    "ContainerBoundary",
+    "ContainerCommand",
+    "ContainerConfig",
+    "ContainerControl",
+    "ContainerCredential",
+    "ContainerEgress",
+    "ContainerEvaluation",
+    "ContainerFileChange",
+    "ContainerHarness",
+    "ContainerJobs",
+    "ContainerPackage",
+    "ContainerPackagesChanged",
+    "ContainerSessionId",
+    "ContainerSessionRecord",
+    "ContainerSessionState",
+    "ContainerSnapshot",
+    "ContainerSupervisor",
     "ContributionPoint",
     "ConversationSource",
     "CoordinatorMovedMarker",
@@ -4453,6 +4812,7 @@ __all__ = [
     "DirectionRef",
     "DirectionStatus",
     "DirectionTarget",
+    "EgressRecord",
     "EvaluationActor",
     "EvaluationDataset",
     "EvaluationExamples",
@@ -4505,6 +4865,7 @@ __all__ = [
     "GoldenSetId",
     "GoldenSetRecord",
     "GoldenSetVersion",
+    "HostPattern",
     "ImportedExperiment",
     "InferenceCapabilityConfig",
     "InferenceEvidenceActor",
@@ -4526,6 +4887,7 @@ __all__ = [
     "InferenceTask",
     "IngestState",
     "JobActor",
+    "JobContainer",
     "JobGates",
     "JobId",
     "JobLimits",
