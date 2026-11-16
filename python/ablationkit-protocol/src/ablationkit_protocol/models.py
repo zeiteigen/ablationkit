@@ -2944,6 +2944,26 @@ class ContainerCommand(ProtocolModel):
     command: Annotated[str, StringConstraints(max_length=2000)]
 
 
+class ContainerLogin(ProtocolModel):
+    """The researcher's Claude Code login, copied into the container at start and kept in step with the source while the session runs (whichever side renews it, the fresher token is carried to the other); the container's copy is deleted when the session ends."""
+
+    source: Annotated[str, StringConstraints(max_length=4096)] = Field(
+        description="The Claude Code configuration directory the login was copied from."
+    )
+    copied_at: Timestamp = Field(
+        description="RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds."
+    )
+    synced_back: Annotated[int, Field(ge=0)] = Field(
+        description="Renewals made in the container and carried back to the source."
+    )
+    synced_in: Annotated[int, Field(ge=0)] = Field(
+        description="Renewals made on this machine and carried into the container."
+    )
+    stopped: Annotated[str, StringConstraints(max_length=500)] | None = Field(
+        default=None, description="Why keeping the two in step stopped (another account signed in)."
+    )
+
+
 class ContainerControl(ProtocolModel):
     at: Timestamp = Field(
         description="RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds."
@@ -3019,6 +3039,10 @@ class ContainerSessionRecord(ProtocolModel):
     commands: Annotated[list[ContainerCommand], Field(max_length=1000)] | None = Field(
         default=None,
         description="Shell commands as the harness's own transcript recorded them (the agent can write its home, so this is its account, not the coordinator's record).",
+    )
+    login: ContainerLogin | None = Field(
+        default=None,
+        description="The researcher's Claude Code login, copied into the container at start and kept in step with the source while the session runs (whichever side renews it, the fresher token is carried to the other); the container's copy is deleted when the session ends.",
     )
     control: Annotated[list[ContainerControl], Field(max_length=1000)]
 
@@ -4785,6 +4809,7 @@ __all__ = [
     "ContainerFileChange",
     "ContainerHarness",
     "ContainerJobs",
+    "ContainerLogin",
     "ContainerPackage",
     "ContainerPackagesChanged",
     "ContainerSessionId",

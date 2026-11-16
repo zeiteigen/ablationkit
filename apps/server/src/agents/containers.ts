@@ -38,7 +38,8 @@ import {
   symlinkSync,
   writeFileSync,
 } from "node:fs";
-import { join, resolve } from "node:path";
+import { homedir } from "node:os";
+import { isAbsolute, join, resolve } from "node:path";
 import {
   type AgentContainerInput,
   agentContainerArgs,
@@ -81,6 +82,7 @@ import type { Services } from "../services.ts";
 import { compact } from "../state/audit.ts";
 import { CredentialProxy, type EgressDecision, EgressProxy } from "./egress.ts";
 import { GUARDED_PROJECT_PATHS } from "./guard.ts";
+import { ClaudeLoginSync, claudeLoginSource } from "./harness-login.ts";
 import { BinaryError, hostBinary, Podman, type RuntimeReport } from "./podman.ts";
 
 export const CONTAINER_SESSION_RE = /^c-[a-f0-9]{12}$/;
@@ -120,6 +122,8 @@ export interface ContainerServiceOptions {
   readonly cdiSpecs?: readonly string[];
   /** How long after the compute limit refuses a job its session is paused. Default 3 s. */
   readonly pauseDelayMs?: number;
+  /** The researcher's home, where `~/.claude` is (tests). Default the coordinator's. */
+  readonly userHome?: string;
 }
 
 export interface StartInput {
@@ -130,6 +134,11 @@ export interface StartInput {
   readonly binaries?: { readonly harness?: string; readonly uv?: string };
   /** The Git identity commits in the container are made with (the researcher's). */
   readonly git?: { readonly name?: string; readonly email?: string };
+  /**
+   * Claude Code only (ADR 0063): copy the researcher's login in (the default) from `from`, a
+   * Claude Code configuration directory (default `~/.claude`), or `copy: false` to sign in inside.
+   */
+  readonly login?: { readonly copy?: boolean; readonly from?: string };
 }
 
 export interface ContainerAccount {
@@ -167,6 +176,8 @@ interface Live {
   agent?: ReturnType<typeof Bun.serve>;
   egress?: EgressProxy;
   creds?: CredentialProxy;
+  /** The researcher's Claude Code login, kept in step while the session runs (ADR 0063). */
+  login?: ClaudeLoginSync;
   ticks: number;
 }
 
@@ -567,6 +578,7 @@ export class ContainerService {
     for (const d of [home, dirs.env, dirs.uvCache, dirs.python])
       mkdirSync(d, { recursive: true, mode: 0o700 });
     this.prepareHome(home, input);
+    const loginSync = this.loginFor(input, sid, pid, checkout);
 
     const minted = svc.agentSessions.begin({
       project_id: pid,
@@ -621,13 +633,23 @@ export class ContainerService {
         pids_max: cfg.agent.pids_max,
       },
       start: this.snapshot(checkout, dirs.env),
+      ...(loginSync
+        ? {
+            login: {
+              source: loginSync.source,
+              copied_at: now,
+              synced_back: 0,
+              synced_in: 0,
+            },
+          }
+        : {}),
       control: [],
     };
     this.save(rec);
 
     try {
       // The sockets are bound before the container starts: its init forwards to them.
-      await this.listen(rec);
+      await this.listen(rec, loginSync?.sync);
       const plan: AgentContainerInput = {
         sessionId: sid,
         projectId: pid,
@@ -749,10 +771,81 @@ export class ContainerService {
     }
   }
 
+  private get userHome(): string {
+    return this.o.userHome ?? homedir();
+  }
+
+  private loginSync(
+    sid: string,
+    pid: string,
+    harness: ContainerHarness,
+    checkout: string,
+    from: string,
+    counts?: { readonly synced_back: number; readonly synced_in: number },
+  ): ClaudeLoginSync {
+    return new ClaudeLoginSync({
+      source: claudeLoginSource(from, this.userHome),
+      home: join(this.projectDir(pid), `home-${harness}`),
+      checkout,
+      backupDir: join(this.root, "login-backups"),
+      now: this.o.now,
+      audit: (action, details) =>
+        this.o.svc().audit.record({
+          actor: { kind: "system" },
+          listener: "internal",
+          action,
+          outcome: "allowed",
+          project_id: pid,
+          target: sid,
+          details,
+        }),
+      ...(counts ? { counts } : {}),
+    });
+  }
+
+  /**
+   * Claude Code's login for a new session (ADR 0063): copied in from `~/.claude` (or the given
+   * configuration directory) unless the researcher asked to sign in inside; undefined when there
+   * is none to copy.
+   */
+  private loginFor(
+    input: StartInput,
+    sid: string,
+    pid: string,
+    checkout: string,
+  ): { source: string; sync: ClaudeLoginSync } | undefined {
+    if (input.harness !== "claude-code" || input.login?.copy === false) return undefined;
+    const from = input.login?.from ?? join(this.userHome, ".claude");
+    if (!isAbsolute(from))
+      throw new HttpError(400, "invalid_request", "`login.from` must be an absolute path");
+    const sync = this.loginSync(sid, pid, input.harness, checkout, from);
+    return sync.copyIn() ? { source: sync.source, sync } : undefined;
+  }
+
+  private loginRecord(
+    s: ContainerSessionRecord,
+    sync: ClaudeLoginSync,
+  ): ContainerSessionRecord["login"] {
+    if (!s.login) return undefined;
+    return compact({
+      ...s.login,
+      synced_back: sync.syncedBack,
+      synced_in: sync.syncedIn,
+      stopped: sync.stopped ?? s.login.stopped,
+    }) as ContainerSessionRecord["login"];
+  }
+
   /** Start the session's sockets: the agent API, the egress proxy, the credential routes. */
-  private async listen(s: ContainerSessionRecord): Promise<void> {
+  private async listen(s: ContainerSessionRecord, login?: ClaudeLoginSync): Promise<void> {
     const mount = this.mountDir(s.session_id);
     const live: Live = { ticks: 0 };
+    // The login is kept in step again after a restart, unless that had stopped.
+    const sync =
+      login ??
+      (s.login && !s.login.stopped
+        ? this.loginSync(s.session_id, s.project_id, s.harness, s.checkout, s.login.source, s.login)
+        : undefined);
+    if (sync) live.login = sync;
     this.live.set(s.session_id, live);
     const agentSock = join(mount, "agent.sock");
     rmSync(agentSock, { force: true });
@@ -1153,6 +1246,13 @@ export class ContainerService {
       // While the container lives its session does not go idle (a paused or thinking agent).
       const t = this.o.svc().tokens.get(s.token_id);
       if (t) this.o.svc().tokens.touch(t);
+      // The researcher's login, renewed on either side, is carried to the other (ADR 0063).
+      if (live.login) {
+        const before = s.login?.stopped;
+        const moved = live.login.sync();
+        const login = this.loginRecord(s, live.login);
+        if (login && (moved || live.login.stopped !== before)) this.save({ ...s, login });
+      }
       if (live.ticks % DEEP_EVERY !== 0) continue;
       if (!this.tmuxAlive(s.session_id)) {
         if (this.podman.status(s.container) !== "missing") this.podman.stop(s.container, 5);
@@ -1169,6 +1269,14 @@ export class ContainerService {
     how: { exit?: number; lost?: boolean; error?: string },
   ): void {
     const svc = this.o.svc();
+    // A last renewal is carried back, then the container's copy of the login is deleted.
+    const login =
+      this.live.get(s.session_id)?.login ??
+      (s.login
+        ? this.loginSync(s.session_id, s.project_id, s.harness, s.checkout, s.login.source, s.login)
+        : undefined);
+    login?.end();
+    const loginRecord = login ? this.loginRecord(s, login) : s.login;
     this.unlisten(s.session_id);
     const envDir = join(this.projectDir(s.project_id), "env");
     const end = this.snapshot(s.checkout, envDir);
@@ -1205,6 +1313,7 @@ export class ContainerService {
       compact({
         ...rest,
         state,
+        login: loginRecord,
         ended_at: endedAt,
         exit_code: how.exit,
         error,

@@ -119,7 +119,9 @@ function git(cwd: string, ...args: string[]): void {
   if (p.exitCode !== 0) throw new Error(`git ${args.join(" ")}: ${p.stderr.toString()}`);
 }
 
-async function setup(over: { podman?: string; home?: string; repo?: string } = {}) {
+async function setup(
+  over: { podman?: string; home?: string; repo?: string; userHome?: string } = {},
+) {
   const f = fakeRuntime();
   const fake = new FakeMlflow().start();
   fakes.push(fake);
@@ -135,6 +137,8 @@ async function setup(over: { podman?: string; home?: string; repo?: string } = {
       cdiSpecs: [],
       pauseDelayMs: 50,
       resolve: async () => ["127.0.0.1"],
+      // Never the real ~/.claude: a user home of the test's own (no login unless one is written).
+      userHome: over.userHome ?? h.tmp("ak-user-"),
     },
   });
   return world(cl, f, over.repo);
@@ -294,6 +298,72 @@ describe("agent container sessions", () => {
       .join("");
     expect(audit).toContain("agent.container.input");
     expect(audit).toContain("run the baseline");
+  });
+
+  test("Claude Code starts with the researcher's login, kept in step both ways, deleted at the end (ADR 0063)", async () => {
+    const user = h.tmp("ak-user-");
+    const login = (token: string, expiresAt: number, subscriptionType = "max") =>
+      JSON.stringify({
+        claudeAiOauth: {
+          accessToken: `sk-ant-oat01-${token}`,
+          refreshToken: `sk-ant-ort01-${token}`,
+          expiresAt,
+          subscriptionType,
+        },
+      });
+    mkdirSync(join(user, ".claude"));
+    const host = join(user, ".claude", ".credentials.json");
+    writeFileSync(host, login("A", 1000));
+    writeFileSync(
+      join(user, ".claude.json"),
+      JSON.stringify({ oauthAccount: { accountUuid: "acct-1" }, lastOnboardingVersion: "2.1.322" }),
+    );
+    const w = await setup({ userHome: user });
+    const s = (await w.start()).body;
+    expect(s.login).toMatchObject({ source: join(user, ".claude"), synced_back: 0, synced_in: 0 });
+    const home = join(w.cl.c.services.containers.projectDir("lab"), "home-claude-code");
+    const box = join(home, ".claude", ".credentials.json");
+    expect(readFileSync(box, "utf8")).toBe(login("A", 1000));
+    const cfg = JSON.parse(readFileSync(join(home, ".claude.json"), "utf8"));
+    expect(cfg).toMatchObject({
+      hasCompletedOnboarding: true,
+      oauthAccount: { accountUuid: "acct-1" },
+      projects: { [w.repo]: { hasTrustDialogAccepted: true } },
+    });
+    const sid = s.session_id;
+    // Renewed in the container: carried back, the replaced one backed up.
+    writeFileSync(box, login("B", 2000));
+    await w.until(
+      "the renewal carried back",
+      () => readFileSync(host, "utf8") === login("B", 2000),
+    );
+    const backups = join(w.cl.c.services.paths.home, "containers", "login-backups");
+    expect(readdirSync(backups).map((f) => readFileSync(join(backups, f), "utf8"))).toEqual([
+      login("A", 1000),
+    ]);
+    // Renewed on this machine: carried in.
+    writeFileSync(host, login("C", 3000));
+    await w.until("the renewal carried in", () => readFileSync(box, "utf8") === login("C", 3000));
+    await w.until("the counts", () => w.sessionOf(sid).login?.synced_in === 1);
+    expect(w.sessionOf(sid).login).toMatchObject({ synced_back: 1, synced_in: 1 });
+    // Signed in to another account inside: nothing more is carried back.
+    writeFileSync(
+      join(home, ".claude.json"),
+      JSON.stringify({ ...cfg, oauthAccount: { accountUuid: "acct-2" } }),
+    );
+    writeFileSync(box, login("D", 4000));
+    await w.until("the sync to stop", () => w.sessionOf(sid).login?.stopped !== undefined);
+    expect(w.sessionOf(sid).login?.stopped).toContain("another account");
+    expect(readFileSync(host, "utf8")).toBe(login("C", 3000));
+    // The session ends: the container's copy is gone, this machine's login stays.
+    await w.human(`/api/v1/agent-containers/${sid}/stop`, { body: {} });
+    await w.until("the session to end", () => w.sessionOf(sid).state === "exited");
+    expect(existsSync(box)).toBe(false);
+    expect(readFileSync(host, "utf8")).toBe(login("C", 3000));
+    // --no-login: nothing copied.
+    const own = (await w.start({ login: { copy: false } })).body;
+    expect(own.login).toBeUndefined();
+    expect(existsSync(box)).toBe(false);
   });
 
   test("a runtime that is missing, or an image that is not built, is a refusal", async () => {
@@ -560,7 +630,13 @@ describe("agent container sessions", () => {
       trackingUrl: fake.url,
       trackingIntervalMs: 20,
       settings: SETTINGS,
-      containers: { podman: w.f.podman, tmux: w.f.tmux, monitorMs: 50, cdiSpecs: [] },
+      containers: {
+        podman: w.f.podman,
+        tmux: w.f.tmux,
+        monitorMs: 50,
+        cdiSpecs: [],
+        userHome: h.tmp("ak-user-"),
+      },
     });
     expect(cl2.c.services.containers.get(s.session_id)?.state).toBe("running");
     const who = await fetch("http://localhost/api/v1/whoami", {

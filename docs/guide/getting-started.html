@@ -280,7 +280,15 @@ args = ["mcp"]</code></pre>
         <code>
          --
         </code>
-        go to the harness. Your terminal attaches to the container's. The first time, sign the harness in inside it; the container keeps its own home per project. Detach with Ctrl-b d, and come back with
+        go to the harness. Your terminal attaches to the container's. Claude Code starts signed in with your login from
+        <code>
+         ~/.claude
+        </code>
+        , kept in step while the session runs so neither side is signed out (
+        <code>
+         --no-login
+        </code>
+        signs in inside instead). Codex signs in inside the first time; its home is kept per project. Detach with Ctrl-b d, and come back with
         <code>
          ablationkit agent attach SESSION
         </code>

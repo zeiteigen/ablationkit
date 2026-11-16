@@ -21,7 +21,7 @@ The agent still uses AblationKit through `ablationkit mcp` (inside the container
 1. Install Podman (rootless) and tmux. On Arch Linux: `sudo pacman -S podman passt tmux`.
 2. For GPU jobs, generate a CDI spec once: `sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml`.
 3. `ablationkit agent doctor` checks all three. `ablationkit agent image build` builds the image (Debian with Git, Python and common tools; the harness, bun and uv are mounted from this machine, so the container runs your versions).
-4. Sign the harness in the first time: the container's home is kept per project and harness, so log in inside the first session (Claude Code's `/login`, `codex login`) and it stays signed in.
+4. Claude Code starts signed in (ADR 0063). `ablationkit agent start` copies your login from `~/.claude` (`--login-from DIR` for another configuration directory) and keeps the two in step while the session runs: when either side renews it, the fresher login is carried to the other, so neither is signed out. A renewal is carried back to `~/.claude` only for the same subscription and account, and the file it replaces is backed up under `~/.ablationkit/containers/login-backups/`. The container's copy is deleted when the session ends. `--no-login` signs in inside instead, kept per project. Codex: sign in inside the first session (`codex login`); its home is kept per project.
 
 ## Run a session
 
@@ -77,6 +77,6 @@ These do not hold:
 - Hidden paths inside the checkout stay in Git history.
 - A protected evaluation runs the agent's code with the data mounted; that code could encode what it read in the metrics it logs.
 - Remote targets run jobs where they always did.
-- The harness's own sign-in is in the container's home, readable by the agent.
+- Your Claude Code login is in the container while it runs, readable by the agent. A renewal it makes is carried back to `~/.claude`, so a hostile agent could replace your login with a broken one; a backup is kept. Use `--no-login` to keep a separate login.
 - The checkout is bind-mounted, so the files a session changed include your own edits made meanwhile.
 - HTTPS egress is recorded by host only.

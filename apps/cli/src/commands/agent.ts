@@ -33,7 +33,8 @@ import {
 
 const USAGE = `usage:
   ablationkit agent start [--project ID] [--harness claude-code|codex|shell] [--label TEXT]
-                          [--harness-binary PATH] [--detach] [-- HARNESS_ARGS...]
+                          [--harness-binary PATH] [--no-login | --login-from DIR] [--detach]
+                          [-- HARNESS_ARGS...]
   ablationkit agent attach SESSION
   ablationkit agent list [--project ID]
   ablationkit agent show SESSION
@@ -49,6 +50,8 @@ const USAGE = `usage:
   ablationkit agent doctor
   (most take --json; all but attach and image build take --coordinator URL)
 
+Claude Code starts signed in: your login in ~/.claude (or --login-from DIR) is copied in and kept
+in step while the session runs; --no-login signs in inside instead (ADR 0063).
 Runs your harness in a rootless Podman container (ADR 0061): no GPU, no network but the project's
 egress allowlist, no view of ~/.ablationkit; its local jobs run in job containers with the GPU.
 Detach from the terminal with tmux's prefix and d (Ctrl-b d); \`agent attach\` returns to it.
@@ -72,6 +75,7 @@ interface Session {
   token_id: string;
   attach?: string[];
   boundary: { hidden: string[]; read_only: string[]; egress: string };
+  login?: { source: string; synced_back: number; synced_in: number };
 }
 
 interface EgressRecord {
@@ -166,7 +170,15 @@ export async function agentCommand(argv: readonly string[], ctx: CliContext): Pr
   const dash = argv.indexOf("--");
   const [sub, ...rest] = dash >= 0 ? argv.slice(0, dash) : argv;
   const passthrough = dash >= 0 ? argv.slice(dash + 1) : [];
-  const args = parseArgs(rest, ["json", "detach", "denied", "help", "stdin", "no-enter"]);
+  const args = parseArgs(rest, [
+    "json",
+    "detach",
+    "denied",
+    "help",
+    "stdin",
+    "no-enter",
+    "no-login",
+  ]);
   const asJson = args.flags["json"] === true;
   const coordinator = flag(args, "coordinator");
   if (sub === undefined || sub === "help" || args.flags["help"] === true) {
@@ -223,6 +235,7 @@ export async function agentCommand(argv: readonly string[], ctx: CliContext): Pr
     const uv = findBinary("uv", ctx.env["PATH"]);
     const cwd = process.cwd();
     const label = flag(args, "label");
+    const loginFrom = flag(args, "login-from");
     const name = gitConfig(cwd, "user.name");
     const email = gitConfig(cwd, "user.email");
     const s = await client.request<Session>(
@@ -234,6 +247,10 @@ export async function agentCommand(argv: readonly string[], ctx: CliContext): Pr
         ...(label ? { label } : {}),
         binaries: { ...(harnessBin ? { harness: harnessBin } : {}), ...(uv ? { uv } : {}) },
         git: { ...(name ? { name } : {}), ...(email ? { email } : {}) },
+        login: {
+          copy: args.flags["no-login"] !== true,
+          ...(loginFrom ? { from: resolve(loginFrom) } : {}),
+        },
       },
     );
     if (asJson) {
@@ -244,6 +261,12 @@ export async function agentCommand(argv: readonly string[], ctx: CliContext): Pr
     if (s.boundary.hidden.length) ctx.out(`  hidden: ${s.boundary.hidden.join(", ")}\n`);
     if (s.boundary.read_only.length) ctx.out(`  read-only: ${s.boundary.read_only.join(", ")}\n`);
     ctx.out(`  egress: ${s.boundary.egress}; no GPU; jobs run in job containers\n`);
+    if (s.harness === "claude-code")
+      ctx.out(
+        s.login
+          ? `  login: yours, copied from ${s.login.source} and kept in step while it runs\n`
+          : "  login: none copied (sign in inside the container)\n",
+      );
     if (args.flags["detach"] === true || !s.attach) {
       ctx.out(`attach with: ablationkit agent attach ${s.session_id}\n`);
       return 0;

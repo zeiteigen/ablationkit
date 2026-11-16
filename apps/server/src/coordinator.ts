@@ -117,7 +117,14 @@ export interface CoordinatorOptions {
   readonly containers?: Partial<
     Pick<
       ContainerServiceOptions,
-      "podman" | "tmux" | "tree" | "monitorMs" | "resolve" | "cdiSpecs" | "pauseDelayMs"
+      | "podman"
+      | "tmux"
+      | "tree"
+      | "monitorMs"
+      | "resolve"
+      | "cdiSpecs"
+      | "pauseDelayMs"
+      | "userHome"
     >
   >;
   /** Trace retention sweep interval (tests set 0 to disable). Default one hour. */

@@ -349,6 +349,37 @@ export const ContainerSessionRecord = Type.Object(
           "Shell commands as the harness's own transcript recorded them (the agent can write its home, so this is its account, not the coordinator's record).",
       }),
     ),
+    login: Type.Optional(
+      Type.Object(
+        {
+          source: Type.String({
+            maxLength: 4096,
+            description: "The Claude Code configuration directory the login was copied from.",
+          }),
+          copied_at: Timestamp,
+          synced_back: Type.Integer({
+            minimum: 0,
+            description: "Renewals made in the container and carried back to the source.",
+          }),
+          synced_in: Type.Integer({
+            minimum: 0,
+            description: "Renewals made on this machine and carried into the container.",
+          }),
+          stopped: Type.Optional(
+            Type.String({
+              maxLength: 500,
+              description: "Why keeping the two in step stopped (another account signed in).",
+            }),
+          ),
+        },
+        {
+          title: "ContainerLogin",
+          description:
+            "The researcher's Claude Code login, copied into the container at start and kept in step with the source while the session runs (whichever side renews it, the fresher token is carried to the other); the container's copy is deleted when the session ends.",
+          additionalProperties: false,
+        },
+      ),
+    ),
     control: Type.Array(
       Type.Object(
         {

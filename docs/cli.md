@@ -55,7 +55,7 @@ Run your harness in a rootless Podman container instead of on this machine: no G
 | Task | Commands |
 | --- | --- |
 | Check and prepare | `ablationkit agent doctor` (Podman rootless, tmux, the GPU's CDI spec); `ablationkit agent image build [--tag IMAGE]` builds `localhost/ablationkit-agent:1` once |
-| Start a session | in a registered checkout: `ablationkit agent start [--harness claude-code\|codex\|shell] [--label TEXT] [--harness-binary PATH] [--detach] [-- HARNESS_ARGS…]`. The harness binary and uv are found on your PATH (version-manager shims skipped); the terminal attaches unless `--detach`. Detach with Ctrl-b d |
+| Start a session | in a registered checkout: `ablationkit agent start [--harness claude-code\|codex\|shell] [--label TEXT] [--harness-binary PATH] [--no-login \| --login-from DIR] [--detach] [-- HARNESS_ARGS…]`. Claude Code starts signed in with your `~/.claude` login, kept in step while it runs (ADR 0063). The harness binary and uv are found on your PATH (version-manager shims skipped); the terminal attaches unless `--detach`. Detach with Ctrl-b d |
 | Return to it, list, read | `ablationkit agent attach SESSION`; `agent list [--project ID]`; `agent show SESSION`; `agent screen SESSION` (the terminal now); `agent egress SESSION [--denied]` |
 | Control it | `ablationkit agent pause SESSION [--reason T]` (freezes it), `agent resume SESSION`, `agent stop SESSION` (ends it and its token); also in the web UI |
 | Drive it without a terminal | for another agent (or a script): `ablationkit agent start --detach -- "first prompt"`, then `agent screen SESSION` to read it and `agent send SESSION TEXT… [--stdin] [--keys Enter,Escape] [--no-enter]` to type into it (text is submitted with Enter); each input is audited with its text |

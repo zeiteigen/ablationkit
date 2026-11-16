@@ -76,6 +76,8 @@ export const CONTAINER_ROUTES: readonly Route<HumanHandler>[] = [
       const uv = opt(binaries, "uv");
       const name = opt(git, "name");
       const email = opt(git, "email");
+      const login = (body["login"] ?? {}) as Record<string, unknown>;
+      const loginFrom = opt(login, "from");
       const s = await c.svc.containers.start(
         pid,
         {
@@ -84,6 +86,7 @@ export const CONTAINER_ROUTES: readonly Route<HumanHandler>[] = [
           ...(label ? { label } : {}),
           binaries: { ...(harnessBin ? { harness: harnessBin } : {}), ...(uv ? { uv } : {}) },
           git: { ...(name ? { name } : {}), ...(email ? { email } : {}) },
+          login: { copy: login["copy"] !== false, ...(loginFrom ? { from: loginFrom } : {}) },
         },
         by(c),
       );
