@@ -235,7 +235,7 @@ The researcher runs a harness (Claude Code, Codex or a shell) in a rootless Podm
 | `POST /api/v1/agent-containers/:sid/pause` `{reason?}` | freezes the container (`podman pause`) → `paused`, `paused_by: researcher`. Audited `agent.container.pause` |
 | `POST /api/v1/agent-containers/:sid/resume` | thaws it → `running`. Audited `agent.container.resume` |
 | `POST /api/v1/agent-containers/:sid/stop` `{reason?}` | 202: stops the container; the session ends when the harness has exited. Audited `agent.container.stop` |
-| `GET /api/v1/agent-containers/:sid/screen` | `{session_id, state, text, captured_at}`: the terminal as it is now (`tmux capture-pane`), text only |
+| `GET /api/v1/agent-containers/:sid/screen?ansi=1` | `{session_id, state, text, captured_at}`: the terminal as it is now (`tmux capture-pane`), text only; with `ansi=1` its colours and attributes as SGR escape sequences (the web UI's terminal) |
 | `POST /api/v1/agent-containers/:sid/input` `{text?, keys?: [name], enter?}` | `{session_id, chars, keys}`: types into the running session's terminal (ADR 0062): `text` literally, then `keys` by tmux name (`Enter`, `Escape`, `Tab`, `Up`, `C-c`; at most 64); text is submitted with `Enter` unless `enter: false`. 400 for text over 16384 characters or a key that is not a key name; 409 `container_not_running`; 502 `container_terminal_error`. Audited `agent.container.input` with the text |
 | `GET /api/v1/agent-containers/:sid/egress?outcome=&limit=` | `{records, summary: {connections, allowed: [{host, count, bytes_down}], denied: [{host, count, reason?}]}}`, newest last (`limit` ≤ 5000, default 200) |
 | `GET /api/v1/jobs/:id/attempts/:attemptId/egress` | the same for a job container's attempt with `jobs.network: egress` |

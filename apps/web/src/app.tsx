@@ -25,6 +25,7 @@ import {
   projectNav,
   type RegisteredBackend,
 } from "./nav.ts";
+import { AgentPage, AgentsPage } from "./pages/agents.tsx";
 import { ComputePage } from "./pages/compute.tsx";
 import { DocsPage } from "./pages/docs.tsx";
 import { panelPath, useProjectPanels } from "./pages/extensions.tsx";
@@ -171,7 +172,11 @@ function Shell() {
               <Link
                 key={n.id}
                 to={n.path}
-                className={loc.path === n.path ? "active" : ""}
+                className={
+                  loc.path === n.path || (n.path !== "/" && loc.path.startsWith(`${n.path}/`))
+                    ? "active"
+                    : ""
+                }
                 title={n.contains}
               >
                 {n.label}
@@ -235,6 +240,7 @@ function whereLabel(path: string, projects: readonly Project[]): string {
   }
   if (path === "/system" || path.startsWith("/settings")) return "Settings";
   if (path.startsWith("/docs")) return "Docs";
+  if (path.startsWith("/agents")) return "Agents";
   return GLOBAL_NAV.find((n) => n.path === path)?.label ?? "Home";
 }
 
@@ -348,12 +354,15 @@ function Routes(props: { path: string }) {
   if (pm) return <ProjectRouter pid={pm.pid} rest={pm.rest} />;
   if (props.path === "/docs" || props.path.startsWith("/docs/"))
     return <DocsPage path={props.path} />;
+  const agent = /^\/agents\/(c-[a-f0-9]{12})$/.exec(props.path);
+  if (agent) return <AgentPage sid={agent[1] as string} />;
   switch (props.path) {
     case "/":
       return <HomePage />;
     case "/compute":
-    case "/agents":
       return <ComputePage />;
+    case "/agents":
+      return <AgentsPage />;
     case "/system":
     case "/settings":
     case "/settings/agent-sessions":

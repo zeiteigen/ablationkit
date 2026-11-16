@@ -40,13 +40,20 @@ export interface RegisteredBackend {
   pages: BackendPageDeclaration[];
 }
 
-/** The global layer (ADR 0055): Home and Compute, then the projects. */
+/** The global layer (ADR 0055): Home, Agents (ADR 0065) and Compute, then the projects. */
 export const GLOBAL_NAV: readonly NavItem[] = [
   {
     id: "home",
     label: "Home",
     path: "/",
     contains: "Where each project stands, running jobs, compute this week, the attention inbox",
+  },
+  {
+    id: "agents",
+    label: "Agents",
+    path: "/agents",
+    contains:
+      "The agents in agent containers: live terminals, controls, egress, what each changed and its account",
   },
   {
     id: "compute",

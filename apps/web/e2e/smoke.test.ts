@@ -109,9 +109,9 @@ describe.skipIf(!ENABLED)("web shell smoke (Playwright)", () => {
   test("one-time login link signs the browser in; global navigation matches §2.2 as ADR 0055 calmed it", async () => {
     await page.goto(await stack.loginUrl());
     await page.getByRole("heading", { name: "Home" }).waitFor();
-    // Home and Compute, then the projects, then Settings and Docs at the bottom.
+    // Home, Agents and Compute (ADR 0065), then the projects, then Settings and Docs at the bottom.
     const global = page.getByRole("navigation", { name: "Global" });
-    expect(await global.getByRole("link").allTextContents()).toEqual(["Home", "Compute"]);
+    expect(await global.getByRole("link").allTextContents()).toEqual(["Home", "Agents", "Compute"]);
     const foot = page.getByRole("navigation", { name: "Settings and help" });
     expect(await foot.getByRole("link").allTextContents()).toEqual(["Settings", "Docs"]);
     await page.getByRole("heading", { name: /Attention inbox/ }).waitFor();
@@ -121,6 +121,8 @@ describe.skipIf(!ENABLED)("web shell smoke (Playwright)", () => {
     const bar = page.getByTestId("statusbar");
     await bar.getByText("coordinator ok").waitFor();
     await bar.getByText(/MLflow (external|healthy)/).waitFor();
+    await global.getByRole("link", { name: "Agents" }).click();
+    await page.getByRole("heading", { name: "Agents", exact: true }).waitFor();
     await global.getByRole("link", { name: "Compute" }).click();
     await page.getByRole("heading", { name: "Compute", exact: true }).waitFor();
     await foot.getByRole("link", { name: "Settings" }).click();

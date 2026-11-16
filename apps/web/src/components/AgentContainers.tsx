@@ -10,7 +10,8 @@
 import { useState } from "react";
 import { api, useApi } from "../api.ts";
 import { fmtTime } from "../lib/format.ts";
-import { Badge, ErrorBox, Loading, type Tone, useAction } from "./ui.tsx";
+import { LiveTerminal } from "./Terminal.tsx";
+import { Badge, ErrorBox, Link, Loading, type Tone, useAction } from "./ui.tsx";
 
 export interface ContainerSession {
   session_id: string;
@@ -43,6 +44,8 @@ export interface ContainerSession {
     changed: { name: string; version: string; previous?: string }[];
   };
   commands?: { at?: string; command: string }[];
+  /** Claude Code's login copied in and kept in step (ADR 0063). */
+  login?: { source: string; synced_back: number; synced_in: number; stopped?: string };
 }
 
 interface Runtime {
@@ -72,16 +75,16 @@ interface EgressView {
 }
 
 const enc = encodeURIComponent;
-const LIVE = new Set(["starting", "running", "paused"]);
+export const LIVE = new Set(["starting", "running", "paused"]);
 
-function stateTone(s: ContainerSession["state"]): Tone {
+export function stateTone(s: ContainerSession["state"]): Tone {
   if (s === "running") return "ok";
   if (s === "paused" || s === "starting") return "warn";
   if (s === "failed" || s === "lost") return "err";
   return "neutral";
 }
 
-function stateText(s: ContainerSession): string {
+export function stateText(s: ContainerSession): string {
   if (s.state === "paused")
     return s.paused_by === "compute_limit" ? "paused: compute limit" : "paused";
   if (s.state === "exited") return `exited${s.exit_code !== undefined ? ` (${s.exit_code})` : ""}`;
@@ -151,7 +154,8 @@ export function AgentContainers(props: { pid?: string }) {
               {sessions.map((s) => [
                 <tr key={s.session_id}>
                   <td>
-                    {s.label} <span className="faint small">{s.harness}</span>
+                    <Link to={`/agents/${enc(s.session_id)}`}>{s.label}</Link>{" "}
+                    <span className="faint small">{s.harness}</span>
                     <div className="mono small faint">{s.session_id}</div>
                   </td>
                   {props.pid ? null : <td className="mono small">{s.project_id}</td>}
@@ -250,26 +254,19 @@ export function AgentContainers(props: { pid?: string }) {
 /** The agent's terminal as it is now, read-only. */
 function ContainerTerminal(props: { session: ContainerSession }) {
   const s = props.session;
-  const screen = useApi<{ text: string; captured_at: string }>(
-    `/api/v1/agent-containers/${enc(s.session_id)}/screen`,
-    { pollMs: 2_000 },
-  );
   return (
     <div data-testid="container-terminal">
-      <ErrorBox error={screen.error} />
-      <pre className="console" style={{ whiteSpace: "pre", overflowX: "auto" }}>
-        {screen.data ? screen.data.text || "(nothing on the screen)" : "…"}
-      </pre>
+      <LiveTerminal sid={s.session_id} pollMs={2_000} />
       <p className="faint small">
-        Read-only. To type into it: <code>ablationkit agent attach {s.session_id}</code> (detach
-        with Ctrl-b d).
+        Read-only. <Link to={`/agents/${enc(s.session_id)}`}>Open its page</Link>; to type into it:{" "}
+        <code>ablationkit agent attach {s.session_id}</code> (detach with Ctrl-b d).
       </p>
     </div>
   );
 }
 
 /** Where the container connected through its proxy, and what was refused. */
-function ContainerEgress(props: { session: ContainerSession }) {
+export function ContainerEgress(props: { session: ContainerSession }) {
   const s = props.session;
   const eg = useApi<EgressView>(`/api/v1/agent-containers/${enc(s.session_id)}/egress?limit=100`, {
     pollMs: LIVE.has(s.state) ? 5_000 : 0,

@@ -97,3 +97,31 @@ test("a contained session reads its token file and calls the agent API over the 
     void server.stop(true);
   }
 });
+
+test("ablationkit_wait rides out a coordinator restart instead of failing", async () => {
+  const { waitForJobs } = await import("../src/commands/wait.ts");
+  const { CoordinatorUnavailable } = await import("../src/client.ts");
+  let calls = 0;
+  const progress: string[] = [];
+  const api = {
+    project: "lab",
+    request: async () => {
+      calls++;
+      // The first two polls find no coordinator (restarting), then the job has ended.
+      if (calls <= 2) throw new CoordinatorUnavailable("cannot reach the agent API: ECONNREFUSED");
+      return { job_id: "j-1", state: "succeeded", latest_attempt: { state: "succeeded" } };
+    },
+    text: async () => "",
+  };
+  const out = await waitForJobs(
+    api as never,
+    { jobs: ["j-1"], timeout_sec: 60 },
+    {
+      pollMs: 10,
+      progress: (_d, _t, m) => progress.push(m),
+    },
+  );
+  expect(out["done"]).toBe(true);
+  expect(calls).toBe(3);
+  expect(progress.join("\n")).toContain("not answering (restarting?)");
+}, 20_000);

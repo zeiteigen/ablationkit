@@ -50,7 +50,7 @@ import { COMMANDS, matchCommands, parseInput } from "../src/palette-commands.ts"
 
 describe("information architecture (spec §2.2, ADR 0036)", () => {
   test("global layer: Home and Compute, then Settings and Docs at the bottom (ADR 0055)", () => {
-    expect(GLOBAL_NAV.map((n) => n.label)).toEqual(["Home", "Compute"]);
+    expect(GLOBAL_NAV.map((n) => n.label)).toEqual(["Home", "Agents", "Compute"]);
     expect(GLOBAL_FOOT.map((n) => n.label)).toEqual(["Settings", "Docs"]);
   });
 

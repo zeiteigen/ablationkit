@@ -154,7 +154,12 @@ export const CONTAINER_ROUTES: readonly Route<HumanHandler>[] = [
     method: "GET",
     path: "/api/v1/agent-containers/:sid/screen",
     handler: session("agent.container.screen", (c) =>
-      json(200, c.svc.containers.screen(c.params["sid"] as string)),
+      json(
+        200,
+        c.svc.containers.screen(c.params["sid"] as string, {
+          ansi: c.url.searchParams.get("ansi") === "1",
+        }),
+      ),
     ),
   },
   {

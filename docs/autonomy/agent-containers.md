@@ -39,7 +39,7 @@ In a registered checkout, `ablationkit agent start` starts Claude Code; `--harne
 
 Each input is audited with its text.
 
-Settings → Agent sessions and Project settings → Agents list each session with its state. From there you can:
+**Agents**, in the web UI's main navigation, shows every running agent as a tile with its live terminal; each agent's page has its full terminal, its container's facts, controls, egress, record and account (ADR 0065). Settings → Agent sessions and Project settings → Agents list each session too. From these you can:
 
 - read its terminal (read-only);
 - read its egress, and allow a refused host in one click;

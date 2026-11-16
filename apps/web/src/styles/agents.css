@@ -1,0 +1,74 @@
+/* The Agents page and live terminals (ADR 0065). The terminal keeps a surface of its own: the
+   agents' terminal colours are chosen for a dark screen. */
+.term {
+  --term-bg: #0f1013;
+  --term-fg: #d7dae0;
+  background: var(--term-bg);
+  color: var(--term-fg);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.35;
+  overflow: auto;
+  max-height: 72vh;
+  white-space: pre;
+}
+.term-line {
+  min-height: 1.35em;
+}
+.term-dim {
+  opacity: 0.6;
+}
+.term-compact {
+  font-size: 11px;
+  max-height: 22em;
+  overflow: hidden;
+}
+.agents-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 520px), 1fr));
+  gap: 14px;
+}
+.agent-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.agent-tile header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.agent-tile header .grow {
+  flex: 1;
+  min-width: 0;
+}
+.agent-tile footer .grow,
+.page .row > .grow {
+  flex: 1 1 auto;
+}
+.agent-tile footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.agent-facts {
+  display: flex;
+  gap: 6px 16px;
+  flex-wrap: wrap;
+}
+/* Tiles sit in a grid: no stacking margin between cards. */
+.agents-grid > .card {
+  margin: 0;
+}
+.agent-controls {
+  display: inline-flex;
+  gap: 6px;
+  flex: none;
+}

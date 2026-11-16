@@ -5,6 +5,7 @@
  * writes to the session (directions or an agenda change, which come with the result), and when the
  * cap passes, saying what each job is doing so the agent can wait again.
  */
+import { CoordinatorUnavailable } from "../client.ts";
 import { UsageError } from "../context.ts";
 import type { AgentApi } from "./mcp.ts";
 
@@ -16,6 +17,9 @@ export const WAIT_MAX_SEC = 3600;
 const pollInterval = (): number => Number(process.env["ABLATIONKIT_WAIT_POLL_MS"]) || 5000;
 /** A metric condition reads MLflow: less often than job state. */
 const METRIC_POLL_MS = 15_000;
+/** A coordinator restart takes seconds: a wait rides out this long without an answer. */
+const OUTAGE_GRACE_MS = 120_000;
+const OUTAGE_POLL_MS = 2_000;
 const TERMINAL = new Set([
   "succeeded",
   "failed",
@@ -306,10 +310,28 @@ export async function waitForJobs(api: AgentApi, a: Json, ctx: WaitContext = {})
   const pollMs = ctx.pollMs ?? pollInterval();
   const lastMetric = new Map<string, Json>();
   let lastMetricRead = 0;
+  // When the coordinator went away (restarting), since when: the wait rides it out for a while.
+  let outage: number | undefined;
   for (;;) {
-    const views = await Promise.all(
-      ids.map((id) => api.request<JobView>("GET", `/api/v1/jobs/${enc(id)}`)),
-    );
+    let views: JobView[];
+    try {
+      views = await Promise.all(
+        ids.map((id) => api.request<JobView>("GET", `/api/v1/jobs/${enc(id)}`)),
+      );
+      outage = undefined;
+    } catch (e) {
+      if (!(e instanceof CoordinatorUnavailable)) throw e;
+      outage ??= Date.now();
+      if (Date.now() - outage > OUTAGE_GRACE_MS || Date.now() - started >= timeoutSec * 1000)
+        throw e;
+      ctx.progress?.(
+        Math.round((Date.now() - started) / 1000),
+        timeoutSec,
+        "the coordinator is not answering (restarting?): still waiting",
+      );
+      await sleep(Math.min(OUTAGE_POLL_MS, timeoutSec * 1000 - (Date.now() - started)), ctx.signal);
+      continue;
+    }
     // The researcher wrote while we waited: hand the turn back now (it comes with the result).
     const researcher = (api.pending?.() ?? 0) > 0 || api.agendaWaiting?.() !== undefined;
     const readMetric =

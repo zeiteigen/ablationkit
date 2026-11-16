@@ -496,6 +496,8 @@ describe("agent container sessions", () => {
     const w = await setup();
     const s = (await w.start()).body;
     const sid = s.session_id;
+    // The container is up before it is paused (else the fake's start would overwrite the state).
+    await w.until("podman run", () => existsSync(join(w.f.dir, `ak-agent-${sid}.args`)));
     const paused = await w.human<ContainerSessionRecord>(`/api/v1/agent-containers/${sid}/pause`, {
       body: { reason: "reading" },
     });

@@ -1028,7 +1028,10 @@ export class ContainerService {
   }
 
   /** What the agent's terminal shows now (text, no colours). */
-  screen(sid: string): { session_id: string; state: string; text: string; captured_at: string } {
+  screen(
+    sid: string,
+    opts: { readonly ansi?: boolean } = {},
+  ): { session_id: string; state: string; text: string; captured_at: string } {
     const s = this.require(sid);
     let text = "";
     if (LIVE_STATES.has(s.state)) {
@@ -1039,7 +1042,8 @@ export class ContainerService {
           this.tmuxSocket(sid),
           "capture-pane",
           "-p",
-          "-J",
+          // With colours and attributes as escape sequences (the web UI's terminal); else text.
+          ...(opts.ansi ? ["-e"] : ["-J"]),
           "-t",
           "agent",
         ],
