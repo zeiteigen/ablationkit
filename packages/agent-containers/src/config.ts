@@ -10,12 +10,15 @@ export const DEFAULT_IMAGE = "localhost/ablationkit-agent:1";
 
 /**
  * What a new project's agents may reach besides their harness's own hosts: Python packages, uv's
- * Python downloads (GitHub release assets), PyTorch wheels, Hugging Face, and where papers live.
+ * Python downloads (astral.sh and GitHub release assets), PyTorch wheels (both of its download
+ * hosts), Hugging Face, and where papers live.
  */
 export const DEFAULT_ALLOW: readonly string[] = [
   "pypi.org",
   "files.pythonhosted.org",
   "download.pytorch.org",
+  "download-r2.pytorch.org",
+  "releases.astral.sh",
   "github.com",
   "*.github.com",
   "*.githubusercontent.com",
