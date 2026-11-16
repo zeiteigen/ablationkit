@@ -25,6 +25,11 @@ const ROOT = resolve(import.meta.dir, "../../..");
 const h = new Harness();
 const fakes: FakeMlflow[] = [];
 afterAll(async () => {
+  // Containers outlive the coordinator by design: stop what a failed test left running.
+  for (const c of h.coordinators)
+    for (const s of c.services.containers.list())
+      if (["starting", "running", "paused"].includes(s.state))
+        c.services.containers.podman.stop(s.container, 2);
   await h.cleanup();
   for (const f of fakes.splice(0)) await f.stop();
 });
@@ -125,7 +130,6 @@ describe.skipIf(!E2E)("agent containers on rootless Podman", () => {
       '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"ablationkit_project","arguments":{}}}',
     ].join("\\n");
     const script = [
-      `{`,
       `echo token=$(head -c 4 /run/ablationkit/token)`,
       `echo coordinator_home=$(ls ${cl.c.services.paths.home} 2>/dev/null | wc -l)`,
       `echo user_home=$(ls ${home} 2>/dev/null | wc -l)`,
@@ -134,11 +138,12 @@ describe.skipIf(!E2E)("agent containers on rootless Podman", () => {
       `echo readonly=$(touch data/new 2>/dev/null && echo writable || echo refused)`,
       `echo gpu=$(ls /dev/nvidia* 2>/dev/null | wc -l)`,
       `echo direct=$(curl -sS --noproxy '*' --max-time 5 https://example.com >/dev/null 2>&1 && echo reached || echo blocked)`,
-      `echo proxied=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 https://example.com)`,
-      `echo mcp=$(printf '${mcpIn}\\n' | ablationkit mcp --contained | grep -c '"lab"')`,
-      `} > ${probe} 2>&1; touch ${repo}/agent-wrote-this; exit`,
+      `echo proxied=$(curl -s -o /dev/null -w '%{http_connect}' --max-time 10 https://example.com)`,
+      // stdin stays open a moment: the server answers calls in flight only while its client is there.
+      `echo mcp=$( (printf '${mcpIn}\\n'; sleep 8) | ablationkit mcp --contained | grep -c '"lab"')`,
     ].join("; ");
-    keys(script);
+    const line = `{ ${script}; } > ${probe} 2>&1; touch ${repo}/agent-wrote-this; exit`;
+    keys(line);
     for (let i = 0; i < 600 && cl.c.services.containers.get(sid)?.state === "running"; i++)
       await Bun.sleep(200);
     const s = cl.c.services.containers.get(sid) as ContainerSessionRecord;
@@ -197,6 +202,17 @@ describe.skipIf(!E2E)("agent containers on rootless Podman", () => {
       await Bun.sleep(200);
     }
     expect(svc.jobs.get(job.job_id)?.state).toBe("succeeded");
+    const attempt = svc.jobs.latestAttempt(svc.jobs.get(job.job_id) as never);
+    const con = await fetch(
+      `${svc.urls.human}/api/v1/jobs/${job.job_id}/attempts/${attempt?.attempt_id}/console`,
+      { headers: { authorization: `Bearer ${human}` } },
+    );
+    const text = await con.text();
+    expect(text).toContain("job-ok");
+    expect(text).toContain("hidden=0");
+    expect(attempt?.supervisor.container?.gpu).toBe(
+      existsSync("/var/run/cdi/nvidia.yaml") || existsSync("/etc/cdi/nvidia.yaml") ? "all" : "none",
+    );
     const pause = svc.containers.pause(sid, "e2e");
     expect(pause.state).toBe("paused");
     expect(svc.containers.podman.status(`ak-agent-${sid}`)).toBe("paused");

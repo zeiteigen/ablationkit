@@ -706,8 +706,24 @@ export class ContainerService {
     }
   }
 
-  /** The agent's home: the researcher's Git identity, and AblationKit's Agent Skills linked in. */
+  /**
+   * The agent's home: AblationKit's paths on a login shell's PATH (a login shell's /etc/profile
+   * resets it), the researcher's Git identity, and AblationKit's Agent Skills linked in.
+   */
   private prepareHome(home: string, input: StartInput): void {
+    const profile = join(home, ".profile");
+    let text = "";
+    try {
+      text = readFileSync(profile, "utf8");
+    } catch {
+      // A new home.
+    }
+    if (!text.includes(`${CONTAINER.run}/bin`))
+      appendFileSync(
+        profile,
+        `${text && !text.endsWith("\n") ? "\n" : ""}# Written by AblationKit (ADR 0061): a login shell's /etc/profile resets PATH.\nexport PATH="${CONTAINER.run}/bin:${CONTAINER.bin}:$PATH"\n[ -n "$BASH_VERSION" ] && [ -f "$HOME/.bashrc" ] && . "$HOME/.bashrc"\n`,
+        { mode: 0o600 },
+      );
     const gitconfig = join(home, ".gitconfig");
     if (!existsSync(gitconfig) && (input.git?.name || input.git?.email)) {
       const clean = (s: string) => s.replace(/[\r\n"\\]/g, "").slice(0, 200);
@@ -1119,7 +1135,12 @@ export class ContainerService {
     const endedAt = this.o.now().toISOString();
     const commands = this.commands(s, endedAt);
     const errLog = tail(join(this.sessionDir(s.session_id), "podman.log"), 4000).trim();
-    const failed = how.error !== undefined || (how.exit !== undefined && how.exit >= 125);
+    // Podman's own failures are 125 (Podman), 126 (cannot run) and 127 (not found); 128 + n is a
+    // signal, which is how a stopped container ends.
+    const stopped = s.control.some((c) => c.action === "stop");
+    const failed =
+      how.error !== undefined ||
+      (!stopped && how.exit !== undefined && how.exit >= 125 && how.exit <= 127);
     const state: ContainerSessionRecord["state"] = how.lost ? "lost" : failed ? "failed" : "exited";
     const error = how.error ?? (failed && errLog ? errLog.slice(-2000) : undefined);
     const { paused_by: _p, ...rest } = s;

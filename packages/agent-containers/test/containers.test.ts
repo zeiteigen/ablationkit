@@ -160,7 +160,9 @@ describe("podman command lines", () => {
     expect(s).not.toContain(".ablationkit/run/login.sock");
     expect(s).toContain(`${base.dirs.run}:${CONTAINER.run}:ro`);
     expect(s).toContain("/w/proj:/w/proj:rw");
-    expect(s).toContain("type=tmpfs,destination=/w/proj/eval");
+    expect(s).toContain(
+      "type=tmpfs,destination=/w/proj/eval,tmpfs-mode=0555,tmpfs-size=1m,notmpcopyup",
+    );
     expect(s).toContain("/dev/null:/w/proj/.ablationkit/project.json:ro");
     expect(s).toContain("/w/proj/data:/w/proj/data:ro");
     expect(s).toContain("/host/claude:/opt/ablationkit/bin/claude:ro");

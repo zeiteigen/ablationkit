@@ -108,10 +108,15 @@ function bind(src: string, dst: string, mode: "ro" | "rw"): string[] {
   return ["--volume", `${src}:${dst}:${mode}`];
 }
 
+/**
+ * An empty read-only tmpfs over a directory, `/dev/null` over a file. `notmpcopyup` matters:
+ * Podman copies what is under a tmpfs mount point into it by default, which would show the
+ * hidden files.
+ */
 function maskArgs(masks: readonly Mask[]): string[] {
   return masks.flatMap((m) =>
     m.kind === "dir"
-      ? ["--mount", `type=tmpfs,destination=${m.path},tmpfs-mode=0555,tmpfs-size=1m`]
+      ? ["--mount", `type=tmpfs,destination=${m.path},tmpfs-mode=0555,tmpfs-size=1m,notmpcopyup`]
       : bind("/dev/null", m.path, "ro"),
   );
 }
