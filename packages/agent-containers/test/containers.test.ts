@@ -178,10 +178,11 @@ describe("podman command lines", () => {
     ]);
     expect(a.slice(i + 4)).toEqual([
       "/opt/ablationkit/bin/claude",
-      "--mcp-config",
-      "/run/ablationkit/mcp.json",
       "--model",
       "opus",
+      "--mcp-config",
+      "/run/ablationkit/mcp.json",
+      "--strict-mcp-config",
     ]);
   });
 

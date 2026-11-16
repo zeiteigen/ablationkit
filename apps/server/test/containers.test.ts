@@ -246,7 +246,14 @@ describe("agent container sessions", () => {
     expect(joined).toContain(`${w.repo}/data:${w.repo}/data:ro`);
     expect(joined).toContain(`${w.mount(s.session_id)}:/run/ablationkit:ro`);
     expect(joined).not.toContain(join(w.cl.c.services.paths.home, "run", "login.sock"));
-    expect(args.slice(-2)).toEqual(["--model", "opus"]);
+    // The researcher's arguments (a first prompt among them) before the variadic --mcp-config.
+    expect(args.slice(-5)).toEqual([
+      "--model",
+      "opus",
+      "--mcp-config",
+      "/run/ablationkit/mcp.json",
+      "--strict-mcp-config",
+    ]);
     expect(s.boundary).toMatchObject({ gpu: false, network: "none", egress: "allowlist" });
     expect(s.boundary.hidden).toContain(`${w.repo}/eval`);
     // Listed for the researcher, with the runtime's report.

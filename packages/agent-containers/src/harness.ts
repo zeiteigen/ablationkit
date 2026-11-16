@@ -57,7 +57,16 @@ export function claudeMcpConfig(): Record<string, unknown> {
 export function harnessArgv(harness: ContainerHarness, args: readonly string[]): string[] {
   switch (harness) {
     case "claude-code":
-      return [`${CONTAINER.bin}/claude`, "--mcp-config", `${CONTAINER.run}/mcp.json`, ...args];
+      // `--mcp-config` takes several values: after the researcher's arguments (a first prompt
+      // among them), or it swallows them. Strict: AblationKit's server and no other (no project
+      // `.mcp.json`, no account connectors, which would bypass the egress proxy).
+      return [
+        `${CONTAINER.bin}/claude`,
+        ...args,
+        "--mcp-config",
+        `${CONTAINER.run}/mcp.json`,
+        "--strict-mcp-config",
+      ];
     case "codex":
       return [
         `${CONTAINER.bin}/codex`,
