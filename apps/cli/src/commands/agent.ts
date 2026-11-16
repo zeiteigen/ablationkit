@@ -41,6 +41,7 @@ const USAGE = `usage:
   ablationkit agent resume SESSION
   ablationkit agent stop SESSION [--reason TEXT]
   ablationkit agent screen SESSION
+  ablationkit agent send SESSION [TEXT...] [--stdin] [--keys K1,K2] [--no-enter]
   ablationkit agent egress SESSION [--denied]
   ablationkit agent allow HOST... [--project ID]
   ablationkit agent config [show | edit | set FILE] [--project ID]
@@ -50,7 +51,9 @@ const USAGE = `usage:
 
 Runs your harness in a rootless Podman container (ADR 0061): no GPU, no network but the project's
 egress allowlist, no view of ~/.ablationkit; its local jobs run in job containers with the GPU.
-Detach from the terminal with tmux's prefix and d (Ctrl-b d); \`agent attach\` returns to it.`;
+Detach from the terminal with tmux's prefix and d (Ctrl-b d); \`agent attach\` returns to it.
+Without a terminal of your own (another agent driving this one): \`agent start --detach\`, give
+the first prompt after --, then \`agent screen\` to read it and \`agent send\` to type into it.`;
 
 interface Session {
   session_id: string;
@@ -158,7 +161,7 @@ export async function agentCommand(argv: readonly string[], ctx: CliContext): Pr
   const dash = argv.indexOf("--");
   const [sub, ...rest] = dash >= 0 ? argv.slice(0, dash) : argv;
   const passthrough = dash >= 0 ? argv.slice(dash + 1) : [];
-  const args = parseArgs(rest, ["json", "detach", "denied", "help"]);
+  const args = parseArgs(rest, ["json", "detach", "denied", "help", "stdin", "no-enter"]);
   const asJson = args.flags["json"] === true;
   const coordinator = flag(args, "coordinator");
   if (sub === undefined || sub === "help" || args.flags["help"] === true) {
@@ -301,6 +304,26 @@ export async function agentCommand(argv: readonly string[], ctx: CliContext): Pr
     );
     if (asJson) printJson(ctx, r);
     else ctx.out(`${r.text || `(${r.state}: no terminal)`}\n`);
+    return 0;
+  }
+
+  if (sub === "send") {
+    const sid = sessionArg();
+    const words = args.positional.slice(1);
+    const text =
+      args.flags["stdin"] === true ? (await Bun.stdin.text()).replace(/\n$/, "") : words.join(" ");
+    const keys = (flag(args, "keys") ?? "")
+      .split(",")
+      .map((k) => k.trim())
+      .filter(Boolean);
+    if (!text && !keys.length) throw new UsageError("give the text to type, --stdin or --keys");
+    const r = await client.request<{ chars: number; keys: string[] }>(
+      "POST",
+      `/api/v1/agent-containers/${enc(sid)}/input`,
+      { ...(text ? { text } : {}), keys, enter: args.flags["no-enter"] !== true },
+    );
+    if (asJson) printJson(ctx, r);
+    else ctx.out(`sent ${r.chars} characters${r.keys.length ? ` and ${r.keys.join(" ")}` : ""}\n`);
     return 0;
   }
 

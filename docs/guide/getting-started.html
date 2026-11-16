@@ -372,6 +372,25 @@ args = ["mcp"]</code></pre>
       </li>
      </ol>
      <p>
+      An agent of yours on this machine, outside a container, acts for you and may use the whole
+      <code>
+       ablationkit
+      </code>
+      command, including restarting the coordinator. It can start a contained agent with
+      <code>
+       ablationkit agent start --detach -- "first prompt"
+      </code>
+      , read its terminal with
+      <code>
+       ablationkit agent screen SESSION
+      </code>
+      and type into it with
+      <code>
+       ablationkit agent send SESSION TEXT
+      </code>
+      ; each input is recorded with its text.
+     </p>
+     <p>
       Limits: the agent can still run CPU experiments in its shell within the container's limits. Hidden files inside the checkout stay in Git history, so keep protected data out of the repository. HTTPS connections are recorded by host only. The container sees your real checkout, so its record of changed files includes your own edits made meanwhile.
      </p>
     </section>

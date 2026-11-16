@@ -8,7 +8,7 @@ An opt-in hardened mode (ADR 0061). Normally an agent runs in your harness as yo
 | --- | --- | --- |
 | GPU | the agent's shell can use it | none: GPU work runs as jobs, which the compute limit and the witness count |
 | Network | your harness's sandbox decides | none of its own: an egress proxy applies the project's allowlist, connects only to public addresses and records every connection |
-| AblationKit's home and login socket | reachable unless the agent guard holds | not mounted: the session's token is the only way in, and it is bound to the project |
+| AblationKit's home and login socket | reachable: an agent on your machine is your operator and may use the whole CLI | not mounted: the session's token is the only way in, and it is bound to the project |
 | Hidden data (held-out sets, evaluation code) | readable | not mounted (outside the checkout) or masked (inside it) |
 | Local jobs | run on this machine as you | run in job containers: the GPU through CDI, no network unless allowed, hidden paths masked |
 | Extension builds and runs | allowed by the policy | refused by default: they run project code on this machine outside a container |
@@ -30,6 +30,14 @@ In a registered checkout, `ablationkit agent start` starts Claude Code; `--harne
 - what changed in the checkout;
 - what changed in the project's environment;
 - the shell commands the harness's transcript holds.
+
+**Driving a session from another agent.** An agent of yours on the host (or a script) has no terminal to attach. It can:
+
+1. Start the session with `ablationkit agent start --detach -- "first prompt"`; Claude Code takes a prompt as its argument.
+2. Read the session's screen with `ablationkit agent screen SESSION`.
+3. Type into it with `ablationkit agent send SESSION TEXT…`. The text is submitted with Enter; `--stdin` reads a longer prompt, `--keys Escape,Enter` sends named keys, and `--no-enter` leaves the text unsubmitted.
+
+Each input is audited with its text.
 
 Settings → Agent sessions and Project settings → Agents list each session with its state. From there you can:
 

@@ -130,6 +130,24 @@ export const CONTAINER_ROUTES: readonly Route<HumanHandler>[] = [
     }),
   },
   {
+    method: "POST",
+    path: "/api/v1/agent-containers/:sid/input",
+    handler: session("agent.container.input", async (c) => {
+      const body = await readJsonBody(c.req);
+      const text = str(body, "text", { optional: true });
+      const keys = strings(body["keys"], "keys", 64);
+      // Text is submitted with Enter unless `enter: false`.
+      const enter = body["enter"] !== false && text !== undefined && text.length > 0;
+      return json(
+        200,
+        c.svc.containers.input(c.params["sid"] as string, by(c), {
+          ...(text ? { text } : {}),
+          keys: enter ? [...keys, "Enter"] : keys,
+        }),
+      );
+    }),
+  },
+  {
     method: "GET",
     path: "/api/v1/agent-containers/:sid/screen",
     handler: session("agent.container.screen", (c) =>

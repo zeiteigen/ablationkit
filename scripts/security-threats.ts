@@ -64,7 +64,7 @@ export const AREAS: readonly Area[] = [
           srv("security-agent", "a misbehaving agent cannot widen anything through its own API"),
         ],
         limit:
-          "The session is the only gate: whoever holds one (a stolen cookie or CLI session file, or a process running as the researcher that asks the login socket for a link) can make privileged writes. Agents working through `ablationkit mcp` cannot; one that goes around it as the researcher's user (the login socket, `~/.ablationkit`) can, unless its harness's sandbox denies it that directory (ADR 0040; the agent guard writes that denial for Claude Code and Codex, AUTH-10) or it runs in an agent container (CTR-1).",
+          "The session is the only gate: whoever holds one (a stolen cookie or CLI session file, or a process running as the researcher that asks the login socket for a link) can make privileged writes. Agents working through `ablationkit mcp` cannot; one that goes around it as the researcher's user (the login socket, `~/.ablationkit`) can. For an agent on the researcher's machine that is by design since ADR 0062: it is their operator and may use the whole CLI. An agent in an agent container cannot (CTR-1); an uncontained one is kept out only by its harness's sandbox (the opt-in agent guard, AUTH-10).",
       },
       {
         id: "AUTH-4",
@@ -151,25 +151,23 @@ export const AREAS: readonly Area[] = [
           unit(MCP, "the token stays inside; ending it revokes it"),
         ],
         limit:
-          "A session token is identity, not a boundary. The socket answers any process running as the researcher, and the same socket's `/login` gives out a human login link: an agent that can reach `~/.ablationkit/run/login.sock` (or the CLI's saved session) can act as the researcher. Only the harness's sandbox, denying the agent `~/.ablationkit`, stops that (AUTH-10 writes that denial into registered checkouts). Anyone holding a session's token is that session to AblationKit.",
+          "A session token is identity, not a boundary, except in an agent container (CTR-1). The socket answers any process running as the researcher, and the same socket's `/login` gives out a human login link: an agent that can reach `~/.ablationkit/run/login.sock` (or the CLI's saved session) can act as the researcher, which for an agent on the host is by design (ADR 0062). Only the harness's sandbox, denying the agent `~/.ablationkit`, stops an uncontained one (the opt-in agent guard, AUTH-10). Anyone holding a session's token is that session to AblationKit.",
       },
       {
         id: "AUTH-10",
         threat:
-          "An agent working in a registered checkout reads `~/.ablationkit` (the login socket, the CLI's saved session) or the coordinator-owned parts of the project's `.ablationkit/` and acts as the researcher",
+          "An uncontained agent the researcher does not want acting for them, working in a registered checkout, reads `~/.ablationkit` (the login socket, the CLI's saved session) or the coordinator-owned parts of the project's `.ablationkit/` and acts as the researcher",
         control:
-          "The agent guard (ADR 0041): registering or remapping a project, `ablationkit project guard` and `scripts/setup.sh` merge Claude Code deny rules and sandbox entries into the checkout's `.claude/settings.local.json` and add a Codex permission profile (`ablationkit-guard`, the default) to `.codex/config.toml`, both denying the coordinator home and the coordinator-owned parts of `.ablationkit/` (`project.json`, `research/`, `conversations/`, `llm/`; extension source stays open, ADR 0044). Existing settings are kept; a Codex config that already chose a sandbox is reported, not edited; created files go in `.git/info/exclude`",
+          "The agent guard (ADR 0041), opt-in since ADR 0062 (agents on the host are the researcher's operators; execution agents belong in agent containers, CTR-1): `ablationkit project guard` and `scripts/setup.sh --guard` merge Claude Code deny rules and sandbox entries into the checkout's `.claude/settings.local.json` and add a Codex permission profile (`ablationkit-guard`, the default) to `.codex/config.toml`, both denying the coordinator home and the coordinator-owned parts of `.ablationkit/` (`project.json`, `research/`, `conversations/`, `llm/`; extension source stays open, ADR 0044). Existing settings are kept; a Codex config that already chose a sandbox is reported, not edited; created files go in `.git/info/exclude`",
         level: "advisory",
         proofs: [
           srv("agent-guard", "a fresh checkout gets the deny rules and sandbox entries"),
           srv("agent-guard", "a fresh checkout gets the profile as the default"),
           srv("agent-guard", "a config that already chose a sandbox is skipped"),
           srv("agent-guard", "created files go in .git/info/exclude once"),
-          srv("coordinator", "registration and remap apply the agent guard to the checkout"),
-          unit(
-            "apps/cli/test/commands.test.ts",
-            "project guard re-applies it without a coordinator",
-          ),
+          srv("coordinator", "registration and remap write no agent guard into the checkout"),
+          srv("agent-guard", "only the guard's entries go; the researcher's own stay"),
+          unit("apps/cli/test/commands.test.ts", "project guard applies it on request"),
         ],
         limit:
           "AblationKit writes the configuration; the harness enforces it. Claude Code's permission rules bind its own file tools and the Bash file commands it recognizes, not arbitrary programs (a Python one-liner or a socket client); its sandbox entries bind Bash at the OS level only when the researcher turns on `sandbox.enabled`, which the guard never sets. Codex enforces its profile with bubblewrap and seccomp (measured with codex-cli 0.167.0: the home, the login socket and the owned `.ablationkit/` paths refused, `extensions/` writable), but only for a trusted project and when no `--sandbox` or legacy `sandbox_mode` takes precedence. Neither covers an agent run outside these harnesses or with their sandbox bypassed, and a Codex agent can still edit `.claude/settings.local.json`.",

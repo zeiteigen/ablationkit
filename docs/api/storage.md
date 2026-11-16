@@ -113,7 +113,7 @@ Written by the coordinator to the registered main checkout only, for the researc
 
 Secret-looking strings are withheld from these files. A file that differs from what the last export wrote is copied to `state/<project-id>/research/drift/` and rewritten.
 
-**The agent guard** (ADR 0041) also writes outside `.ablationkit/`, at registration, remap and `ablationkit project guard`: it merges deny rules into `<checkout>/.claude/settings.local.json` and two marked blocks (`# >>> ablationkit-guard:default`, `# >>> ablationkit-guard:profile`) into `<checkout>/.codex/config.toml`. A file it creates is listed in `.git/info/exclude`.
+**The agent guard** (ADR 0041; opt-in since ADR 0062) writes outside `.ablationkit/`, but only when the researcher runs `ablationkit project guard` (`ablationkit project unguard` takes exactly its entries out again): it merges deny rules into `<checkout>/.claude/settings.local.json` and two marked blocks (`# >>> ablationkit-guard:default`, `# >>> ablationkit-guard:profile`) into `<checkout>/.codex/config.toml`. A file it creates is listed in `.git/info/exclude`.
 
 ## Remote worker directory (`<work_dir>/<attempt-id>/` on the target)
 

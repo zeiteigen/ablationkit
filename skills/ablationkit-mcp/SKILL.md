@@ -50,6 +50,14 @@ words. Call it again to keep waiting; do other work between calls if there is an
 - Everything you create (jobs, records, tasks) is attributed to your session. That is identity,
   not a sandbox: the project policy and the compute limit apply to you, and the researcher sees
   what you did.
+- **On the researcher's machine, outside a container** (no `ABLATIONKIT_CONTAINED`): you are
+  their operator and may also use the `ablationkit` CLI as they would (ADR 0062):
+  - restart the coordinator after changing its code;
+  - start an agent container and drive it: `ablationkit agent start --detach -- "prompt"`, then
+    `agent screen SESSION` and `agent send SESSION TEXT`.
+
+  CLI calls are recorded as the researcher's, so say what you did in your report. Report your
+  own research through the tools here.
 - **In an agent container** (`ABLATIONKIT_CONTAINED=1` in your environment): the researcher
   started your harness in a rootless container. You have no GPU, so run GPU work as jobs, which
   go to job containers with the GPU. Jobs have no network by default, so run `uv sync` in your

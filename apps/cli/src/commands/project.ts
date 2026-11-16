@@ -1,6 +1,7 @@
 /**
  * `ablationkit project add|list|show|remap|doctor` over the human API (spec §12), and
- * `project guard`, which applies the agent guard (ADR 0041) from the registry file directly.
+ * `project guard` / `project unguard`, which apply or take out the agent guard (ADR 0041; opt-in
+ * since ADR 0062) from the registry file directly.
  */
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
@@ -10,6 +11,7 @@ import {
   type AgentGuardFile,
   applyAgentGuard,
   codexUserNotes,
+  removeAgentGuard,
   runtimePaths,
 } from "@ablationkit/server";
 import { CoordinatorClient } from "../client.ts";
@@ -34,8 +36,9 @@ const USAGE = `usage:
   ablationkit project show PROJECT_ID
   ablationkit project remap PROJECT_ID NEW_PATH
   ablationkit project doctor --project PROJECT_ID
-  ablationkit project guard PROJECT_ID | --all
-  (all take --json; all but guard take --coordinator URL)`;
+  ablationkit project guard PROJECT_ID | --all     opt-in: keep agents on this machine out of .ablationkit
+  ablationkit project unguard PROJECT_ID | --all   take the agent guard out again
+  (all take --json; all but guard and unguard take --coordinator URL)`;
 
 /** Print what the agent guard did to a checkout, and the user-level Codex notes. */
 function printGuard(
@@ -74,17 +77,12 @@ export async function projectCommand(argv: readonly string[], ctx: CliContext): 
     const r = await client.request<{
       project: Project;
       manifest_created: boolean;
-      agent_guard?: AgentGuardFile[];
     }>("POST", "/api/v1/projects", body);
-    // The user-level Codex config is read here, in the researcher's environment.
-    const notes = coordinator ? [] : codexUserNotes(r.project.path, ctx.env);
-    if (asJson) printJson(ctx, { ...r, ...(notes.length ? { codex_notes: notes } : {}) });
-    else {
+    if (asJson) printJson(ctx, r);
+    else
       ctx.out(
         `registered ${r.project.project_id} at ${r.project.path}${r.manifest_created ? " (wrote .ablationkit/project.json)\ncommit it: git add .ablationkit/project.json && git commit (remote runs and candidates use the committed tree)" : ""}\n`,
       );
-      printGuard(ctx, r.agent_guard ?? [], notes);
-    }
     return 0;
   }
   if (sub === "list") {
@@ -115,21 +113,18 @@ export async function projectCommand(argv: readonly string[], ctx: CliContext): 
     const [id, p] = args.positional;
     if (!id) throw new UsageError(USAGE);
     const client = await CoordinatorClient.connect(ctx, coordinator);
-    const r = await client.request<{
-      project: Project;
-      changed: boolean;
-      agent_guard?: AgentGuardFile[];
-    }>("POST", `/api/v1/projects/${encodeURIComponent(id)}/remap`, { path: pathArg(p) });
-    const notes = coordinator || !r.changed ? [] : codexUserNotes(r.project.path, ctx.env);
-    if (asJson) printJson(ctx, { ...r, ...(notes.length ? { codex_notes: notes } : {}) });
-    else {
+    const r = await client.request<{ project: Project; changed: boolean }>(
+      "POST",
+      `/api/v1/projects/${encodeURIComponent(id)}/remap`,
+      { path: pathArg(p) },
+    );
+    if (asJson) printJson(ctx, r);
+    else
       ctx.out(
         r.changed
           ? `remapped ${id} to ${r.project.path}\n`
           : `${id} is already at ${r.project.path}\n`,
       );
-      printGuard(ctx, r.agent_guard ?? [], notes);
-    }
     return 0;
   }
   if (sub === "doctor") {
@@ -147,21 +142,28 @@ export async function projectCommand(argv: readonly string[], ctx: CliContext): 
     }
     return r.status === "fail" ? 1 : 0;
   }
-  if (sub === "guard")
-    return guardCommand(args.positional[0], args.flags["all"] === true, asJson, ctx);
+  if (sub === "guard" || sub === "unguard")
+    return guardCommand(
+      args.positional[0],
+      args.flags["all"] === true,
+      asJson,
+      ctx,
+      sub === "unguard",
+    );
   throw new UsageError(USAGE);
 }
 
 /**
- * Apply the agent guard to registered checkouts, straight from `<home>/registry.json`: it needs
- * no running coordinator, and it runs as the researcher, who owns both the home and the
- * checkouts. Exit 0 unless a named project is unknown.
+ * Apply the agent guard to registered checkouts, or take it out (`remove`), straight from
+ * `<home>/registry.json`: it needs no running coordinator, and it runs as the researcher, who
+ * owns both the home and the checkouts. Exit 0 unless a named project is unknown.
  */
 function guardCommand(
   id: string | undefined,
   all: boolean,
   asJson: boolean,
   ctx: CliContext,
+  remove = false,
 ): number {
   if (!all && !id) throw new UsageError(USAGE);
   if (all && id) throw new UsageError("give a project ID or --all, not both");
@@ -187,10 +189,12 @@ function guardCommand(
       project_id: p.project_id,
       path: p.path,
       ...(present
-        ? {
-            agent_guard: applyAgentGuard(p.path, ctx.home),
-            codex_notes: codexUserNotes(p.path, ctx.env),
-          }
+        ? remove
+          ? { agent_guard: removeAgentGuard(p.path, ctx.home) }
+          : {
+              agent_guard: applyAgentGuard(p.path, ctx.home),
+              codex_notes: codexUserNotes(p.path, ctx.env),
+            }
         : { missing: true as const }),
     };
   });

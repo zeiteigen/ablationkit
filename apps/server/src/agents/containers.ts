@@ -877,6 +877,63 @@ export class ContainerService {
     return p.exitCode === 0;
   }
 
+  /**
+   * Type into the agent's terminal (ADR 0062): `text` literally, then `keys` by tmux name
+   * (`Enter`, `Escape`, `C-c`, `Up`, …). How the researcher, or an agent of theirs on the host,
+   * drives a contained agent without attaching. Audited with what was typed.
+   */
+  input(
+    sid: string,
+    by: string,
+    what: { readonly text?: string; readonly keys?: readonly string[] },
+  ): { session_id: string; chars: number; keys: readonly string[] } {
+    const s = this.require(sid);
+    if (s.state !== "running")
+      throw new HttpError(409, "container_not_running", `${sid} is ${s.state}, not running`);
+    const text = what.text ?? "";
+    const keys = what.keys ?? [];
+    if (text.length > 16_384)
+      throw new HttpError(400, "invalid_request", "`text` is at most 16384 characters");
+    if (keys.length > 64 || keys.some((k) => !/^[A-Za-z0-9-]{1,24}$/.test(k)))
+      throw new HttpError(
+        400,
+        "invalid_request",
+        "`keys` are tmux key names such as Enter, Escape, Tab, Up, C-c (at most 64)",
+      );
+    if (!text && !keys.length)
+      throw new HttpError(400, "invalid_request", "give `text`, `keys` or both");
+    const tmux = this.runtime().tmux ?? this.tmux;
+    const send = (args: string[]) => {
+      const p = Bun.spawnSync(
+        [tmux, "-S", this.tmuxSocket(sid), "send-keys", "-t", "agent", ...args],
+        {
+          stdin: "ignore",
+          stdout: "pipe",
+          stderr: "pipe",
+          timeout: 10_000,
+        },
+      );
+      if (p.exitCode !== 0)
+        throw new HttpError(
+          502,
+          "container_terminal_error",
+          p.stderr.toString().trim().slice(0, 500) || "tmux send-keys failed",
+        );
+    };
+    if (text) send(["-l", "--", text]);
+    if (keys.length) send(keys as string[]);
+    this.o.svc().audit.record({
+      actor: { kind: "human", id: by },
+      listener: "human",
+      action: "agent.container.input",
+      outcome: "allowed",
+      project_id: s.project_id,
+      target: sid,
+      details: { text: text.slice(0, 2000), chars: text.length, keys: [...keys] },
+    });
+    return { session_id: sid, chars: text.length, keys };
+  }
+
   /** What the agent's terminal shows now (text, no colours). */
   screen(sid: string): { session_id: string; state: string; text: string; captured_at: string } {
     const s = this.require(sid);

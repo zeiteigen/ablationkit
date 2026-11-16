@@ -22,7 +22,7 @@ Tests marked with a script name need that script (`bun run test:web`, `bun run t
 
 **Control:** Privileged writes exist only on the human API and need a human session; agent and worker tokens are refused there and their listeners have no such routes. No second factor (ADR 0037). **Level:** authoritative.
 
-**Limit:** The session is the only gate: whoever holds one (a stolen cookie or CLI session file, or a process running as the researcher that asks the login socket for a link) can make privileged writes. Agents working through `ablationkit mcp` cannot; one that goes around it as the researcher's user (the login socket, `~/.ablationkit`) can, unless its harness's sandbox denies it that directory (ADR 0040; the agent guard writes that denial for Claude Code and Codex, AUTH-10) or it runs in an agent container (CTR-1).
+**Limit:** The session is the only gate: whoever holds one (a stolen cookie or CLI session file, or a process running as the researcher that asks the login socket for a link) can make privileged writes. Agents working through `ablationkit mcp` cannot; one that goes around it as the researcher's user (the login socket, `~/.ablationkit`) can. For an agent on the researcher's machine that is by design since ADR 0062: it is their operator and may use the whole CLI. An agent in an agent container cannot (CTR-1); an uncontained one is kept out only by its harness's sandbox (the opt-in agent guard, AUTH-10).
 
 - `listeners.test.ts`: privileged human actions are on the human table only
 - `listeners.test.ts`: privileged human routes do not exist there
@@ -76,16 +76,16 @@ Tests marked with a script name need that script (`bun run test:web`, `bun run t
 
 **Control:** `POST /agent-sessions` mints only an agent token, for one registered project, labelled with a validated harness and an absolute directory; it issues no login code and no session. A session ends when `ablationkit mcp` closes (by its own token), after 12 hours without a request, 7 days after it began, or when the researcher ends it in Settings; each start, end and expiry is audited (ADR 0040). **Level:** enforced.
 
-**Limit:** A session token is identity, not a boundary. The socket answers any process running as the researcher, and the same socket's `/login` gives out a human login link: an agent that can reach `~/.ablationkit/run/login.sock` (or the CLI's saved session) can act as the researcher. Only the harness's sandbox, denying the agent `~/.ablationkit`, stops that (AUTH-10 writes that denial into registered checkouts). Anyone holding a session's token is that session to AblationKit.
+**Limit:** A session token is identity, not a boundary, except in an agent container (CTR-1). The socket answers any process running as the researcher, and the same socket's `/login` gives out a human login link: an agent that can reach `~/.ablationkit/run/login.sock` (or the CLI's saved session) can act as the researcher, which for an agent on the host is by design (ADR 0062). Only the harness's sandbox, denying the agent `~/.ablationkit`, stops an uncontained one (the opt-in agent guard, AUTH-10). Anyone holding a session's token is that session to AblationKit.
 
 - `listeners.test.ts`: the login socket mints only agent tokens for a registered project
 - `listeners.test.ts`: a session ends with its own token, after 12 idle hours, or by the researcher
 - `mcp.test.ts`: the stdio server ends its session when the harness closes stdin
 - `mcp.test.ts`: the token stays inside; ending it revokes it
 
-### AUTH-10: An agent working in a registered checkout reads `~/.ablationkit` (the login socket, the CLI's saved session) or the coordinator-owned parts of the project's `.ablationkit/` and acts as the researcher
+### AUTH-10: An uncontained agent the researcher does not want acting for them, working in a registered checkout, reads `~/.ablationkit` (the login socket, the CLI's saved session) or the coordinator-owned parts of the project's `.ablationkit/` and acts as the researcher
 
-**Control:** The agent guard (ADR 0041): registering or remapping a project, `ablationkit project guard` and `scripts/setup.sh` merge Claude Code deny rules and sandbox entries into the checkout's `.claude/settings.local.json` and add a Codex permission profile (`ablationkit-guard`, the default) to `.codex/config.toml`, both denying the coordinator home and the coordinator-owned parts of `.ablationkit/` (`project.json`, `research/`, `conversations/`, `llm/`; extension source stays open, ADR 0044). Existing settings are kept; a Codex config that already chose a sandbox is reported, not edited; created files go in `.git/info/exclude`. **Level:** advisory.
+**Control:** The agent guard (ADR 0041), opt-in since ADR 0062 (agents on the host are the researcher's operators; execution agents belong in agent containers, CTR-1): `ablationkit project guard` and `scripts/setup.sh --guard` merge Claude Code deny rules and sandbox entries into the checkout's `.claude/settings.local.json` and add a Codex permission profile (`ablationkit-guard`, the default) to `.codex/config.toml`, both denying the coordinator home and the coordinator-owned parts of `.ablationkit/` (`project.json`, `research/`, `conversations/`, `llm/`; extension source stays open, ADR 0044). Existing settings are kept; a Codex config that already chose a sandbox is reported, not edited; created files go in `.git/info/exclude`. **Level:** advisory.
 
 **Limit:** AblationKit writes the configuration; the harness enforces it. Claude Code's permission rules bind its own file tools and the Bash file commands it recognizes, not arbitrary programs (a Python one-liner or a socket client); its sandbox entries bind Bash at the OS level only when the researcher turns on `sandbox.enabled`, which the guard never sets. Codex enforces its profile with bubblewrap and seccomp (measured with codex-cli 0.167.0: the home, the login socket and the owned `.ablationkit/` paths refused, `extensions/` writable), but only for a trusted project and when no `--sandbox` or legacy `sandbox_mode` takes precedence. Neither covers an agent run outside these harnesses or with their sandbox bypassed, and a Codex agent can still edit `.claude/settings.local.json`.
 
@@ -93,8 +93,9 @@ Tests marked with a script name need that script (`bun run test:web`, `bun run t
 - `agent-guard.test.ts`: a fresh checkout gets the profile as the default
 - `agent-guard.test.ts`: a config that already chose a sandbox is skipped
 - `agent-guard.test.ts`: created files go in .git/info/exclude once
-- `coordinator.test.ts`: registration and remap apply the agent guard to the checkout
-- `commands.test.ts`: project guard re-applies it without a coordinator
+- `coordinator.test.ts`: registration and remap write no agent guard into the checkout
+- `agent-guard.test.ts`: only the guard's entries go; the researcher's own stay
+- `commands.test.ts`: project guard applies it on request
 
 ## Agent containers
 

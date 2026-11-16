@@ -46,7 +46,8 @@ commands:
   project list | show ID             list or show registered projects
   project remap ID PATH              point a project at its moved checkout
   project doctor --project ID        check a project's checkout, manifest and state
-  project guard ID | --all           keep agents in a checkout out of .ablationkit (ADR 0041)
+  project guard ID | --all           opt-in: keep agents in a checkout out of .ablationkit (ADR 0041)
+  project unguard ID | --all         take the agent guard out of a checkout (ADR 0062)
   vault show | check [--project ID]  where a project stands (its ledger and shelf); what its notes lack
   vault works | cite [--format F]    the library of prior work its notes cite, and its citations
                                      (BibTeX, CSL-JSON, Markdown; the role each work played) (ADR 0052)
@@ -76,7 +77,7 @@ commands:
                                      (claude mcp add ablationkit -- ablationkit mcp)
   agent start [--harness H] [-- ARGS] run your harness in an agent container (ADR 0061): rootless
                                      Podman, no GPU, egress allowlist, jobs in job containers
-  agent attach | list | show | pause | resume | stop | screen | egress SESSION
+  agent attach | list | show | pause | resume | stop | screen | send | egress SESSION
   agent allow HOST… | config [show|edit|set FILE] | image build | doctor
 
 Most commands take --json. Remote use: --coordinator URL (or ABLATIONKIT_COORDINATOR).

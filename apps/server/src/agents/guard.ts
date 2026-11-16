@@ -1,9 +1,12 @@
 /**
  * The agent guard (ADR 0041): project-scoped rules that keep Claude Code and Codex, working in a
  * registered checkout, out of the coordinator home (`~/.ablationkit`: the login socket and the
- * CLI's saved human session, ADR 0040) and the project's own `.ablationkit/`. The coordinator
- * applies it when a project is registered or remapped; `ablationkit project guard` (run by
- * `scripts/setup.sh`) applies it to checkouts registered before.
+ * CLI's saved human session, ADR 0040) and the project's own `.ablationkit/`.
+ *
+ * Opt-in since ADR 0062: agents on the host are the researcher's operators, and execution agents
+ * are contained in agent containers (ADR 0061). Registration no longer applies it.
+ * `ablationkit project guard` applies it to a checkout, for a researcher who still runs execution
+ * agents on the host; `ablationkit project unguard` takes out exactly what it wrote.
  *
  * - Claude Code: `<checkout>/.claude/settings.local.json` (per machine, never committed), merged:
  *   `permissions.deny` rules and `sandbox.filesystem.denyRead`/`denyWrite` entries are added,
@@ -25,6 +28,7 @@ import {
   readFileSync,
   realpathSync,
   renameSync,
+  rmdirSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -32,7 +36,7 @@ import { homedir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { readGit } from "@ablationkit/core";
 
-export type AgentGuardAction = "created" | "updated" | "unchanged" | "skipped";
+export type AgentGuardAction = "created" | "updated" | "unchanged" | "skipped" | "removed";
 
 export interface AgentGuardFile {
   readonly harness: "claude-code" | "codex";
@@ -453,6 +457,115 @@ export function codexUserNotes(
       `${file} sets ${cfg["sandbox_mode"] !== undefined ? "sandbox_mode" : "[sandbox_workspace_write]"}; Codex's docs say legacy sandbox settings make it ignore default_permissions (codex-cli 0.167.0 still applied the project's profile over a user-level setting, but --sandbox or -c sandbox_mode does override it)`,
     );
   return notes;
+}
+
+// --- Removal (ADR 0062) -----------------------------------------------------------------------
+
+/**
+ * Take the guard out of one checkout: the entries it adds to `.claude/settings.local.json` (and
+ * those it wrote before ADR 0044), and its two marked blocks in `.codex/config.toml`. Nothing else
+ * in either file changes; a list, object or file the guard's entries alone made up goes with them.
+ * Never throws: a file it cannot read or write is reported `skipped`.
+ */
+export function removeAgentGuard(
+  checkout: string,
+  home: string,
+  opts: AgentGuardOptions = {},
+): AgentGuardFile[] {
+  const refs = guardHomeRefs(home, opts.userHome);
+  return [
+    unguarded("claude-code", checkout, CLAUDE_FILE, () => claudeUnguard(checkout, refs)),
+    unguarded("codex", checkout, CODEX_FILE, () => codexUnguard(checkout)),
+  ];
+}
+
+function unguarded(
+  harness: AgentGuardFile["harness"],
+  checkout: string,
+  rel: string,
+  run: () => Omit<AgentGuardFile, "harness" | "file">,
+): AgentGuardFile {
+  const file = join(checkout, rel);
+  try {
+    const link = symlinkOnPath(checkout, rel);
+    if (link) throw new Skip(`${link} is a symbolic link; AblationKit does not write through it`);
+    return { harness, file, ...run() };
+  } catch (e) {
+    const note = e instanceof Skip ? e.message : `cannot change it: ${(e as Error).message}`;
+    return { harness, file, action: "skipped", note };
+  }
+}
+
+/** Remove `values` from `parent[key]`; the key goes too when nothing else was in the list. */
+function without(parent: Json, key: string, values: readonly string[]): void {
+  const v = parent[key];
+  if (!Array.isArray(v)) return;
+  const kept = v.filter((x) => !values.includes(x as string));
+  if (kept.length) parent[key] = kept;
+  else delete parent[key];
+}
+
+function pruneEmpty(parent: Json, key: string): void {
+  const v = parent[key];
+  if (isObject(v) && Object.keys(v).length === 0) delete parent[key];
+}
+
+function claudeUnguard(
+  checkout: string,
+  refs: readonly string[],
+): Omit<AgentGuardFile, "harness" | "file"> {
+  const file = join(checkout, CLAUDE_FILE);
+  if (!existsSync(file)) return { action: "unchanged" };
+  let doc: unknown;
+  try {
+    doc = JSON.parse(readFileSync(file, "utf8"));
+  } catch {
+    throw new Skip("not valid JSON; take the guard's entries out by hand");
+  }
+  if (!isObject(doc)) throw new Skip("not a JSON object; take the guard's entries out by hand");
+  const before = JSON.stringify(doc);
+  const want = claudeGuardEntries(refs);
+  const perms = doc["permissions"];
+  if (isObject(perms)) {
+    without(perms, "deny", [...want.deny, ...SUPERSEDED_CLAUDE.deny]);
+    pruneEmpty(doc, "permissions");
+  }
+  const sandbox = doc["sandbox"];
+  if (isObject(sandbox)) {
+    const fs = sandbox["filesystem"];
+    if (isObject(fs)) {
+      without(fs, "denyRead", [...want.denyRead, ...SUPERSEDED_CLAUDE.sandbox]);
+      without(fs, "denyWrite", [...want.denyWrite, ...SUPERSEDED_CLAUDE.sandbox]);
+      pruneEmpty(sandbox, "filesystem");
+    }
+    pruneEmpty(doc, "sandbox");
+  }
+  if (JSON.stringify(doc) === before) return { action: "unchanged" };
+  if (Object.keys(doc).length === 0) {
+    rmSync(file);
+    return { action: "removed", note: "the guard's entries were all it held: the file is gone" };
+  }
+  writeAtomic(file, `${JSON.stringify(doc, null, 2)}\n`);
+  return { action: "removed" };
+}
+
+function codexUnguard(checkout: string): Omit<AgentGuardFile, "harness" | "file"> {
+  const file = join(checkout, CODEX_FILE);
+  if (!existsSync(file)) return { action: "unchanged" };
+  const { rest, found } = stripBlocks(readFileSync(file, "utf8"));
+  if (!found) return { action: "unchanged" };
+  if (!rest) {
+    rmSync(file);
+    try {
+      // `.codex/` itself, when the guard made it and nothing else is in it.
+      rmdirSync(dirname(file));
+    } catch {
+      // Not empty: it stays.
+    }
+    return { action: "removed", note: "the guard's blocks were all it held: the file is gone" };
+  }
+  writeAtomic(file, `${rest}\n`);
+  return { action: "removed" };
 }
 
 // --- Git hygiene ------------------------------------------------------------------------------

@@ -27,9 +27,19 @@ The project's checkout must be registered first: `ablationkit project add PATH`.
 
 The server finds the project from `.ablationkit/project.json` in the directory it starts in (or a parent); `--project ID` overrides it. It must run on the coordinator's machine: it starts its session through the local login socket. The Agent Skills in [`skills/`](../../skills/README.md) teach the agent the workflow.
 
-## What AblationKit writes into your checkout for agents
+## Agents on your machine are your operators
 
-Registering a project (`ablationkit project add`, Register project in the web UI, or a remap to a new path) writes the **agent guard** into the checkout, besides `.ablationkit/project.json` (ADR 0041). It keeps Claude Code and Codex, working there, out of two directories:
+An agent you run on this machine, outside an agent container, acts for you (ADR 0062). It may use the whole `ablationkit` CLI, as you would:
+
+- run, stop and restart the coordinator;
+- register projects and change their policies and configuration;
+- start agent containers and drive them (`ablationkit agent start --detach`, `agent screen`, `agent send`, `agent stop`).
+
+Its CLI calls use your session and are audited as yours. It still reports its own research through `ablationkit mcp`, as an agent session. Agents that run experiments for you without supervision belong in [agent containers](agent-containers.md), where AblationKit decides what they reach.
+
+## The agent guard (opt-in)
+
+For agents you still run uncontained on this machine and want kept out of AblationKit, `ablationkit project guard ID|--all` writes the **agent guard** into a registered checkout (ADR 0041). Registration and `scripts/setup.sh` no longer do this; `scripts/setup.sh --guard` does. It keeps Claude Code and Codex, working there, out of two directories:
 
 - **the coordinator home** (`~/.ablationkit`, or `ABLATIONKIT_HOME`), which holds the login socket and the CLI's saved session: an agent that reaches it can act as you;
 - **the coordinator-owned parts of the project's `.ablationkit/`**: `project.json`, `research/`, `conversations/` and `llm/` (ADR 0044). Agents need neither: they use AblationKit through `ablationkit mcp`, which the harness runs outside the agent's sandbox. `.ablationkit/extensions/` stays open: it is extension source agents write, and each change waits for your approval as a new build.
@@ -41,8 +51,8 @@ Registering a project (`ablationkit project add`, Register project in the web UI
 
 - **Your settings are kept.** Existing keys and rules stay. Invalid JSON or TOML is reported and left alone, and so is a Codex config that already chose a sandbox (`sandbox_mode`, `[sandbox_workspace_write]`, another `default_permissions`).
 - **They stay out of Git.** A file the guard creates goes in `.git/info/exclude`. A file Git already tracks is changed, but you get a note: it now holds paths from this machine.
-- **The registration reports each file** as `created`, `updated`, `unchanged` or `skipped`, with a note.
-- **Earlier projects:** `ablationkit project guard --all` (or `ablationkit project guard ID`) applies the guard to projects registered before; `scripts/setup.sh` runs it. It also tells you when Codex does not trust a checkout yet.
+- **Each file is reported** as `created`, `updated`, `unchanged` or `skipped`, with a note. It also tells you when Codex does not trust a checkout yet.
+- **Taking it out:** `ablationkit project unguard ID|--all` removes exactly the guard's entries and blocks. A file the guard alone made up is deleted; your own rules stay.
 
 This is configuration, not a boundary AblationKit enforces. It holds only inside these harnesses, and only as far as each enforces it. An agent you run with its sandbox or permissions bypassed, or under another harness, is not covered. See the [security overview](../security/README.md).
 
@@ -68,7 +78,7 @@ Each `ablationkit mcp` process is one **agent session**.
 - that a request is an agent's, so the agent API, the project policy and the compute limit apply;
 - which project and which session it is, for attribution and the audit log.
 
-It does not stop an agent that runs as your user from reaching `~/.ablationkit`, including the login socket, which also gives out human login links. Only your harness's sandbox can deny the agent that directory; the [agent guard](#what-ablationkit-writes-into-your-checkout-for-agents) writes that denial into the checkout for Claude Code and Codex. See the [security overview](../security/README.md).
+It does not stop an agent that runs as your user from reaching `~/.ablationkit`, including the login socket, which also gives out human login links. For an agent on your machine that is by design: it is [your operator](#agents-on-your-machine-are-your-operators). An agent in an [agent container](agent-containers.md) cannot reach it: there the token is a boundary. To keep an uncontained agent out anyway, use the [agent guard](#the-agent-guard-opt-in). See the [security overview](../security/README.md).
 
 Tokens minted before ADR 0040 (by the removed `POST /api/v1/auth/tokens`) keep working until they expire. They are listed as older agent tokens and you can end them there.
 
@@ -164,7 +174,9 @@ What an agent writes is held against what the coordinator recorded on its own (A
 - **Models, evaluations, inference, LLM research, extensions.** Read them; propose prompt versions and golden sets; build and run approved extensions.
 - **Read its limits.** `ablationkit_project` or `ablationkit_read compute`.
 
-## What an agent cannot do
+## What an agent cannot do through MCP
+
+An agent on your machine can do all of this through the CLI, as your operator (above); an agent in an agent container cannot.
 
 - **Researcher-only actions.** These routes do not exist on the agent API, and no tool reaches them:
   - change the policy or the compute weights, or raise its compute limit;

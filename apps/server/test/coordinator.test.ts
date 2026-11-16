@@ -253,48 +253,28 @@ describe("project registry", () => {
     expect(t2.body.project.project_id).toBe("vision-lab-2");
   });
 
-  test("registration and remap apply the agent guard to the checkout (ADR 0041)", async () => {
+  test("registration and remap write no agent guard into the checkout (ADR 0062)", async () => {
     const cl = await h.start();
     const token = await cl.session();
-    const home = cl.c.services.paths.home;
-    const repo = h.repo("guarded");
-    type Guard = { harness: string; file: string; action: string; note?: string };
-    const added = await cl.json<{ project: Project; agent_guard: Guard[] }>(
+    const repo = h.repo("open");
+    const added = await cl.json<{ project: Project; agent_guard?: unknown }>(
       cl.human("/api/v1/projects", { token, body: { path: repo } }),
     );
     expect(added.status).toBe(201);
-    expect(added.body.agent_guard.map((g) => [g.harness, g.action])).toEqual([
-      ["claude-code", "created"],
-      ["codex", "created"],
-    ]);
-    // The test home is not ~/.ablationkit, so both files name it by its absolute path.
-    const claude = JSON.parse(readFileSync(join(repo, ".claude/settings.local.json"), "utf8"));
-    expect(claude.permissions.deny).toContain(`Read(/${home}/**)`);
-    expect(claude.permissions.deny).toContain("Read(/.ablationkit/research/**)");
-    expect(claude.sandbox.filesystem.denyRead).toContain("./.ablationkit/project.json");
-    expect(claude.sandbox.enabled).toBeUndefined();
-    const codex = Bun.TOML.parse(readFileSync(join(repo, ".codex/config.toml"), "utf8")) as {
-      default_permissions: string;
-      permissions: Record<string, { filesystem: Record<string, unknown> }>;
-    };
-    expect(codex.default_permissions).toBe("ablationkit-guard");
-    expect(codex.permissions["ablationkit-guard"]?.filesystem[home]).toBe("deny");
-
-    // A remapped checkout is guarded too; a broken settings file never fails the remap.
-    const moved = join(h.tmp(), "guarded-moved");
+    expect(added.body.agent_guard).toBeUndefined();
+    expect(existsSync(join(repo, ".claude/settings.local.json"))).toBe(false);
+    expect(existsSync(join(repo, ".codex/config.toml"))).toBe(false);
+    const moved = join(h.tmp(), "open-moved");
     renameSync(repo, moved);
-    writeFileSync(join(moved, ".claude/settings.local.json"), "{ broken");
-    const remapped = await cl.json<{ agent_guard: Guard[] }>(
+    const remapped = await cl.json<{ changed: boolean; agent_guard?: unknown }>(
       cl.human(`/api/v1/projects/${added.body.project.project_id}/remap`, {
         token,
         body: { path: moved },
       }),
     );
-    expect(remapped.status).toBe(200);
-    expect(remapped.body.agent_guard.map((g) => [g.harness, g.action])).toEqual([
-      ["claude-code", "skipped"],
-      ["codex", "unchanged"],
-    ]);
+    expect(remapped.body.changed).toBe(true);
+    expect(remapped.body.agent_guard).toBeUndefined();
+    expect(existsSync(join(moved, ".claude/settings.local.json"))).toBe(false);
   });
 
   test("doctor warns until the manifest is committed (bundles and candidates use the committed tree)", async () => {

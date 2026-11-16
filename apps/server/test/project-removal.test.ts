@@ -54,9 +54,9 @@ describe("project removal", () => {
     const dest = r.body.removed.moved_to;
     expect(dest.startsWith(join(home, "removed-projects", "lab-"))).toBe(true);
 
-    // The code is untouched; only `.ablationkit/` left the checkout. The agent guard's settings
-    // (ADR 0041) stay: they still keep agents out of the coordinator home.
-    expect(readdirSync(repo).sort()).toEqual([".claude", ".codex", ".git", "train.py"]);
+    // The code is untouched; only `.ablationkit/` left the checkout (registration wrote nothing
+    // else into it since ADR 0062).
+    expect(readdirSync(repo).sort()).toEqual([".git", "train.py"]);
     expect(existsSync(join(dest, "checkout", "project.json"))).toBe(true);
     expect(existsSync(join(dest, "state", "research"))).toBe(true);
     expect(existsSync(join(home, "state", "lab"))).toBe(false);

@@ -2830,6 +2830,7 @@ export async function mcpCommand(argv: readonly string[], ctx: CliContext): Prom
   process.once("SIGINT", stop);
   process.once("SIGHUP", stop);
   const inflight = new Map<string, AbortController>();
+  const running = new Set<Promise<void>>();
   try {
     const dec = new TextDecoder();
     let buf = "";
@@ -2861,16 +2862,27 @@ export async function mcpCommand(argv: readonly string[], ctx: CliContext): Prom
         const ac = new AbortController();
         inflight.set(key, ac);
         const send = (m: Json) => ctx.out(`${JSON.stringify(m)}\n`);
-        void handleMcp(msg, session, { notify: send, signal: ac.signal })
+        const done: Promise<void> = handleMcp(msg, session, { notify: send, signal: ac.signal })
           .then((r) => {
             if (r && !ac.signal.aborted) send(r);
           })
-          .finally(() => inflight.delete(key));
+          .finally(() => {
+            inflight.delete(key);
+            running.delete(done);
+          });
+        running.add(done);
       }
     }
   } finally {
-    // stdin closed: the harness ended the session.
+    // stdin closed: the harness ended the session. Calls already sent are answered first (a
+    // client that writes its last request and closes still gets the reply), for a few seconds at
+    // most; then a long wait still running is cancelled.
+    if (running.size) await Promise.race([Promise.allSettled([...running]), Bun.sleep(DRAIN_MS)]);
+    for (const ac of inflight.values()) ac.abort();
     await endSession();
   }
   return 0;
 }
+
+/** How long calls in flight may finish after the client closed stdin. */
+const DRAIN_MS = 5_000;

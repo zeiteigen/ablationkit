@@ -4,7 +4,6 @@
  * Tailscale; agents never reach these routes (no passkeys, ADR 0037).
  */
 import type { TokenRecord } from "@ablationkit/protocol";
-import { type AgentGuardFile, applyAgentGuard } from "../agents/guard.ts";
 import { parseAfter } from "../events.ts";
 import { HttpError, json, readJsonBody, safeNext, str, toErrorResponse } from "../http.ts";
 import { type Route, Router } from "../router.ts";
@@ -63,23 +62,6 @@ function sessionInfo(s: TokenRecord): Record<string, unknown> {
     expires_at: s.expires_at,
     label: s.label,
   });
-}
-
-/**
- * The agent guard (ADR 0041) for a newly registered or remapped checkout. Never fails the
- * registration: what could not be written is reported.
- */
-function guardCheckout(svc: Services, path: string): AgentGuardFile[] {
-  try {
-    return applyAgentGuard(path, svc.paths.home);
-  } catch (e) {
-    console.error(`coordinator: agent guard for ${path}: ${String(e)}`);
-    return [];
-  }
-}
-
-function guardSummary(guard: readonly AgentGuardFile[]): Record<string, string> {
-  return Object.fromEntries(guard.map((g) => [g.harness, g.action]));
 }
 
 export const HUMAN_ROUTES: readonly Route<HumanHandler>[] = [
@@ -422,12 +404,13 @@ export const HUMAN_ROUTES: readonly Route<HumanHandler>[] = [
           projectId: str(body, "project_id", { optional: true }),
         });
         try {
+          // No agent guard written into the checkout since ADR 0062: agents on the host are the
+          // researcher's operators; `ablationkit project guard` still applies it on request.
           const { project, manifestCreated } = c.svc.registry.add(input);
-          const guard = guardCheckout(c.svc, project.path);
           audit(c, "project.register", {
             project_id: project.project_id,
             target: project.path,
-            details: { manifest_created: manifestCreated, agent_guard: guardSummary(guard) },
+            details: { manifest_created: manifestCreated },
           });
           c.svc.events.publish(project.project_id, "project.registered", {
             name: project.name,
@@ -450,7 +433,6 @@ export const HUMAN_ROUTES: readonly Route<HumanHandler>[] = [
           return json(201, {
             project,
             manifest_created: manifestCreated,
-            agent_guard: guard,
             ...(research ? { research_import: research } : {}),
           });
         } catch (e) {
@@ -523,14 +505,13 @@ export const HUMAN_ROUTES: readonly Route<HumanHandler>[] = [
         try {
           const project = c.svc.registry.remap(id, path);
           if (project.path === before) return json(200, { project, changed: false });
-          const guard = guardCheckout(c.svc, project.path);
           audit(c, "project.remap", {
             project_id: id,
             target: project.path,
-            details: { from: before, agent_guard: guardSummary(guard) },
+            details: { from: before },
           });
           c.svc.events.publish(id, "project.remapped", { from: before, to: project.path });
-          return json(200, { project, changed: true, agent_guard: guard });
+          return json(200, { project, changed: true });
         } catch (e) {
           if (e instanceof HttpError)
             audit(c, "project.remap", {

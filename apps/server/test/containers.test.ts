@@ -99,6 +99,7 @@ case "$cmd" in
     echo $! > "$sock.pid"; : > "$sock"; exit 0;;
   has-session) [ -f "$sock.pid" ] && kill -0 "$(cat "$sock.pid")" 2>/dev/null; exit $?;;
   capture-pane) echo "fake screen"; exit 0;;
+  send-keys) printf '%s\\n' "$*" >> "$sock.keys"; exit 0;;
   attach-session) exit 0;;
 esac
 exit 1
@@ -270,6 +271,29 @@ describe("agent container sessions", () => {
       `/api/v1/agent-containers/${s.session_id}`,
     ])
       expect((await w.cl.agent(path, { token })).status).toBe(404);
+  });
+
+  test("the researcher, or their agent on the host, types into the terminal; it is audited", async () => {
+    const w = await setup();
+    const s = (await w.start()).body;
+    const sent = await w.human<{ chars: number; keys: string[] }>(
+      `/api/v1/agent-containers/${s.session_id}/input`,
+      { body: { text: "run the baseline", keys: ["Escape"] } },
+    );
+    expect(sent.status).toBe(200);
+    expect(sent.body).toMatchObject({ chars: 16, keys: ["Escape", "Enter"] });
+    const keys = readFileSync(`${s.attach?.[2]}.keys`, "utf8");
+    expect(keys).toContain("-t agent -l -- run the baseline");
+    expect(keys).toContain("-t agent Escape Enter");
+    const bad = await w.human(`/api/v1/agent-containers/${s.session_id}/input`, {
+      body: { keys: ["Enter; rm -rf /"] },
+    });
+    expect(bad.status).toBe(400);
+    const audit = readdirSync(join(w.cl.c.services.paths.home, "audit"))
+      .map((x) => readFileSync(join(w.cl.c.services.paths.home, "audit", x), "utf8"))
+      .join("");
+    expect(audit).toContain("agent.container.input");
+    expect(audit).toContain("run the baseline");
   });
 
   test("a runtime that is missing, or an image that is not built, is a refusal", async () => {

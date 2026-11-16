@@ -17,6 +17,7 @@ import {
   type AgentGuardFile,
   applyAgentGuard,
   codexUserNotes,
+  removeAgentGuard,
 } from "../src/agents/guard.ts";
 
 const dirs: string[] = [];
@@ -392,5 +393,46 @@ describe("user-level Codex notes", () => {
     expect(codexUserNotes(w.checkout, { HOME: w.user, CODEX_HOME: join(w.user, "nope") })).toEqual(
       [],
     );
+  });
+});
+
+describe("taking the guard out (ADR 0062)", () => {
+  test("only the guard's entries go; the researcher's own stay", () => {
+    const w = world();
+    mkdirSync(join(w.checkout, ".claude"));
+    const own = {
+      model: "opus",
+      permissions: { deny: ["Read(./secrets/**)"], allow: ["Bash(uv run:*)"] },
+      sandbox: { enabled: true, filesystem: { denyRead: ["./secrets"] } },
+    };
+    writeFileSync(claudeFile(w.checkout), JSON.stringify(own));
+    mkdirSync(join(w.checkout, ".codex"));
+    writeFileSync(codexFile(w.checkout), 'model = "gpt-5"\n');
+    applyAgentGuard(w.checkout, w.home, { userHome: w.user });
+    const r = removeAgentGuard(w.checkout, w.home, { userHome: w.user });
+    expect(r.map((x) => x.action)).toEqual(["removed", "removed"]);
+    expect(JSON.parse(readFileSync(claudeFile(w.checkout), "utf8"))).toEqual(own);
+    expect(toml(readFileSync(codexFile(w.checkout), "utf8"))).toEqual({ model: "gpt-5" } as never);
+    // A second time there is nothing to take out.
+    expect(removeAgentGuard(w.checkout, w.home, { userHome: w.user }).map((x) => x.action)).toEqual(
+      ["unchanged", "unchanged"],
+    );
+  });
+
+  test("files the guard alone made are deleted; a broken file is reported, not touched", () => {
+    const w = world();
+    applyAgentGuard(w.checkout, w.home, { userHome: w.user });
+    const r = removeAgentGuard(w.checkout, w.home, { userHome: w.user });
+    expect(r.map((x) => x.action)).toEqual(["removed", "removed"]);
+    expect(existsSync(claudeFile(w.checkout))).toBe(false);
+    expect(existsSync(join(w.checkout, ".codex"))).toBe(false);
+    mkdirSync(join(w.checkout, ".claude"), { recursive: true });
+    writeFileSync(claudeFile(w.checkout), "{ broken");
+    const bad = byHarness(
+      removeAgentGuard(w.checkout, w.home, { userHome: w.user }),
+      "claude-code",
+    );
+    expect(bad.action).toBe("skipped");
+    expect(readFileSync(claudeFile(w.checkout), "utf8")).toBe("{ broken");
   });
 });

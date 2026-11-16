@@ -1,13 +1,13 @@
 #!/bin/sh
-# AblationKit developer setup: run the CLI from this checkout, install its Agent Skills,
-# register its MCP server with your agent harnesses and guard registered projects from agents.
+# AblationKit developer setup: run the CLI from this checkout, install its Agent Skills and
+# register its MCP server with your agent harnesses.
 #
 #   sh scripts/setup.sh                    install deps, put ablationkit on PATH, link the skills,
-#                                          register the MCP server, guard registered projects
+#                                          register the MCP server
 #   sh scripts/setup.sh --prefix DIR       launcher goes in DIR/bin (default ~/.local)
 #   sh scripts/setup.sh --no-deps          skip bun install / uv sync
 #   sh scripts/setup.sh --no-mcp           don't register the MCP server
-#   sh scripts/setup.sh --no-guard         don't apply the agent guard to registered projects
+#   sh scripts/setup.sh --guard            also apply the agent guard to registered projects (opt-in)
 #   sh scripts/setup.sh --claude-config D  also set up the Claude Code config in D (CLAUDE_CONFIG_DIR)
 #   sh scripts/setup.sh --force            replace an ablationkit launcher or MCP entry this script
 #                                          did not write
@@ -20,11 +20,11 @@
 # profile run with CLAUDE_CONFIG_DIR, such as a claude-pro wrapper), plus --claude-config. Each
 # gets the skills (<config>/skills) and, at user scope, the `ablationkit` MCP server
 # (`ablationkit mcp`, ADR 0040). Codex gets both when its home (CODEX_HOME, default ~/.codex)
-# exists (skills/README.md). Restart agent sessions afterwards so they pick them up. Every
-# project already registered gets the agent guard (`ablationkit project guard --all`, ADR 0041):
-# Claude Code and Codex settings in the checkout that keep agents out of the coordinator home and
-# the project's .ablationkit/ (new registrations get it from the coordinator); --uninstall leaves
-# them. Your data in ${ABLATIONKIT_HOME:-~/.ablationkit} is never touched.
+# exists (skills/README.md). Restart agent sessions afterwards so they pick them up. Agents on
+# this machine act for you and may use the whole CLI (ADR 0062); execution agents belong in agent
+# containers (`ablationkit agent start`, ADR 0061). --guard still writes the agent guard (ADR
+# 0041) into registered projects, for agents you run uncontained here; `ablationkit project
+# unguard --all` takes it out. Your data in ${ABLATIONKIT_HOME:-~/.ablationkit} is never touched.
 set -eu
 
 MARKER="# ablationkit dev launcher (scripts/setup.sh)"
@@ -32,7 +32,7 @@ MARKER="# ablationkit dev launcher (scripts/setup.sh)"
 prefix="${HOME}/.local"
 deps=1
 mcp=1
-guard=1
+guard=0
 force=0
 uninstall=0
 claude_extra=""
@@ -41,6 +41,7 @@ while [ $# -gt 0 ]; do
     --prefix) prefix="$2"; shift 2 ;;
     --no-deps) deps=0; shift ;;
     --no-mcp) mcp=0; shift ;;
+    --guard) guard=1; shift ;;
     --no-guard) guard=0; shift ;;
     --claude-config) claude_extra="$claude_extra $2"; shift 2 ;;
     --force) force=1; shift ;;
@@ -241,8 +242,8 @@ if [ "$mcp" = 1 ]; then
   fi
 fi
 
-# Agent guard: project-scoped rules that keep agents out of the coordinator home and each
-# checkout's .ablationkit/ (ADR 0041), for projects registered before. Never fails setup.
+# Agent guard, on request (--guard): project-scoped rules that keep agents out of the
+# coordinator home and each checkout's .ablationkit/ (ADR 0041; opt-in since ADR 0062).
 ak_home="${ABLATIONKIT_HOME:-$HOME/.ablationkit}"
 if [ "$guard" = 1 ] && [ -f "$ak_home/registry.json" ]; then
   echo "applying the agent guard to registered projects"

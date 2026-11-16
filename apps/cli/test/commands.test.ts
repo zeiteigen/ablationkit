@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import {
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -78,27 +79,24 @@ describe("cli against a local coordinator", () => {
     expect(io5.stdout).toContain(`remapped my-repo to ${moved}`);
   });
 
-  test("project add prints the agent guard; project guard re-applies it without a coordinator", async () => {
+  test("project add writes no agent guard; project guard applies it on request and project unguard takes it out", async () => {
     const { c, home } = await coordinator();
     const repo = join(tmp(), "guarded");
     mkdirSync(join(repo, ".git"), { recursive: true });
     const env = { CODEX_HOME: join(tmp(), "no-codex") };
     const io = new Io();
     expect(await main(["project", "add", repo], io.ctx(home, env))).toBe(0);
-    expect(io.stdout).toContain(
-      `agent guard  created   ${join(repo, ".claude/settings.local.json")}`,
-    );
-    expect(io.stdout).toContain(`agent guard  created   ${join(repo, ".codex/config.toml")}`);
+    expect(io.stdout).not.toContain("agent guard");
+    expect(existsSync(join(repo, ".claude/settings.local.json"))).toBe(false);
     await c.stop();
 
-    rmSync(join(repo, ".claude"), { recursive: true });
     const io2 = new Io();
     expect(await main(["project", "guard", "--all", "--json"], io2.ctx(home, env))).toBe(0);
     const r = JSON.parse(io2.stdout);
     expect(r.projects[0].project_id).toBe("guarded");
     expect(r.projects[0].agent_guard.map((g: { action: string }) => g.action)).toEqual([
       "created",
-      "unchanged",
+      "created",
     ]);
     const io3 = new Io();
     expect(await main(["project", "guard", "guarded"], io3.ctx(home, env))).toBe(0);
@@ -107,10 +105,21 @@ describe("cli against a local coordinator", () => {
     expect(await main(["project", "guard", "nope"], io4.ctx(home, env))).toBe(1);
     expect(io4.stderr).toContain("no registered project nope");
     expect(await main(["project", "guard"], new Io().ctx(home, env))).toBe(2);
-    // No home yet: nothing registered, nothing to do.
+    // Taking it out leaves nothing behind that it alone made.
     const io5 = new Io();
-    expect(await main(["project", "guard", "--all"], io5.ctx(join(tmp(), "fresh"), env))).toBe(0);
-    expect(io5.stdout).toContain("no projects registered");
+    expect(await main(["project", "unguard", "--all", "--json"], io5.ctx(home, env))).toBe(0);
+    expect(
+      JSON.parse(io5.stdout).projects[0].agent_guard.map((g: { action: string }) => g.action),
+    ).toEqual(["removed", "removed"]);
+    expect(existsSync(join(repo, ".claude/settings.local.json"))).toBe(false);
+    expect(existsSync(join(repo, ".codex"))).toBe(false);
+    const io6 = new Io();
+    expect(await main(["project", "unguard", "guarded"], io6.ctx(home, env))).toBe(0);
+    expect(io6.stdout).toContain("unchanged");
+    // No home yet: nothing registered, nothing to do.
+    const io7 = new Io();
+    expect(await main(["project", "guard", "--all"], io7.ctx(join(tmp(), "fresh"), env))).toBe(0);
+    expect(io7.stdout).toContain("no projects registered");
   });
 
   test("a stale saved session is replaced transparently", async () => {

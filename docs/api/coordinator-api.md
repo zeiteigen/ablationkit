@@ -30,11 +30,11 @@ Auth is the `ak_session` cookie (browser) or `Authorization: Bearer aks_…` (CL
 | `GET /api/v1/coordinator/status` | session | URLs, startup findings and repairs, counts |
 | `GET /api/v1/audit?after=&limit=` | session | audit records |
 | `GET /api/v1/events/stream?project=&after=` | session | SSE; `id` = journal seq; honours `Last-Event-ID`; `after=latest` sends only new events |
-| `GET` / `POST /api/v1/projects` `{path, name?, project_id?}` | session | `path` is absolute, on the coordinator. 201 `{project, manifest_created, agent_guard, research_import?}`: `agent_guard` is `[{harness: claude-code\|codex, file, action: created\|updated\|unchanged\|skipped, note?, sandbox_enabled?}]`, what the agent guard wrote into the checkout (ADR 0041); a guard that cannot be written never fails the registration |
+| `GET` / `POST /api/v1/projects` `{path, name?, project_id?}` | session | `path` is absolute, on the coordinator. 201 `{project, manifest_created, research_import?}`. Nothing is written into the checkout for agents: the agent guard is opt-in since ADR 0062 (`ablationkit project guard`) |
 | `GET /api/v1/projects/:id` | session | |
 | `GET /api/v1/projects/:id/removal` | session | `{plan: {project, blockers, moves, skipped?, destination_root, kept}}`: what removing the project would move aside, and the running work that refuses it (ADR 0034) |
 | `DELETE /api/v1/projects/:id` | session | 200 `{removed: {project, moved_to, moved, skipped?}}`; 409 `project_busy` `{blockers}` while jobs, evaluations, inference sessions, extension runs or deployments are live. The code stays; `.ablationkit/` and `state/<id>/` move to `<home>/removed-projects/<id>-<time>/` |
-| `POST /api/v1/projects/:id/remap` `{path}` | session | the new checkout must carry the same `project_id`. `{project, changed}`, plus `agent_guard` when the path changed (the new checkout is guarded) |
+| `POST /api/v1/projects/:id/remap` `{path}` | session | the new checkout must carry the same `project_id`. `{project, changed}` |
 | `GET /api/v1/projects/:id/doctor` | session | `{status: ok\|warn\|fail, checks}` |
 
 `format=message` delivers every journal type through standard SSE `message` events; the JSON payload
@@ -221,6 +221,7 @@ The researcher runs a harness (Claude Code, Codex or a shell) in a rootless Podm
 | `POST /api/v1/agent-containers/:sid/resume` | thaws it → `running`. Audited `agent.container.resume` |
 | `POST /api/v1/agent-containers/:sid/stop` `{reason?}` | 202: stops the container; the session ends when the harness has exited. Audited `agent.container.stop` |
 | `GET /api/v1/agent-containers/:sid/screen` | `{session_id, state, text, captured_at}`: the terminal as it is now (`tmux capture-pane`), text only |
+| `POST /api/v1/agent-containers/:sid/input` `{text?, keys?: [name], enter?}` | `{session_id, chars, keys}`: types into the running session's terminal (ADR 0062): `text` literally, then `keys` by tmux name (`Enter`, `Escape`, `Tab`, `Up`, `C-c`; at most 64); text is submitted with `Enter` unless `enter: false`. 400 for text over 16384 characters or a key that is not a key name; 409 `container_not_running`; 502 `container_terminal_error`. Audited `agent.container.input` with the text |
 | `GET /api/v1/agent-containers/:sid/egress?outcome=&limit=` | `{records, summary: {connections, allowed: [{host, count, bytes_down}], denied: [{host, count, reason?}]}}`, newest last (`limit` ≤ 5000, default 200) |
 | `GET /api/v1/jobs/:id/attempts/:attemptId/egress` | the same for a job container's attempt with `jobs.network: egress` |
 | `GET /api/v1/projects/:id/agent-containers/config` | the project's `ContainerConfig` (the default when none is saved) |
