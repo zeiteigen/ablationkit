@@ -134,12 +134,29 @@ export interface RemoteView {
   overdue_at?: string;
   marked_lost_at?: string;
   drains?: number;
+  /** A Colab runtime (ADR 0059): its rate, and when it was allocated and released. */
+  compute_units?: ColabComputeUnits;
   worker_spool?: {
     pending_events?: number;
     pending_artifacts?: number;
     dropped_events?: number;
     disk_pressure?: boolean;
   };
+}
+
+export interface ColabComputeUnits {
+  per_hour_hundredths: number;
+  balance_at_allocation_hundredths?: number;
+  allocated_at: string;
+  released_at?: string;
+}
+
+/** A Colab account's compute units (`colab usage`: the whole account). */
+export interface ColabUsage {
+  balance_hundredths: number;
+  per_hour_hundredths: number;
+  runtimes: number;
+  checked_at: string;
 }
 
 export interface ComputeTargetView {
@@ -151,6 +168,13 @@ export interface ComputeTargetView {
   effective_worker_url?: string;
   ssh?: { host: string };
   runpod?: { image: string; gpu_type_ids: string[]; cents_per_hour?: number };
+  colab?: {
+    mode?: "notebook" | "cli";
+    gpu?: string;
+    tpu?: string;
+    high_mem?: boolean;
+    live?: boolean;
+  };
   capabilities?: Record<string, boolean>;
 }
 

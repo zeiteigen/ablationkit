@@ -35,7 +35,7 @@ import type { Services } from "../services.ts";
 
 /** Where the limit is enforced and what it rests on (spec §7.11: never claim more). */
 export const ENFORCEMENT_NOTE =
-  "Enforced at agent submission: the coordinator refuses a job without a time limit, or one whose time limit × weight does not fit. Usage after admission is bounded by each attempt's time limit: systemd's RuntimeMaxSec in a user scope (local and remote workers with systemd); in direct mode the collector or the remote shim stops the job's process group, and a process that leaves the group escapes it; an exported Colab notebook is bounded only by the shim once someone runs it. Remote attempts count the times their worker reports.";
+  "Enforced at agent submission: the coordinator refuses a job without a time limit, or one whose time limit × weight does not fit. Usage after admission is bounded by each attempt's time limit: systemd's RuntimeMaxSec in a user scope (local and remote workers with systemd); in direct mode the collector or the remote shim stops the job's process group, and a process that leaves the group escapes it; a Colab runtime is bounded by the shim on the runtime and stopped once its results are collected; an exported Colab notebook is bounded only by the shim once someone runs it. Remote attempts count the times their worker reports.";
 
 export interface WeightView {
   readonly target_id: string;

@@ -3,7 +3,7 @@
  * Credentials are referenced by environment-variable name, never stored here.
  */
 import { existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import {
   adapterFor,
   type DoctorCheck,
@@ -12,7 +12,7 @@ import {
   validateTarget,
 } from "@ablationkit/compute-targets";
 import { readJson, writeJsonAtomic } from "@ablationkit/core";
-import { type ComputeTarget, validateComputeTarget } from "@ablationkit/protocol";
+import { type ColabUsage, type ComputeTarget, validateComputeTarget } from "@ablationkit/protocol";
 import { HttpError } from "../http.ts";
 
 export interface TargetServiceOptions {
@@ -20,10 +20,16 @@ export interface TargetServiceOptions {
   readonly now: () => Date;
   /** Tests replace SSH with a local shell. */
   readonly shellFor?: (t: ComputeTarget) => Shell | undefined;
+  /** The Colab CLI's session state file for the coordinator's runtimes (`colab.mode: cli`). */
+  readonly colabStateFile?: string;
 }
+
+/** How long a provider account's compute units are reused before asking again. */
+const USAGE_TTL_MS = 30_000;
 
 export class TargetService {
   private readonly targets = new Map<string, ComputeTarget>();
+  private readonly usageCache = new Map<string, { at: number; value: Promise<ColabUsage> }>();
   readonly loadProblems: string[] = [];
 
   constructor(private readonly o: TargetServiceOptions) {}
@@ -90,7 +96,10 @@ export class TargetService {
 
   adapter(t: ComputeTarget): TargetAdapter {
     try {
-      return adapterFor(t, this.o.shellFor?.(t));
+      const stateFile = this.o.colabStateFile;
+      if (stateFile && t.kind === "colab" && t.colab?.mode === "cli")
+        mkdirSync(dirname(stateFile), { recursive: true, mode: 0o700 });
+      return adapterFor(t, this.o.shellFor?.(t), stateFile ? { colab: { stateFile } } : {});
     } catch (e) {
       throw new HttpError(
         501,
@@ -100,10 +109,47 @@ export class TargetService {
     }
   }
 
+  /**
+   * The provider account's compute units (a Colab target driven through the Colab CLI): the whole
+   * account, as Colab reports it. Reused for 30 s, so a page that polls does not run the CLI each
+   * time.
+   */
+  async usage(id: string): Promise<ColabUsage> {
+    const t = this.require(id);
+    const adapter = this.adapter(t);
+    if (!adapter.usage)
+      throw new HttpError(
+        409,
+        "no_usage",
+        `${id} reports no compute units (only Colab targets with \`mode: cli\` do)`,
+      );
+    const hit = this.usageCache.get(id);
+    if (hit && Date.now() - hit.at < USAGE_TTL_MS) return hit.value;
+    const read = adapter.usage.bind(adapter);
+    const value = read().then((u) => ({
+      balance_hundredths: Math.round(u.balance * 100),
+      per_hour_hundredths: Math.round(u.per_hour * 100),
+      runtimes: u.runtimes,
+      checked_at: this.o.now().toISOString(),
+    }));
+    this.usageCache.set(id, { at: Date.now(), value });
+    value.catch(() => this.usageCache.delete(id));
+    try {
+      return await value;
+    } catch (e) {
+      throw new HttpError(
+        502,
+        (e as { code?: string }).code ?? "usage_unavailable",
+        (e as Error).message,
+      );
+    }
+  }
+
   async doctor(id: string, workerUrl: string | undefined): Promise<DoctorCheck[]> {
     const t = this.require(id);
     const checks: DoctorCheck[] = [];
-    // An offline notebook export never calls back: no worker URL needed.
+    // An offline Colab worker (a notebook, or a runtime the coordinator collects from) never calls
+    // back: no worker URL needed.
     if (t.kind === "colab" && t.colab?.live !== true) {
       try {
         return await this.adapter(t).doctor(workerUrl ?? "");

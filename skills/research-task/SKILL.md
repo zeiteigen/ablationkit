@@ -187,7 +187,16 @@ result that exists only in your chat reply is not recorded.
    this run tests and why) and `run_name`; `target_id` for a remote target the policy allows;
    `study_id` and `variant_id` when the run belongs to a study; `metrics_file` (with
    `metrics_format` when its step and time keys have other names) for a script without the SDK;
-   `input_paths` for configs Git does not hold. Follow it with `ablationkit_read job.show` and
+   `input_paths` for configs Git does not hold. A remote job runs the commit your checkout is at,
+   so commit (and push, if your harness does) the code it needs first; the project's
+   `.ablationkit/` exports never block a remote job. A remote job runs on its own, Colab included:
+   the coordinator stages it, collects its results while it runs and after, and frees the
+   runtime, so do not ask the researcher to run anything. Its attempt's `remote` shows staging,
+   the provider's state and, on Colab, the runtime's compute units. A staging error that only the
+   researcher can fix (`colab_signin_required`: they sign the Colab CLI in once;
+   `accelerator_unavailable`: their account cannot have that GPU) is for the researcher; say so
+   and do other work meanwhile. Only a target that exports notebooks (`staging: exported`) waits
+   for a person. Follow it with `ablationkit_read job.show` and
    `ablationkit_read job.log` (`tail` for the end of the console); cancel your own job with
    `ablationkit_job cancel`. A comparison is a study: `ablationkit_run study` (title, summary,
    variants with a description each, baseline, metric goals, protocol), and the same call with

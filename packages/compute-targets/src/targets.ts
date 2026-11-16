@@ -10,6 +10,7 @@
 import { readFileSync } from "node:fs";
 import type { ComputeTarget, JobLimits, TargetKind } from "@ablationkit/protocol";
 import { ColabTarget } from "./colab.ts";
+import { type ColabCliOptions, ColabCliTarget } from "./colab-cli.ts";
 import { RunpodTarget } from "./runpod.ts";
 
 export interface ShellResult {
@@ -85,6 +86,11 @@ export interface Capabilities {
   readonly release?: boolean;
   /** No unattended submission: `stage` writes an artifact a human runs (a Colab notebook). */
   readonly exports?: boolean;
+  /**
+   * The worker cannot reach the coordinator: the coordinator downloads its spool (`collect`) and
+   * imports it, while the job runs and after (a Colab runtime through the Colab CLI).
+   */
+  readonly collects?: boolean;
 }
 
 export interface ProviderStatus {
@@ -94,6 +100,8 @@ export interface ProviderStatus {
   readonly terminal: boolean;
   /** The worker's own state.json, when the provider can read it. */
   readonly worker?: Record<string, unknown>;
+  /** Capability `collects`: the latest progress snapshot's number (it grows while the job runs). */
+  readonly progress?: number;
 }
 
 export interface DoctorCheck {
@@ -112,11 +120,29 @@ export interface StageInput {
   readonly limits: JobLimits;
 }
 
+/** What staging learned about the provider's resources (a Colab runtime's compute units). */
+export interface StageResult {
+  /** A resource staging allocated (a Colab runtime), released if the attempt never starts. */
+  readonly provider_job_id?: string;
+  readonly compute_units?: {
+    readonly per_hour_hundredths: number;
+    readonly balance_at_allocation_hundredths?: number;
+  };
+}
+
+/** An account's compute units (Colab), as the provider reports them for the whole account. */
+export interface AccountUsage {
+  readonly balance: number;
+  readonly per_hour: number;
+  readonly runtimes: number;
+}
+
 export interface TargetAdapter {
   readonly kind: TargetKind;
   readonly capabilities: Capabilities;
   /** Copy the bundle and the credentials to the worker. */
-  stage(input: StageInput): Promise<void>;
+  // biome-ignore lint/suspicious/noConfusingVoidType: most adapters stage and return nothing
+  stage(input: StageInput): Promise<void | StageResult>;
   /** Start the job; resolves once the provider confirmed it, with the provider's job ID. */
   submit(input: StageInput): Promise<{ provider_job_id: string }>;
   status(attemptId: string, providerJobId: string): Promise<ProviderStatus>;
@@ -128,6 +154,18 @@ export interface TargetAdapter {
   doctor(workerUrl: string): Promise<DoctorCheck[]>;
   /** Release provider resources after delivery (capability `release`). */
   release?(attemptId: string, providerJobId: string): Promise<void>;
+  /**
+   * Capability `collects`: download the worker's spool archive into `dest` (the final one once the
+   * job ended, else the latest progress snapshot). False when there is none yet.
+   */
+  collect?(
+    attemptId: string,
+    providerJobId: string,
+    dest: string,
+    opts: { final: boolean },
+  ): Promise<boolean>;
+  /** The provider account's compute units (a Colab account). */
+  usage?(): Promise<AccountUsage>;
 }
 
 export class TargetError extends Error {
@@ -441,7 +479,16 @@ export class SlurmTarget extends SshBase implements TargetAdapter {
   }
 }
 
-export function adapterFor(target: ComputeTarget, shell?: Shell): TargetAdapter {
+export interface AdapterOptions {
+  /** Colab CLI targets: the coordinator's own session state file. */
+  readonly colab?: ColabCliOptions;
+}
+
+export function adapterFor(
+  target: ComputeTarget,
+  shell?: Shell,
+  opts: AdapterOptions = {},
+): TargetAdapter {
   switch (target.kind) {
     case "ssh":
     case "slurm": {
@@ -453,7 +500,9 @@ export function adapterFor(target: ComputeTarget, shell?: Shell): TargetAdapter 
     case "runpod":
       return new RunpodTarget(target);
     case "colab":
-      return new ColabTarget(target);
+      return target.colab?.mode === "cli"
+        ? new ColabCliTarget(target, opts.colab)
+        : new ColabTarget(target);
     default:
       throw new TargetError(
         "target_kind_unavailable",
@@ -472,6 +521,21 @@ export function validateTarget(t: ComputeTarget): string[] {
   if (t.kind === "runpod" && !t.runpod) errs.push("runpod targets need `runpod`");
   if (t.kind !== "runpod" && t.runpod) errs.push("`runpod` settings apply to runpod targets only");
   if (t.kind !== "colab" && t.colab) errs.push("`colab` settings apply to colab targets only");
+  const c = t.colab;
+  if (c?.gpu && c.tpu) errs.push("a Colab runtime has a `gpu` or a `tpu`, not both");
+  if (c && c.mode !== "cli") {
+    const cliOnly = (["gpu", "tpu", "high_mem", "cli", "auth", "keep_after_sec"] as const).filter(
+      (k) => c[k] !== undefined,
+    );
+    if (cliOnly.length)
+      errs.push(
+        `colab ${cliOnly.join(", ")} apply to \`mode: cli\` only (a notebook picks its runtime in Colab)`,
+      );
+  }
+  if (c?.mode === "cli" && t.work_dir && !t.work_dir.startsWith("/"))
+    errs.push(
+      "a Colab runtime's `work_dir` must be an absolute path (default /content/ablationkit)",
+    );
   if (t.kind === "runpod" && !t.paid) errs.push("runpod targets are paid compute (`paid: true`)");
   return errs;
 }

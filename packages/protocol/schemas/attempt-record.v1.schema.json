@@ -337,7 +337,7 @@
         },
         "target_kind": {
           "title": "TargetKind",
-          "description": "`ssh`: a worker host reached over SSH (usually on the tailnet). `slurm`: a cluster login node reached over SSH; jobs go through `sbatch`. `runpod`: pods through the Runpod REST API. `colab`: notebook export only (no unattended execution).",
+          "description": "`ssh`: a worker host reached over SSH (usually on the tailnet). `slurm`: a cluster login node reached over SSH; jobs go through `sbatch`. `runpod`: pods through the Runpod REST API. `colab`: Google Colab runtimes, unattended through Google's Colab CLI (`colab.mode: cli`) or as an exported notebook a person runs (`notebook`).",
           "anyOf": [
             {
               "const": "ssh",
@@ -584,6 +584,39 @@
           "description": "When a researcher marked an exported attempt lost (`remote resolve JOB --lost`): it ended `unknown`, releasing its parallel slot. A late import still lands and settles it.",
           "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
           "type": "string"
+        },
+        "compute_units": {
+          "title": "ColabComputeUnits",
+          "description": "A Colab runtime's compute units (`colab.mode: cli`, ADR 0059), in hundredths as Colab reports them. Units used are about `per_hour_hundredths` / 100 times the hours from `allocated_at` to `released_at` (or now): an estimate from the account's rate, which Colab reports for the whole account, not per runtime.",
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "per_hour_hundredths",
+            "allocated_at"
+          ],
+          "properties": {
+            "per_hour_hundredths": {
+              "minimum": 0,
+              "description": "The runtime's compute units per hour, in hundredths: how much the account's hourly rate rose when it was allocated (0 on a free runtime).",
+              "type": "integer"
+            },
+            "balance_at_allocation_hundredths": {
+              "description": "The account's balance, in hundredths, just before the runtime was allocated.",
+              "type": "integer"
+            },
+            "allocated_at": {
+              "title": "Timestamp",
+              "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+              "type": "string"
+            },
+            "released_at": {
+              "title": "Timestamp",
+              "description": "When the coordinator stopped the runtime (or found it gone).",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+              "type": "string"
+            }
+          }
         }
       }
     }

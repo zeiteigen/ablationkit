@@ -1926,6 +1926,21 @@ void mountReact(Demo);
 
   test("compute: time and spend by target, utilization from system metrics, targets; an exported Colab attempt shows its sync status and notebook", async () => {
     await stack.api("/api/v1/targets/colab-nb", { kind: "colab", label: "Colab notebooks" }, "PUT");
+    // An unattended Colab target (ADR 0059), with the test suite's fake Colab CLI: the account's
+    // compute units show on Compute.
+    await stack.api(
+      "/api/v1/targets/colab-cli",
+      {
+        kind: "colab",
+        label: "Colab L4",
+        colab: {
+          mode: "cli",
+          gpu: "L4",
+          cli: ["python3", resolve(import.meta.dir, "../../server/test/fake-colab.py")],
+        },
+      },
+      "PUT",
+    );
     const job = await stack.api<{ job_id: string }>(`/api/v1/projects/${stack.projectId}/jobs`, {
       command: ["python3", "train.py", "--epochs", "1"],
       target_id: "colab-nb",
@@ -1946,7 +1961,11 @@ void mountReact(Demo);
     const targets = page.getByTestId("remote-targets");
     await targets.getByText("Colab notebooks").waitFor();
     await targets.getByText("notebook export only").waitFor();
-    await targets.getByRole("button", { name: "Doctor" }).click();
+    await targets.getByText("GPU L4", { exact: true }).waitFor();
+    const usage = targets.getByTestId("colab-usage");
+    await usage.getByText("100.00 compute units left").waitFor();
+    await usage.getByText("using 0.00/h on 0 runtimes").waitFor();
+    await targets.getByRole("button", { name: "Doctor" }).first().click();
     await targets.getByText("unattended execution").waitFor();
     await go(`${proj()}/runs/jobs`);
     await page.getByTestId("jobs-table").getByText("on colab-nb").first().waitFor();
@@ -1959,7 +1978,7 @@ void mountReact(Demo);
     // It waits on a person, says Colab doesn't run unattended, and when it should be back.
     await panel.getByText("compute: waiting for you to run the notebook").waitFor();
     const help = panel.getByTestId("colab-help");
-    await help.getByText("Colab does not run unattended.").waitFor();
+    await help.getByText("A notebook does not run unattended.").waitFor();
     await help.getByText(/Expected back by .* plus the job's time limit/).waitFor();
     await help.getByText("--loader", { exact: false }).first().waitFor();
     // F29: a runtime that is gone can be marked lost from here.

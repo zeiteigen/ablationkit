@@ -79,10 +79,30 @@ test("target add/list/doctor, a job on the target, remote status", async () => {
   expect(await main(["target", "list"], list.ctx)).toBe(0);
   expect(list.o.stdout).toContain(`box  ssh  box  worker URL ${c.urls.worker}`);
   // An offline Colab target never reaches the worker URL, so it isn't flagged as missing one.
-  expect(await main(["target", "add", "nb", "--kind", "colab"], io(home).ctx)).toBe(0);
+  expect(await main(["target", "add", "nb", "--kind", "colab", "--notebook"], io(home).ctx)).toBe(
+    0,
+  );
+  // `--kind colab` alone is an unattended runtime through the Colab CLI (ADR 0059).
+  const added = io(home);
+  expect(
+    await main(["target", "add", "cr", "--kind", "colab", "--gpu", "l4", "--high-mem"], added.ctx),
+  ).toBe(0);
+  expect(added.o.stdout).toContain(
+    "run unattended through the Colab CLI, each on its own L4 GPU runtime",
+  );
+  const shown = io(home);
+  expect(await main(["target", "show", "cr", "--json"], shown.ctx)).toBe(0);
+  expect(JSON.parse(shown.o.stdout).colab).toEqual({ mode: "cli", gpu: "L4", high_mem: true });
+  expect(
+    await main(
+      ["target", "add", "bad", "--kind", "colab", "--notebook", "--gpu", "T4"],
+      io(home).ctx,
+    ),
+  ).not.toBe(0);
   const list2 = io(home);
   expect(await main(["target", "list"], list2.ctx)).toBe(0);
   expect(list2.o.stdout).toMatch(/^nb {2}colab {2}.*offline \(notebook export/m);
+  expect(list2.o.stdout).toMatch(/^cr {2}colab {2}.*unattended through the Colab CLI \(GPU L4/m);
   const doc = io(home);
   expect(await main(["target", "doctor", "box"], doc.ctx)).toBe(0);
   expect(doc.o.stdout).toContain("ok    worker listener reachable from the target");
@@ -157,7 +177,16 @@ test("target add --kind runpod and --kind colab; a Colab submission exports a no
   const runtime = tmp();
   expect(
     await main(
-      ["target", "add", "nb", "--kind", "colab", "--work-dir", join(runtime, "content")],
+      [
+        "target",
+        "add",
+        "nb",
+        "--kind",
+        "colab",
+        "--notebook",
+        "--work-dir",
+        join(runtime, "content"),
+      ],
       io(home).ctx,
     ),
   ).toBe(0);

@@ -34,6 +34,7 @@ import {
   BundleError,
   buildBundle,
   pinnedCommit,
+  type StageResult,
   type TargetAdapter,
   TargetError,
 } from "@ablationkit/compute-targets";
@@ -158,6 +159,8 @@ export class RemoteService {
   private readonly released = new Set<string>();
   private readonly polledAt = new Map<string, number>();
   private readonly drainedAt = new Map<string, number>();
+  /** Capability `collects`: the progress snapshot last imported, per attempt. */
+  private readonly collected = new Map<string, number>();
   private readonly busy = new Set<string>();
   private timer: ReturnType<typeof setInterval> | undefined;
 
@@ -217,9 +220,10 @@ export class RemoteService {
         { estimate: est },
       );
     }
-    // An offline export (a Colab notebook without credentials) never calls back.
-    const offlineExport = adapter.capabilities.exports && t.colab?.live !== true;
-    if (!offlineExport && !this.workerUrlFor(targetId))
+    // An offline Colab worker (a notebook, or a runtime the coordinator collects from) never
+    // calls back.
+    const offline = t.kind === "colab" && t.colab?.live !== true;
+    if (!offline && !this.workerUrlFor(targetId))
       throw new HttpError(
         422,
         "no_worker_url",
@@ -608,8 +612,14 @@ export class RemoteService {
       limits: this.o.jobs.require(a.job_id).limits,
     };
     this.patch(attemptId, { staging: "staging" });
+    const stagingAt = this.iso();
+    let stagedOn: StageResult | undefined;
     try {
-      await adapter.stage(input);
+      stagedOn = (await adapter.stage(input)) ?? undefined;
+      if (stagedOn?.compute_units)
+        this.patch(attemptId, {
+          compute_units: { ...stagedOn.compute_units, allocated_at: stagingAt },
+        });
     } catch (e) {
       // Nothing ran: the attempt failed before it started.
       const msg = `staging on ${a.remote.target_id} failed: ${(e as Error).message}`.slice(0, 2000);
@@ -620,6 +630,12 @@ export class RemoteService {
     a = this.o.jobs.attempt(attemptId) as AttemptRecord;
     const targetId = (a.remote as RemoteAttemptInfo).target_id;
     if (a.cancel_requested_at) {
+      // Staging may have allocated a runtime (Colab): release it, nothing runs on it.
+      if (stagedOn?.provider_job_id && adapter.release)
+        await adapter
+          .release(attemptId, stagedOn.provider_job_id)
+          .then(() => this.markReleased(attemptId))
+          .catch((e) => this.o.log(`releasing ${attemptId}: ${(e as Error).message}`));
       this.patch(attemptId, {
         staging: "failed",
         staging_error: "cancelled before submission",
@@ -978,7 +994,17 @@ export class RemoteService {
 
   async drain(a: AttemptRecord, by: string): Promise<void> {
     if (!a.remote) throw new HttpError(409, "not_remote", "this attempt is not a remote attempt");
-    await this.adapterOf(a).drain(a.attempt_id, a.remote.provider_job_id).catch(asHttp);
+    const adapter = this.adapterOf(a);
+    if (adapter.capabilities.collects) {
+      // The coordinator fetches the spool itself: the final archive, else the latest snapshot.
+      if (!a.remote.provider_job_id)
+        throw new HttpError(409, "not_submitted", "the attempt never reached its runtime");
+      const done = await this.collectAndImport(a, adapter, true).catch(() => false);
+      if (!done && !(await this.collectAndImport(a, adapter, false).catch(asHttp)))
+        throw new HttpError(409, "nothing_to_collect", "the runtime has no results to collect yet");
+      return;
+    }
+    await adapter.drain(a.attempt_id, a.remote.provider_job_id).catch(asHttp);
     this.drainedAt.set(a.attempt_id, Date.now());
     this.patch(a.attempt_id, { drains: (a.remote.drains ?? 0) + 1 });
     this.o.audit.record({
@@ -1263,8 +1289,8 @@ export class RemoteService {
         imported_at: this.o.now().toISOString(),
       });
       this.o.audit.record({
-        actor: { kind: "human", id: by },
-        listener: "human",
+        actor: by === "system" ? { kind: "system" } : { kind: "human", id: by },
+        listener: by === "system" ? "internal" : "human",
         action: "job.remote.import",
         outcome: "allowed",
         project_id: a.project_id,
@@ -1378,6 +1404,7 @@ export class RemoteService {
     try {
       await adapter.release(a.attempt_id, r.provider_job_id as string);
       this.patch(a.attempt_id, { provider_state: "released", provider_checked_at: this.iso() });
+      this.markReleased(a.attempt_id);
       this.o.audit.record({
         actor: { kind: "system" },
         listener: "internal",
@@ -1395,6 +1422,13 @@ export class RemoteService {
     }
   }
 
+  /** A Colab runtime stopped (or found gone): its compute units stop counting. */
+  private markReleased(attemptId: string): void {
+    const cu = this.o.jobs.attempt(attemptId)?.remote?.compute_units;
+    if (cu && !cu.released_at)
+      this.patch(attemptId, { compute_units: { ...cu, released_at: this.iso() } });
+  }
+
   private async poll(a: AttemptRecord): Promise<void> {
     const r = a.remote as RemoteAttemptInfo;
     const adapter = this.adapterOf(a);
@@ -1403,6 +1437,7 @@ export class RemoteService {
       provider_state: st.state.slice(0, 100),
       provider_checked_at: this.iso(),
     });
+    if (cur?.remote && adapter.capabilities.collects) return this.pollCollecting(cur, adapter, st);
     if (!st.terminal || !cur?.remote) return;
     const c = cur.remote;
     const phase = st.worker?.["phase"];
@@ -1441,6 +1476,75 @@ export class RemoteService {
     }
   }
 
+  /**
+   * A runtime the coordinator collects from (a Colab runtime through the Colab CLI): import each new
+   * progress snapshot while the job runs; once it ended, import the final archive, counted like a
+   * drain (after MAX_DRAINS failures the attempt waits for a human). Never reruns anything.
+   */
+  private async pollCollecting(
+    a: AttemptRecord,
+    adapter: TargetAdapter,
+    st: { state: string; terminal: boolean; progress?: number },
+  ): Promise<void> {
+    const c = a.remote as RemoteAttemptInfo;
+    if (c.sync === "synced") return;
+    if (!st.terminal) {
+      const seen = this.collected.get(a.attempt_id) ?? 0;
+      if (st.progress !== undefined && st.progress > seen)
+        try {
+          if (await this.collectAndImport(a, adapter, false))
+            this.collected.set(a.attempt_id, st.progress);
+        } catch (e) {
+          this.o.log(`collecting progress of ${a.attempt_id}: ${(e as Error).message}`);
+        }
+      return;
+    }
+    if (st.state === "runtime gone") this.markReleased(a.attempt_id);
+    const drains = c.drains ?? 0;
+    if (drains >= MAX_DRAINS) {
+      if (!c.reconcile_required) {
+        const why = `the runtime reports ${st.state}, and ${MAX_DRAINS} tries did not collect the worker's results; what was collected while it ran stays, and nothing was rerun`;
+        this.patch(a.attempt_id, { reconcile_required: why, sync: "sync_failed", sync_error: why });
+        if (a.state === "starting" || a.state === "running")
+          this.o.jobs.finishAttempt(a.attempt_id, "unknown", { error: why });
+        // Nothing more will come from it: stop the runtime so it stops using compute units.
+        await this.release(this.o.jobs.attempt(a.attempt_id) as AttemptRecord);
+      }
+      return;
+    }
+    try {
+      if (!(await this.collectAndImport(a, adapter, true)))
+        throw new Error("the runtime has no final archive");
+      const after = this.o.jobs.attempt(a.attempt_id) as AttemptRecord;
+      if (after.state === "starting" || after.state === "running")
+        throw new Error("the final archive holds no exit record");
+    } catch (e) {
+      this.patch(a.attempt_id, {
+        drains: drains + 1,
+        sync_error: `collecting the results failed: ${(e as Error).message}`.slice(0, 2000),
+      });
+    }
+  }
+
+  /** Download the runtime's spool archive and import it (system). False when there is none yet. */
+  private async collectAndImport(
+    a: AttemptRecord,
+    adapter: TargetAdapter,
+    final: boolean,
+  ): Promise<boolean> {
+    if (!adapter.collect || !a.remote?.provider_job_id) return false;
+    const dir = mkdtempSync(join(this.o.paths.bundlesDir, ".collect-"));
+    try {
+      const file = join(dir, "spool.tgz");
+      if (!(await adapter.collect(a.attempt_id, a.remote.provider_job_id, file, { final })))
+        return false;
+      await this.importSpool(this.o.jobs.attempt(a.attempt_id) as AttemptRecord, file, "system");
+      return true;
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
   startWatchdog(): void {
     const ms = this.o.tickMs ?? 5000;
     this.timer = setInterval(() => {
@@ -1470,7 +1574,7 @@ export class RemoteService {
     // Old bundle directories of finished attempts are not needed.
     if (!existsSync(this.o.paths.bundlesDir)) return;
     for (const d of readdirSync(this.o.paths.bundlesDir)) {
-      if (d.startsWith(".import-"))
+      if (d.startsWith(".import-") || d.startsWith(".collect-"))
         rmSync(join(this.o.paths.bundlesDir, d), { recursive: true, force: true });
     }
   }

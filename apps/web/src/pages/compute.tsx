@@ -38,7 +38,7 @@ import {
 } from "../lib/compute.ts";
 import { fmtDuration, fmtTime, shortId } from "../lib/format.ts";
 import { fmtWeightedHours, parseWeightInput } from "../lib/policy.ts";
-import type { ComputeTargetView, JobView, RunsPage } from "../lib/types.ts";
+import type { ColabUsage, ComputeTargetView, JobView, RunsPage } from "../lib/types.ts";
 import { useLocation } from "../router.ts";
 
 const WINDOWS = [
@@ -477,6 +477,38 @@ interface Check {
 }
 
 /** Remote compute targets (ADR 0023): rate cards, what each can do, and a doctor run on demand. */
+/** A Colab account's compute units, refreshed every minute (the whole account, ADR 0059). */
+function ColabUsageLine(props: { targetId: string }) {
+  const u = useApi<ColabUsage>(`/api/v1/targets/${encodeURIComponent(props.targetId)}/usage`, {
+    pollMs: 60_000,
+  });
+  if (u.error)
+    return (
+      <div className="small faint" data-testid="colab-usage">
+        compute units unavailable: {u.error.message}
+      </div>
+    );
+  if (!u.data) return null;
+  const balance = u.data.balance_hundredths / 100;
+  const perHour = u.data.per_hour_hundredths / 100;
+  const d = u.data;
+  return (
+    <div className="row small" data-testid="colab-usage">
+      <Badge tone={balance < Math.max(5, perHour * 2) ? "warn" : "neutral"}>
+        {balance.toFixed(2)} compute units left
+      </Badge>
+      <span>
+        using {perHour.toFixed(2)}/h on {d.runtimes} runtime{d.runtimes === 1 ? "" : "s"}
+      </span>
+      <span className="faint">
+        (the whole Google account
+        {perHour > 0 ? `; about ${(balance / perHour).toFixed(1)} h left at this rate` : ""},
+        checked {fmtTime(d.checked_at)})
+      </span>
+    </div>
+  );
+}
+
 function RemoteTargets() {
   const list = useApi<{ targets: ComputeTargetView[] }>("/api/v1/targets");
   const [checks, setChecks] = useState<Record<string, Check[]>>({});
@@ -490,14 +522,16 @@ function RemoteTargets() {
     <section className="card" data-testid="remote-targets">
       <h2>Remote targets</h2>
       <p className="faint small">
-        Add one with <code>ablationkit target add ID --kind ssh|slurm|runpod|colab</code>. Jobs on a
-        target keep running when this workstation is off and reconcile when it is back.
+        Add one with <code>ablationkit target add ID --kind ssh|slurm|runpod|colab</code> (Colab:{" "}
+        <code>--kind colab --gpu L4</code>, after signing in once with <code>colab sessions</code>).
+        Jobs on a target keep running when this workstation is off and reconcile when it is back.
       </p>
       <ErrorBox error={list.error ?? doctor.error} onRetry={list.reload} />
       {!list.data ? <Loading /> : null}
       {list.data?.targets.length === 0 ? <Empty>No remote targets.</Empty> : null}
       {list.data?.targets.map((t) => {
         const cap = t.capabilities ?? {};
+        const colabCli = t.kind === "colab" && t.colab?.mode === "cli";
         return (
           <div key={t.target_id} className="stack" style={{ marginTop: 10, gap: 4 }}>
             <div className="row">
@@ -513,6 +547,16 @@ function RemoteTargets() {
               ) : null}
               {t.runpod?.gpu_type_ids.length ? (
                 <Badge>{t.runpod.gpu_type_ids.join(", ")}</Badge>
+              ) : null}
+              {colabCli ? (
+                <Badge>
+                  {t.colab?.tpu
+                    ? `TPU ${t.colab.tpu}`
+                    : t.colab?.gpu
+                      ? `GPU ${t.colab.gpu}`
+                      : "CPU"}
+                  {t.colab?.high_mem ? " · high RAM" : ""}
+                </Badge>
               ) : null}
               {!t.available ? <Badge tone="err">adapter unavailable</Badge> : null}
               {cap["exports"] ? (
@@ -532,10 +576,19 @@ function RemoteTargets() {
                 Doctor
               </button>
             </div>
-            <div className="faint small mono">
-              {t.ssh?.host ?? t.runpod?.image ?? ""}
-              {t.effective_worker_url ? ` → ${t.effective_worker_url}` : " · no worker URL"}
-            </div>
+            {t.kind === "colab" && !t.colab?.live ? (
+              <div className="faint small">
+                {colabCli
+                  ? "Unattended through Google's Colab CLI: a runtime per job, results collected while it runs, the runtime stopped after."
+                  : "Exported notebooks you run in Colab; results come back with remote import."}
+              </div>
+            ) : (
+              <div className="faint small mono">
+                {t.ssh?.host ?? t.runpod?.image ?? ""}
+                {t.effective_worker_url ? ` → ${t.effective_worker_url}` : " · no worker URL"}
+              </div>
+            )}
+            {colabCli ? <ColabUsageLine targetId={t.target_id} /> : null}
             {checks[t.target_id]?.map((c) => (
               <div key={c.name} className="row small">
                 <Badge tone={c.ok ? "ok" : "err"}>{c.ok ? "ok" : "fail"}</Badge>

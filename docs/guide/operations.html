@@ -88,7 +88,11 @@
       Use remote compute
      </h2>
      <p>
-      The CLI sets up SSH, Slurm, Runpod, and Colab targets. Start with
+      The CLI sets up SSH, Slurm, Runpod, and Colab targets (Colab: see
+      <a href="#colab">
+       Run jobs on Google Colab
+      </a>
+      ). Start with
       <code>
        ablationkit target list
       </code>
@@ -101,6 +105,93 @@
      <p>
       A remote attempt executes a staged bundle of a pinned commit and uploads results. Use Compute and job details to follow it. Offline reconciliation may be needed after a connection interruption; a remote drain delivers the leftover spool and does not rerun the experiment.
      </p>
+    </section>
+    <section id="colab">
+     <h2>
+      Run jobs on Google Colab
+     </h2>
+     <p>
+      A Colab target runs each job on its own Colab runtime, unattended. AblationKit drives Google's Colab CLI (
+      <code>
+       colab
+      </code>
+      ): it allocates the runtime, uploads the job's bundle, starts it, brings results back while it runs and after it ends, and stops the runtime. Agents can submit to it like any other target once the project allows it, so nobody has to open a notebook.
+     </p>
+     <ol>
+      <li>
+       Install the CLI and sign it in once with the Google account that holds your Colab plan or compute units:
+       <pre><code>uv tool install google-colab-cli
+colab sessions</code></pre>
+       Open the link it prints, approve, and paste the code back. The token stays in your keyring; AblationKit never sees it.
+      </li>
+      <li>
+       Add the target with the GPU to use (
+       <code>
+        T4
+       </code>
+       ,
+       <code>
+        L4
+       </code>
+       ,
+       <code>
+        G4
+       </code>
+       ,
+       <code>
+        A100
+       </code>
+       or
+       <code>
+        H100
+       </code>
+       ; or
+       <code>
+        --tpu v5e1
+       </code>
+       ), then check it:
+       <pre><code>ablationkit target add colab --kind colab --gpu L4
+ablationkit target doctor colab</code></pre>
+       The doctor reports the CLI, its sign-in, the account's compute units and the runtime it will ask for.
+      </li>
+      <li>
+       To let agents use it, open
+       <strong>
+        Project settings → Agents
+       </strong>
+       , allow remote jobs and add
+       <code>
+        colab
+       </code>
+       to the allowed targets. Set its weight on
+       <strong>
+        Compute
+       </strong>
+       so a Colab hour counts as you want against the agents' compute limit.
+      </li>
+     </ol>
+     <p>
+      <strong>
+       Compute → Targets
+      </strong>
+      shows the Google account's compute units: what is left, what its runtimes use per hour, and how many runtimes it holds (the whole account, including runtimes you started yourself). A job's remote panel shows its runtime's rate and the units it used so far, an estimate from how much the account's rate rose when the runtime was allocated.
+     </p>
+     <aside class="akg-callout">
+      <h3>
+       Limits
+      </h3>
+      <p>
+       The job does not need this workstation while it runs, but Colab can still reclaim a runtime (usage limits, a runtime's maximum lifetime); the attempt then ends with what was collected so far and is never rerun. A runtime whose results nobody collected is held for an hour after the job (
+       <code>
+        --keep-after-sec
+       </code>
+       ), then left idle for Colab to reclaim. An accelerator the account cannot have, or a CLI that is not signed in, fails the submission before anything runs. Results come back through the runtime's file API, so keep artifacts small. To run notebooks yourself instead, add the target with
+       <code>
+        --notebook
+       </code>
+       .
+      </p>
+     </aside>
     </section>
     <section>
      <h2>

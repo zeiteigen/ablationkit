@@ -6,7 +6,13 @@
  */
 import { useState } from "react";
 import { api } from "../api.ts";
-import { computeLabel, expectedBackBy, fmtTime, workerLabel } from "../lib/format.ts";
+import {
+  computeLabel,
+  expectedBackBy,
+  fmtComputeUnits,
+  fmtTime,
+  workerLabel,
+} from "../lib/format.ts";
 import type { AttemptView } from "../lib/types.ts";
 import { attemptTone, Badge, ErrorBox, KV, syncTone, type Tone, useAction } from "./ui.tsx";
 
@@ -95,9 +101,11 @@ export function RemotePanel(props: {
       {exported ? (
         <div className="small" style={{ marginTop: 8 }} data-testid="colab-help">
           <p>
-            <strong>Colab does not run unattended.</strong> The job runs only while a person keeps
-            the notebook's tab open and the runtime connected; AblationKit hears nothing until the
-            results are imported.
+            <strong>A notebook does not run unattended.</strong> The job runs only while a person
+            keeps the notebook's tab open and the runtime connected; AblationKit hears nothing until
+            the results are imported. A Colab target added with{" "}
+            <code>ablationkit target add ID --kind colab --gpu L4</code> runs jobs unattended
+            instead.
           </p>
           <p>
             <a href={`${base}/notebook`} download>
@@ -182,6 +190,14 @@ export function RemotePanel(props: {
               ? `${spool.pending_events ?? 0} events, ${spool.pending_artifacts ?? 0} artifacts pending${spool.dropped_events ? `, ${spool.dropped_events} dropped` : ""}${spool.disk_pressure ? " · disk pressure" : ""}`
               : "—",
           ],
+          ...(r.compute_units
+            ? ([
+                [
+                  "compute units",
+                  `${fmtComputeUnits(r.compute_units)} (an estimate from the account's rate)`,
+                ],
+              ] as [string, string][])
+            : []),
           ["bundle", `${r.bundle_id} at ${r.source_commit.slice(0, 12)}`],
           ["drains", String(r.drains ?? 0)],
           ["sync error", r.sync_error ?? "—"],

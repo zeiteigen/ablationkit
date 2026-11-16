@@ -25,6 +25,7 @@ Start with `bun run doctor` (the development environment) or `ablationkit system
 - A job stays `starting`: its collector failed to launch or start the command. Read `journalctl --user -u ak-col-<attempt>.service` (systemd mode) or `<home>/spool/<attempt>/collector.log` (direct mode). An attempt whose collector vanished becomes `unknown` within about 15 s; nothing is rerun.
 - Collectors keep their spool when they cannot deliver. Set `ABLATIONKIT_KEEP_SPOOL=1` in the coordinator's environment to keep it after successful delivery too (debugging).
 - An agent's job is refused with `time_limit_required` or `compute_limit_reached`: see [project permissions](../autonomy/project-permissions.md). `policy_denied` names the policy field that refused it.
+- A Colab job failed at staging: `ablationkit target doctor colab`. "not signed in": run `colab sessions` once in a terminal and follow the link. "Backend rejected accelerator": the Google account has no entitlement or compute units for that GPU (`colab usage`; pick another with `ablationkit target add colab --kind colab --gpu T4`).
 - A remote attempt is stuck or its outcome is ambiguous: `ablationkit remote status JOB`, then `remote drain JOB` (deliver a leftover worker spool; never reruns the job) or, after checking the target, `remote resolve JOB --note T` (`--lost` for an exported Colab attempt that will not report).
 
 ## Storage and recovery

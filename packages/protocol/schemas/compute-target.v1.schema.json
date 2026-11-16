@@ -26,7 +26,7 @@
     },
     "kind": {
       "title": "TargetKind",
-      "description": "`ssh`: a worker host reached over SSH (usually on the tailnet). `slurm`: a cluster login node reached over SSH; jobs go through `sbatch`. `runpod`: pods through the Runpod REST API. `colab`: notebook export only (no unattended execution).",
+      "description": "`ssh`: a worker host reached over SSH (usually on the tailnet). `slurm`: a cluster login node reached over SSH; jobs go through `sbatch`. `runpod`: pods through the Runpod REST API. `colab`: Google Colab runtimes, unattended through Google's Colab CLI (`colab.mode: cli`) or as an exported notebook a person runs (`notebook`).",
       "anyOf": [
         {
           "const": "ssh",
@@ -246,14 +246,100 @@
       "additionalProperties": false,
       "type": "object",
       "properties": {
+        "mode": {
+          "description": "`cli`: AblationKit runs each job unattended through Google's Colab CLI (`colab`, signed in once by the researcher): it allocates a runtime, uploads the bundle, starts the worker, collects its spool while it runs and after, and releases the runtime. `notebook` (the default when absent): each job exports a notebook a person runs, and its results come back with `remote import`.",
+          "anyOf": [
+            {
+              "const": "notebook",
+              "type": "string"
+            },
+            {
+              "const": "cli",
+              "type": "string"
+            }
+          ]
+        },
+        "gpu": {
+          "title": "ColabGpu",
+          "description": "A Colab GPU, as Google's Colab CLI names it (`--gpu`).",
+          "anyOf": [
+            {
+              "const": "T4",
+              "type": "string"
+            },
+            {
+              "const": "L4",
+              "type": "string"
+            },
+            {
+              "const": "G4",
+              "type": "string"
+            },
+            {
+              "const": "A100",
+              "type": "string"
+            },
+            {
+              "const": "H100",
+              "type": "string"
+            }
+          ]
+        },
+        "tpu": {
+          "description": "`cli`: a TPU instead of a GPU (`--tpu`).",
+          "anyOf": [
+            {
+              "const": "v5e1",
+              "type": "string"
+            },
+            {
+              "const": "v6e1",
+              "type": "string"
+            }
+          ]
+        },
+        "high_mem": {
+          "description": "`cli`: ask for a high-RAM machine shape (`--high-mem`; needs Colab Pro or Pro+).",
+          "type": "boolean"
+        },
+        "cli": {
+          "minItems": 1,
+          "maxItems": 16,
+          "description": "`cli`: argv of the Colab CLI (default `colab`). Tests and wrappers replace it; the subcommand and its arguments are appended.",
+          "type": "array",
+          "items": {
+            "minLength": 1,
+            "maxLength": 4096,
+            "type": "string"
+          }
+        },
+        "auth": {
+          "description": "`cli`: how the Colab CLI signs in (`--auth`): `oauth2` (its default; run `colab sessions` once in a terminal and follow the link) or `adc` (Application Default Credentials from gcloud).",
+          "anyOf": [
+            {
+              "const": "oauth2",
+              "type": "string"
+            },
+            {
+              "const": "adc",
+              "type": "string"
+            }
+          ]
+        },
+        "keep_after_sec": {
+          "minimum": 0,
+          "maximum": 86400,
+          "description": "`cli`: how long a runtime whose job ended keeps its results for the coordinator to collect before it lets Colab reclaim it (default 3600). The coordinator releases it as soon as it has them.",
+          "type": "integer"
+        },
         "live": {
-          "description": "Put the attempt's worker credentials in the notebook so the runtime delivers live. Only when `worker_url` is reachable from Colab; the notebook is then a secret. Default false: results come back with `remote import`.",
+          "description": "Give the worker the attempt's credentials so it delivers live. Only when `worker_url` is reachable from Colab; a notebook is then a secret. Default false: the worker spools, and its results come back by collection (`cli`) or `remote import` (`notebook`).",
           "type": "boolean"
         },
         "deliver_deadline_sec": {
           "minimum": 0,
           "maximum": 86400,
-          "description": "With `live`, how long the notebook keeps delivering after the job (default 120).",
+          "description": "With `live`, how long the worker keeps delivering after the job (default 120).",
           "type": "integer"
         }
       }

@@ -152,3 +152,27 @@ export function expectedBackBy(
   if (!Number.isFinite(t) || !runtimeMaxSec || runtimeMaxSec <= 0) return undefined;
   return new Date(t + runtimeMaxSec * 1000).toISOString();
 }
+
+/**
+ * Compute units a Colab runtime used (ADR 0059): its measured rate × the hours from allocation to
+ * release (or `now` while it is held). An estimate: Colab reports the rate for the whole account.
+ */
+export function computeUnitsUsed(
+  cu: { per_hour_hundredths: number; allocated_at: string; released_at?: string },
+  now: number = Date.now(),
+): number {
+  const end = cu.released_at ? Date.parse(cu.released_at) : now;
+  const hours = Math.max(0, end - Date.parse(cu.allocated_at)) / 3_600_000;
+  return (cu.per_hour_hundredths / 100) * hours;
+}
+
+/** "1.94 CU/h · 0.42 CU used" (or "free runtime" at 0 CU/h). */
+export function fmtComputeUnits(cu: {
+  per_hour_hundredths: number;
+  allocated_at: string;
+  released_at?: string;
+}): string {
+  if (cu.per_hour_hundredths === 0) return "free runtime (0 compute units per hour)";
+  const used = computeUnitsUsed(cu);
+  return `${(cu.per_hour_hundredths / 100).toFixed(2)} compute units/h · ${used.toFixed(2)} used${cu.released_at ? "" : " so far (runtime held)"}`;
+}

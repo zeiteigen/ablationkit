@@ -1,6 +1,8 @@
 /**
- * Google Colab (spec §10: export notebooks; never promise unattended execution or permanent
- * connectivity; isolated runtimes spool output and support later collection; ADR 0023).
+ * Google Colab notebooks (`colab.mode: notebook`, the default; spec §10: export notebooks; never
+ * promise unattended execution or permanent connectivity; isolated runtimes spool output and
+ * support later collection; ADR 0023). Unattended runtimes through Google's Colab CLI are
+ * `colab-cli.ts` (ADR 0059).
  *
  * `stage` writes `notebook.ipynb` next to the bundle. The notebook carries the bundle (base64, with
  * its SHA-256), runs `ablationkit_worker run` in the Colab runtime, and archives the worker's
@@ -71,6 +73,15 @@ export function parsePrintedArchive(text: string): PrintedArchive {
   return { name, sha256: sha, bytes: new Uint8Array(bytes) };
 }
 
+/** The credentials of a worker that never calls the coordinator (it spools everything). */
+export const OFFLINE_CREDENTIALS = `${JSON.stringify({
+  schema_version: 1,
+  launch_token: "offline",
+  launch_expires_at: "2099-01-01T00:00:00.000Z",
+  upload_token: "offline",
+  upload_expires_at: "2099-01-01T00:00:00.000Z",
+})}\n`;
+
 function cell(kind: "markdown" | "code", text: string) {
   const source = text.split("\n").map((l, i, a) => (i < a.length - 1 ? `${l}\n` : l));
   return kind === "markdown"
@@ -82,15 +93,7 @@ function cell(kind: "markdown" | "code", text: string) {
 export function colabNotebook(t: ComputeTarget, input: StageInput, bundle: Uint8Array): object {
   const live = t.colab?.live === true;
   const dir = `${t.work_dir ?? "/content/ablationkit"}/${input.attemptId}`;
-  const creds = live
-    ? input.credentials
-    : `${JSON.stringify({
-        schema_version: 1,
-        launch_token: "offline",
-        launch_expires_at: "2099-01-01T00:00:00.000Z",
-        upload_token: "offline",
-        upload_expires_at: "2099-01-01T00:00:00.000Z",
-      })}\n`;
+  const creds = live ? input.credentials : OFFLINE_CREDENTIALS;
   const deadline = live ? (t.colab?.deliver_deadline_sec ?? 120) : 0;
   const b64 = Buffer.from(bundle).toString("base64");
   return {

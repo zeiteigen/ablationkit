@@ -141,6 +141,7 @@ Raising the limit is a policy revision by the researcher: Agent permissions, or 
 - **After admission**, usage is bounded only as far as each attempt's time limit holds:
   - `RuntimeMaxSec` in a systemd user scope, locally and on remote workers with systemd, is **enforced**;
   - in direct mode the collector or the remote shim stops the job's process group, and a process that leaves the group escapes it;
+  - a Colab runtime (`colab.mode: cli`, ADR 0059) is bounded by the shim on the runtime, and the coordinator stops the runtime once its results are home;
   - an exported Colab notebook is bounded only by the shim, once someone runs it.
 
 Every compute response carries this note. The threat map lists it as POL-8 ([threat-map.md](../security/threat-map.md)).

@@ -28,9 +28,19 @@ const TARGET_USAGE = `usage:
       --tailscale-secret NAME       Runpod secret with a reusable Tailscale auth key (pods join the tailnet)
       --cents-per-hour N            rate card for estimates
       --deliver-deadline-sec N      delivery time before a pod stops itself (default 3600)
-  ablationkit target add ID --kind colab [--live]   notebooks to run yourself; --live embeds credentials
+  ablationkit target add ID --kind colab [--gpu T4|L4|G4|A100|H100 | --tpu v5e1|v6e1] [options]
+      jobs run unattended on Colab runtimes through Google's Colab CLI (\`colab\`; sign it in once
+      with \`colab sessions\`): a runtime per attempt, results collected, the runtime stopped
+      --high-mem                    a high-RAM machine (Colab Pro or Pro+)
+      --keep-after-sec N            how long a runtime holds results nobody collected (default 3600)
+      --auth oauth2|adc             how the Colab CLI signs in (default: the CLI's own, oauth2)
+      --work-dir DIR                the worker directory on the runtime (default /content/ablationkit)
+  ablationkit target add ID --kind colab --notebook [--live]   notebooks to run yourself instead;
+      --live embeds credentials
   ablationkit target add ID --file TARGET.json    any kind, from a ComputeTarget document
-  ablationkit target doctor ID      SSH, Python, the worker listener from the target, disk
+  ablationkit target doctor ID      SSH, Python, the worker listener from the target, disk; for a
+                                    Colab target the CLI, its sign-in and the compute units
+  ablationkit target usage ID       a Colab target's compute units: balance, rate, runtimes
   ablationkit target remove ID
   (all take --json and --coordinator URL)`;
 
@@ -107,7 +117,10 @@ function parse(argv: readonly string[]) {
     }
     rest.push(a);
   }
-  return { args: parseArgs(rest, ["json", "live", "loader", "lost"]), repeated };
+  return {
+    args: parseArgs(rest, ["json", "live", "loader", "lost", "notebook", "high-mem"]),
+    repeated,
+  };
 }
 
 const LIVE_ATTEMPT = new Set(["queued", "starting", "running"]);
@@ -162,12 +175,17 @@ export async function targetCommand(argv: readonly string[], ctx: CliContext): P
       ctx.out("no compute targets (add one with `ablationkit target add`)\n");
     else
       for (const t of r.targets) {
-        // An offline Colab notebook never calls the coordinator: no worker URL to miss.
-        const offline =
-          t["kind"] === "colab" && !(t["colab"] as { live?: boolean } | undefined)?.live;
-        const delivery = offline
-          ? "offline (notebook export; results come back with `remote import`)"
-          : `worker URL ${t["effective_worker_url"] ?? "not set"}`;
+        // An offline Colab worker never calls the coordinator: no worker URL to miss.
+        const colab = t["colab"] as
+          | { live?: boolean; mode?: string; gpu?: string; tpu?: string }
+          | undefined;
+        const offline = t["kind"] === "colab" && !colab?.live;
+        const delivery =
+          t["kind"] === "colab" && colab?.mode === "cli"
+            ? `unattended through the Colab CLI (${colab.tpu ? `TPU ${colab.tpu}` : colab.gpu ? `GPU ${colab.gpu}` : "CPU"}; results collected by the coordinator)`
+            : offline
+              ? "offline (notebook export; results come back with `remote import`)"
+              : `worker URL ${t["effective_worker_url"] ?? "not set"}`;
         ctx.out(
           `${t["target_id"]}  ${t["kind"]}${t["paid"] ? " (paid)" : ""}  ${(t["ssh"] as { host?: string } | undefined)?.host ?? ""}  ${delivery}\n`,
         );
@@ -183,6 +201,20 @@ export async function targetCommand(argv: readonly string[], ctx: CliContext): P
   if (sub === "remove") {
     await (await client()).request("DELETE", path);
     if (!asJson) ctx.out(`removed ${id}\n`);
+    return 0;
+  }
+  if (sub === "usage") {
+    const u = await (await client()).request<{
+      balance_hundredths: number;
+      per_hour_hundredths: number;
+      runtimes: number;
+      checked_at: string;
+    }>("GET", `${path}/usage`);
+    if (asJson) printJson(ctx, u);
+    else
+      ctx.out(
+        `${(u.balance_hundredths / 100).toFixed(2)} compute units left; using ${(u.per_hour_hundredths / 100).toFixed(2)} per hour on ${u.runtimes} runtime${u.runtimes === 1 ? "" : "s"} (the whole Google account, ${u.checked_at})\n`,
+      );
     return 0;
   }
   if (sub === "doctor") {
@@ -246,12 +278,29 @@ export async function targetCommand(argv: readonly string[], ctx: CliContext): P
         };
         saved = `saved ${id} (runpod, paid compute: submissions need --timeout and --accept-cost)\ncheck it with: ablationkit target doctor ${id}\n`;
       } else if (kind === "colab") {
+        const notebook = args.flags["notebook"] === true;
+        const gpus = repeated["gpu"] ?? [];
+        if (gpus.length > 1) throw new UsageError("a Colab runtime takes one --gpu");
+        const runtime: { gpu?: string; tpu?: string; [k: string]: unknown } = {
+          ...(gpus[0] ? { gpu: gpus[0].toUpperCase() } : {}),
+          ...opt("tpu", "tpu"),
+          ...(args.flags["high-mem"] === true ? { high_mem: true } : {}),
+          ...opt("keep_after_sec", "keep-after-sec", true),
+          ...opt("auth", "auth"),
+        };
+        if (notebook && Object.keys(runtime).length)
+          throw new UsageError(
+            "--gpu, --tpu, --high-mem, --keep-after-sec and --auth apply to unattended runtimes, not --notebook (a notebook picks its runtime in Colab)",
+          );
+        const live = args.flags["live"] === true ? { live: true } : {};
         body = {
           kind,
-          ...(args.flags["live"] === true ? { colab: { live: true } } : {}),
+          colab: notebook ? live : { mode: "cli", ...runtime, ...live },
           ...common,
         };
-        saved = `saved ${id} (colab: a job submitted to ${id} exports a notebook; \`remote notebook JOB\` fetches it)\n`;
+        saved = notebook
+          ? `saved ${id} (colab: a job submitted to ${id} exports a notebook; \`remote notebook JOB\` fetches it)\n`
+          : `saved ${id} (colab: jobs submitted to ${id} run unattended through the Colab CLI, each on its own ${runtime.tpu ? `TPU ${runtime.tpu}` : runtime.gpu ? `${runtime.gpu} GPU` : "CPU"} runtime)\ncheck it with: ablationkit target doctor ${id}   (sign the CLI in once with \`colab sessions\`)\n`;
       } else {
         if ((kind !== "ssh" && kind !== "slurm") || !host)
           throw new UsageError(

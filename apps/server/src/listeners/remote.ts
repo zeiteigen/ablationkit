@@ -98,6 +98,13 @@ export const REMOTE_ROUTES: readonly Route<HumanHandler>[] = [
   },
   {
     method: "GET",
+    path: "/api/v1/targets/:id/usage",
+    handler: session("target.usage", async (c) =>
+      json(200, await c.svc.targets.usage(c.params["id"] as string)),
+    ),
+  },
+  {
+    method: "GET",
     path: "/api/v1/jobs/:id/attempts/:attemptId/remote/notebook",
     handler: session("job.remote.notebook", (c) => {
       const file = c.svc.remote.notebookFile(attempt(c));

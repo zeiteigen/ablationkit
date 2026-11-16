@@ -64,7 +64,7 @@
     },
     "target_kind": {
       "title": "TargetKind",
-      "description": "`ssh`: a worker host reached over SSH (usually on the tailnet). `slurm`: a cluster login node reached over SSH; jobs go through `sbatch`. `runpod`: pods through the Runpod REST API. `colab`: notebook export only (no unattended execution).",
+      "description": "`ssh`: a worker host reached over SSH (usually on the tailnet). `slurm`: a cluster login node reached over SSH; jobs go through `sbatch`. `runpod`: pods through the Runpod REST API. `colab`: Google Colab runtimes, unattended through Google's Colab CLI (`colab.mode: cli`) or as an exported notebook a person runs (`notebook`).",
       "anyOf": [
         {
           "const": "ssh",

@@ -331,6 +331,7 @@ export class Coordinator {
       const targets = new TargetService({
         dir: paths.targetsDir,
         now,
+        colabStateFile: paths.colabState,
         ...(options.targetShell ? { shellFor: options.targetShell } : {}),
       });
       targets.load();

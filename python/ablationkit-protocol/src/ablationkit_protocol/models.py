@@ -53,6 +53,7 @@ RemoteStaging = Literal["bundling", "staging", "submitted", "exported", "failed"
 RemoteConnectivity = Literal["pending", "connected", "disconnected"]
 RemoteSyncStatus = Literal["awaiting_sync", "syncing", "synced", "sync_failed"]
 ConsoleStream = Literal["stdout", "stderr", "log", "system"]
+ColabGpu = Literal["T4", "L4", "G4", "A100", "H100"]
 WorkerPhase = Literal["starting", "running", "exited", "lost", "draining"]
 ResearchRecordId = Annotated[str, StringConstraints(pattern="^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")]
 ResearchKind = Literal[
@@ -1178,6 +1179,24 @@ class WorkerSpoolReport(ProtocolModel):
     disk_pressure: bool | None = Field(default=None)
 
 
+class ColabComputeUnits(ProtocolModel):
+    """A Colab runtime's compute units (`colab.mode: cli`, ADR 0059), in hundredths as Colab reports them. Units used are about `per_hour_hundredths` / 100 times the hours from `allocated_at` to `released_at` (or now): an estimate from the account's rate, which Colab reports for the whole account, not per runtime."""
+
+    per_hour_hundredths: Annotated[int, Field(ge=0)] = Field(
+        description="The runtime's compute units per hour, in hundredths: how much the account's hourly rate rose when it was allocated (0 on a free runtime)."
+    )
+    balance_at_allocation_hundredths: int | None = Field(
+        default=None,
+        description="The account's balance, in hundredths, just before the runtime was allocated.",
+    )
+    allocated_at: Timestamp = Field(
+        description="RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds."
+    )
+    released_at: Timestamp | None = Field(
+        default=None, description="When the coordinator stopped the runtime (or found it gone)."
+    )
+
+
 class RemoteAttemptInfo(ProtocolModel):
     """Remote execution, connectivity and sync status of one attempt."""
 
@@ -1185,7 +1204,7 @@ class RemoteAttemptInfo(ProtocolModel):
         description="Compute target identifier (lowercase slug). `local` is reserved for this machine."
     )
     target_kind: TargetKind = Field(
-        description="`ssh`: a worker host reached over SSH (usually on the tailnet). `slurm`: a cluster login node reached over SSH; jobs go through `sbatch`. `runpod`: pods through the Runpod REST API. `colab`: notebook export only (no unattended execution)."
+        description="`ssh`: a worker host reached over SSH (usually on the tailnet). `slurm`: a cluster login node reached over SSH; jobs go through `sbatch`. `runpod`: pods through the Runpod REST API. `colab`: Google Colab runtimes, unattended through Google's Colab CLI (`colab.mode: cli`) or as an exported notebook a person runs (`notebook`)."
     )
     bundle_id: Annotated[str, StringConstraints(pattern="^b-[a-f0-9]{12}$")]
     bundle_sha256: Annotated[str, StringConstraints(pattern="^[a-f0-9]{64}$")] | None = Field(
@@ -1264,6 +1283,10 @@ class RemoteAttemptInfo(ProtocolModel):
     marked_lost_at: Timestamp | None = Field(
         default=None,
         description="When a researcher marked an exported attempt lost (`remote resolve JOB --lost`): it ended `unknown`, releasing its parallel slot. A late import still lands and settles it.",
+    )
+    compute_units: ColabComputeUnits | None = Field(
+        default=None,
+        description="A Colab runtime's compute units (`colab.mode: cli`, ADR 0059), in hundredths as Colab reports them. Units used are about `per_hour_hundredths` / 100 times the hours from `allocated_at` to `released_at` (or now): an estimate from the account's rate, which Colab reports for the whole account, not per runtime.",
     )
 
 
@@ -1503,13 +1526,45 @@ class RunpodConfig(ProtocolModel):
 
 
 class ColabConfig(ProtocolModel):
+    mode: Literal["notebook", "cli"] | None = Field(
+        default=None,
+        description="`cli`: AblationKit runs each job unattended through Google's Colab CLI (`colab`, signed in once by the researcher): it allocates a runtime, uploads the bundle, starts the worker, collects its spool while it runs and after, and releases the runtime. `notebook` (the default when absent): each job exports a notebook a person runs, and its results come back with `remote import`.",
+    )
+    gpu: ColabGpu | None = Field(
+        default=None, description="A Colab GPU, as Google's Colab CLI names it (`--gpu`)."
+    )
+    tpu: Literal["v5e1", "v6e1"] | None = Field(
+        default=None, description="`cli`: a TPU instead of a GPU (`--tpu`)."
+    )
+    high_mem: bool | None = Field(
+        default=None,
+        description="`cli`: ask for a high-RAM machine shape (`--high-mem`; needs Colab Pro or Pro+).",
+    )
+    cli: (
+        Annotated[
+            list[Annotated[str, StringConstraints(min_length=1, max_length=4096)]],
+            Field(min_length=1, max_length=16),
+        ]
+        | None
+    ) = Field(
+        default=None,
+        description="`cli`: argv of the Colab CLI (default `colab`). Tests and wrappers replace it; the subcommand and its arguments are appended.",
+    )
+    auth: Literal["oauth2", "adc"] | None = Field(
+        default=None,
+        description="`cli`: how the Colab CLI signs in (`--auth`): `oauth2` (its default; run `colab sessions` once in a terminal and follow the link) or `adc` (Application Default Credentials from gcloud).",
+    )
+    keep_after_sec: Annotated[int, Field(ge=0, le=86400)] | None = Field(
+        default=None,
+        description="`cli`: how long a runtime whose job ended keeps its results for the coordinator to collect before it lets Colab reclaim it (default 3600). The coordinator releases it as soon as it has them.",
+    )
     live: bool | None = Field(
         default=None,
-        description="Put the attempt's worker credentials in the notebook so the runtime delivers live. Only when `worker_url` is reachable from Colab; the notebook is then a secret. Default false: results come back with `remote import`.",
+        description="Give the worker the attempt's credentials so it delivers live. Only when `worker_url` is reachable from Colab; a notebook is then a secret. Default false: the worker spools, and its results come back by collection (`cli`) or `remote import` (`notebook`).",
     )
     deliver_deadline_sec: Annotated[int, Field(ge=0, le=86400)] | None = Field(
         default=None,
-        description="With `live`, how long the notebook keeps delivering after the job (default 120).",
+        description="With `live`, how long the worker keeps delivering after the job (default 120).",
     )
 
 
@@ -1532,7 +1587,7 @@ class ComputeTarget(ProtocolModel):
         description="Compute target identifier (lowercase slug). `local` is reserved for this machine."
     )
     kind: TargetKind = Field(
-        description="`ssh`: a worker host reached over SSH (usually on the tailnet). `slurm`: a cluster login node reached over SSH; jobs go through `sbatch`. `runpod`: pods through the Runpod REST API. `colab`: notebook export only (no unattended execution)."
+        description="`ssh`: a worker host reached over SSH (usually on the tailnet). `slurm`: a cluster login node reached over SSH; jobs go through `sbatch`. `runpod`: pods through the Runpod REST API. `colab`: Google Colab runtimes, unattended through Google's Colab CLI (`colab.mode: cli`) or as an exported notebook a person runs (`notebook`)."
     )
     label: Annotated[str, StringConstraints(max_length=200)] | None = Field(default=None)
     ssh: SshConfig | None = Field(
@@ -1639,7 +1694,7 @@ class RunBundleManifest(ProtocolModel):
         description="Compute target identifier (lowercase slug). `local` is reserved for this machine."
     )
     target_kind: TargetKind = Field(
-        description="`ssh`: a worker host reached over SSH (usually on the tailnet). `slurm`: a cluster login node reached over SSH; jobs go through `sbatch`. `runpod`: pods through the Runpod REST API. `colab`: notebook export only (no unattended execution)."
+        description="`ssh`: a worker host reached over SSH (usually on the tailnet). `slurm`: a cluster login node reached over SSH; jobs go through `sbatch`. `runpod`: pods through the Runpod REST API. `colab`: Google Colab runtimes, unattended through Google's Colab CLI (`colab.mode: cli`) or as an exported notebook a person runs (`notebook`)."
     )
     created_at: Timestamp = Field(
         description="RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds."
@@ -4366,7 +4421,9 @@ __all__ = [
     "BundleInput",
     "CapabilityConfig",
     "CaptureMode",
+    "ColabComputeUnits",
     "ColabConfig",
+    "ColabGpu",
     "CollectorHealth",
     "CollectorManifest",
     "ComputeLimit",

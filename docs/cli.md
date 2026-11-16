@@ -30,9 +30,9 @@ Jobs are launched from the web UI (the Jobs page's launch dialog, or the command
 
 | Task | Commands |
 | --- | --- |
-| Add a remote target | `ablationkit target add ID --kind ssh\|slurm --host H [--worker-url URL]`; Runpod: `--kind runpod --api-key-env VAR --image IMG --gpu T --cents-per-hour N`; Colab: `--kind colab`. Then `target list\|show\|doctor\|remove` |
+| Add a remote target | `ablationkit target add ID --kind ssh\|slurm --host H [--worker-url URL]`; Runpod: `--kind runpod --api-key-env VAR --image IMG --gpu T --cents-per-hour N`; Colab: `--kind colab --gpu L4` (unattended runtimes through Google's Colab CLI; sign it in once with `colab sessions`; also `--tpu`, `--high-mem`, `--keep-after-sec N`, `--auth oauth2\|adc`) or `--kind colab --notebook [--live]` (notebooks you run). Then `target list\|show\|doctor\|usage\|remove` (`usage`: a Colab account's compute units) |
 | Remote attempts | `ablationkit remote status\|drain\|reauthorize\|resolve JOB`. The worker runs from a staged bundle of the pinned commit and reconciles later; `drain` delivers a leftover spool and never reruns the job |
-| Colab | `ablationkit remote notebook JOB [--out F] [--loader]` writes the attempt's notebook (`--loader` also prints one cell to paste into an empty Colab notebook); `ablationkit remote import JOB ARCHIVE` (or `--base64 FILE`, the archive the notebook printed when its download did nothing) brings the results back |
+| Colab (notebook) | `ablationkit remote notebook JOB [--out F] [--loader]` writes the attempt's notebook (`--loader` also prints one cell to paste into an empty Colab notebook); `ablationkit remote import JOB ARCHIVE` (or `--base64 FILE`, the archive the notebook printed when its download did nothing) brings the results back |
 | Policy and the compute limit | Project settings → Agent permissions (the project action policy and the agents' compute limit); compute weights per target on the Compute page ([project permissions](autonomy/project-permissions.md)) |
 
 Settings for remote compute: `worker.host: "tailscale"`, `remote.worker_url`, and optionally `remote.artifact_store` for large artifacts through S3, R2 or MinIO (ADR 0023).

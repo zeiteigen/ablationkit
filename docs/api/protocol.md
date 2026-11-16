@@ -423,7 +423,7 @@ Schema: [`compute-target.v1.schema.json`](../../packages/protocol/schemas/comput
 | --- | --- | --- | --- |
 | `schema_version` | `1` | yes |  |
 | `target_id` | `TargetId` | yes | Compute target identifier (lowercase slug). `local` is reserved for this machine. |
-| `kind` | `TargetKind` | yes | `ssh`: a worker host reached over SSH (usually on the tailnet). `slurm`: a cluster login node reached over SSH; jobs go through `sbatch`. `runpod`: pods through the Runpod REST API. `colab`: notebook export only (no unattended execution). |
+| `kind` | `TargetKind` | yes | `ssh`: a worker host reached over SSH (usually on the tailnet). `slurm`: a cluster login node reached over SSH; jobs go through `sbatch`. `runpod`: pods through the Runpod REST API. `colab`: Google Colab runtimes, unattended through Google's Colab CLI (`colab.mode: cli`) or as an exported notebook a person runs (`notebook`). |
 | `label` | string | no |  |
 | `ssh` | object | no | How the coordinator reaches a host. Uses the user's SSH keys and config. |
 | `slurm` | object | no |  |
@@ -477,7 +477,7 @@ Schema: [`run-bundle-manifest.v1.schema.json`](../../packages/protocol/schemas/r
 | `job_id` | `JobId` | yes | AblationKit job identifier. |
 | `attempt_id` | `AttemptId` | yes | Identifier of one attempt of a job. |
 | `target_id` | `TargetId` | yes | Compute target identifier (lowercase slug). `local` is reserved for this machine. |
-| `target_kind` | `TargetKind` | yes | `ssh`: a worker host reached over SSH (usually on the tailnet). `slurm`: a cluster login node reached over SSH; jobs go through `sbatch`. `runpod`: pods through the Runpod REST API. `colab`: notebook export only (no unattended execution). |
+| `target_kind` | `TargetKind` | yes | `ssh`: a worker host reached over SSH (usually on the tailnet). `slurm`: a cluster login node reached over SSH; jobs go through `sbatch`. `runpod`: pods through the Runpod REST API. `colab`: Google Colab runtimes, unattended through Google's Colab CLI (`colab.mode: cli`) or as an exported notebook a person runs (`notebook`). |
 | `created_at` | `Timestamp` | yes | RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds. |
 | `worker_url` | string | yes |  |
 | `argv` | array of string | yes |  |
@@ -1355,7 +1355,7 @@ Schema: [`source-build-record.v1.schema.json`](../../packages/protocol/schemas/s
 | `StudyId` | string | `^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$` | Study identifier (a planned comparison: baseline plus variants). |
 | `SupervisorInfo` | object |  |  |
 | `TargetId` | string | `^[a-z][a-z0-9-]{0,39}$` | Compute target identifier (lowercase slug). `local` is reserved for this machine. |
-| `TargetKind` | undefined |  | `ssh`: a worker host reached over SSH (usually on the tailnet). `slurm`: a cluster login node reached over SSH; jobs go through `sbatch`. `runpod`: pods through the Runpod REST API. `colab`: notebook export only (no unattended execution). |
+| `TargetKind` | undefined |  | `ssh`: a worker host reached over SSH (usually on the tailnet). `slurm`: a cluster login node reached over SSH; jobs go through `sbatch`. `runpod`: pods through the Runpod REST API. `colab`: Google Colab runtimes, unattended through Google's Colab CLI (`colab.mode: cli`) or as an exported notebook a person runs (`notebook`). |
 | `TaskId` | string | `^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$` | AblationKit task identifier (UI- or agent-first task). |
 | `TaskOutcome` | undefined |  | The research outcome a completed task reports. `supported` and `not_supported` need a notebook with a note that cites runs, or a report that cites evidence. |
 | `TaskStatus` | undefined |  | `open` while the agent works on it; `completed` with an outcome and a notebook of the vault (or a report record); `abandoned` by the agent or the researcher, with a reason. |

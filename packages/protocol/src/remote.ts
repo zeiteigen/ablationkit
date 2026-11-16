@@ -23,7 +23,7 @@ export const TargetKind = Type.Union(
   {
     title: "TargetKind",
     description:
-      "`ssh`: a worker host reached over SSH (usually on the tailnet). `slurm`: a cluster login node reached over SSH; jobs go through `sbatch`. `runpod`: pods through the Runpod REST API. `colab`: notebook export only (no unattended execution).",
+      "`ssh`: a worker host reached over SSH (usually on the tailnet). `slurm`: a cluster login node reached over SSH; jobs go through `sbatch`. `runpod`: pods through the Runpod REST API. `colab`: Google Colab runtimes, unattended through Google's Colab CLI (`colab.mode: cli`) or as an exported notebook a person runs (`notebook`).",
   },
 );
 export type TargetKind = Static<typeof TargetKind>;
@@ -152,12 +152,64 @@ export const RunpodConfig = Type.Object(
 );
 export type RunpodConfig = Static<typeof RunpodConfig>;
 
+export const ColabGpu = Type.Union(
+  [
+    Type.Literal("T4"),
+    Type.Literal("L4"),
+    Type.Literal("G4"),
+    Type.Literal("A100"),
+    Type.Literal("H100"),
+  ],
+  { title: "ColabGpu", description: "A Colab GPU, as Google's Colab CLI names it (`--gpu`)." },
+);
+export type ColabGpu = Static<typeof ColabGpu>;
+
 export const ColabConfig = Type.Object(
   {
+    mode: Type.Optional(
+      Type.Union([Type.Literal("notebook"), Type.Literal("cli")], {
+        description:
+          "`cli`: AblationKit runs each job unattended through Google's Colab CLI (`colab`, signed in once by the researcher): it allocates a runtime, uploads the bundle, starts the worker, collects its spool while it runs and after, and releases the runtime. `notebook` (the default when absent): each job exports a notebook a person runs, and its results come back with `remote import`.",
+      }),
+    ),
+    gpu: Type.Optional(ColabGpu),
+    tpu: Type.Optional(
+      Type.Union([Type.Literal("v5e1"), Type.Literal("v6e1")], {
+        description: "`cli`: a TPU instead of a GPU (`--tpu`).",
+      }),
+    ),
+    high_mem: Type.Optional(
+      Type.Boolean({
+        description:
+          "`cli`: ask for a high-RAM machine shape (`--high-mem`; needs Colab Pro or Pro+).",
+      }),
+    ),
+    cli: Type.Optional(
+      Type.Array(Type.String({ minLength: 1, maxLength: 4096 }), {
+        minItems: 1,
+        maxItems: 16,
+        description:
+          "`cli`: argv of the Colab CLI (default `colab`). Tests and wrappers replace it; the subcommand and its arguments are appended.",
+      }),
+    ),
+    auth: Type.Optional(
+      Type.Union([Type.Literal("oauth2"), Type.Literal("adc")], {
+        description:
+          "`cli`: how the Colab CLI signs in (`--auth`): `oauth2` (its default; run `colab sessions` once in a terminal and follow the link) or `adc` (Application Default Credentials from gcloud).",
+      }),
+    ),
+    keep_after_sec: Type.Optional(
+      Type.Integer({
+        minimum: 0,
+        maximum: 86_400,
+        description:
+          "`cli`: how long a runtime whose job ended keeps its results for the coordinator to collect before it lets Colab reclaim it (default 3600). The coordinator releases it as soon as it has them.",
+      }),
+    ),
     live: Type.Optional(
       Type.Boolean({
         description:
-          "Put the attempt's worker credentials in the notebook so the runtime delivers live. Only when `worker_url` is reachable from Colab; the notebook is then a secret. Default false: results come back with `remote import`.",
+          "Give the worker the attempt's credentials so it delivers live. Only when `worker_url` is reachable from Colab; a notebook is then a secret. Default false: the worker spools, and its results come back by collection (`cli`) or `remote import` (`notebook`).",
       }),
     ),
     deliver_deadline_sec: Type.Optional(
@@ -165,7 +217,7 @@ export const ColabConfig = Type.Object(
         minimum: 0,
         maximum: 86_400,
         description:
-          "With `live`, how long the notebook keeps delivering after the job (default 120).",
+          "With `live`, how long the worker keeps delivering after the job (default 120).",
       }),
     ),
   },
@@ -188,6 +240,53 @@ export const NtfyConfig = Type.Object(
   },
 );
 export type NtfyConfig = Static<typeof NtfyConfig>;
+
+export const ColabComputeUnits = Type.Object(
+  {
+    per_hour_hundredths: Type.Integer({
+      minimum: 0,
+      description:
+        "The runtime's compute units per hour, in hundredths: how much the account's hourly rate rose when it was allocated (0 on a free runtime).",
+    }),
+    balance_at_allocation_hundredths: Type.Optional(
+      Type.Integer({
+        description: "The account's balance, in hundredths, just before the runtime was allocated.",
+      }),
+    ),
+    allocated_at: Timestamp,
+    released_at: Type.Optional(
+      describe(Timestamp, "When the coordinator stopped the runtime (or found it gone)."),
+    ),
+  },
+  {
+    title: "ColabComputeUnits",
+    description:
+      "A Colab runtime's compute units (`colab.mode: cli`, ADR 0059), in hundredths as Colab reports them. Units used are about `per_hour_hundredths` / 100 times the hours from `allocated_at` to `released_at` (or now): an estimate from the account's rate, which Colab reports for the whole account, not per runtime.",
+    additionalProperties: false,
+  },
+);
+export type ColabComputeUnits = Static<typeof ColabComputeUnits>;
+
+export const ColabUsage = Type.Object(
+  {
+    balance_hundredths: Type.Integer({
+      description: "Compute units left on the Google account, in hundredths.",
+    }),
+    per_hour_hundredths: Type.Integer({
+      minimum: 0,
+      description: "Compute units the account's runtimes use per hour now, in hundredths.",
+    }),
+    runtimes: Type.Integer({ minimum: 0, description: "Runtimes allocated to the account now." }),
+    checked_at: Timestamp,
+  },
+  {
+    title: "ColabUsage",
+    description:
+      "A Colab account's compute units as Google's Colab CLI reports them (`colab usage`): the whole account, including runtimes AblationKit did not start.",
+    additionalProperties: false,
+  },
+);
+export type ColabUsage = Static<typeof ColabUsage>;
 
 /** `<home>/targets/<target-id>.json`. */
 export const ComputeTarget = Type.Object(
@@ -417,6 +516,7 @@ export const RemoteAttemptInfo = Type.Object(
         "When a researcher marked an exported attempt lost (`remote resolve JOB --lost`): it ended `unknown`, releasing its parallel slot. A late import still lands and settles it.",
       ),
     ),
+    compute_units: Type.Optional(ColabComputeUnits),
   },
   {
     title: "RemoteAttemptInfo",
