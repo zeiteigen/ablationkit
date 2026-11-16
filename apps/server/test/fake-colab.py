@@ -9,8 +9,10 @@ each GPU runtime adds 1.5 compute units per hour. Environment switches for the t
                             fail reading the code from a closed stdin)
   FAKE_COLAB_REFUSE=<GPU>   refuse that accelerator like an account without entitlement
 
-and the global flag `--fail-mkdir 1`: the worker directory is never made, so uploads into it fail
-with the CLI's HTTP error (which carries a token).
+  FAKE_COLAB_HANG_EXECS=<n> the first n `exec` calls on a runtime hang before running anything
+
+An upload into a directory that does not exist fails with the CLI's HTTP error, which carries a
+token, as the real file API does.
 
 Session state lives in the `--config` file; the runtimes' process IDs next to it.
 """
@@ -29,16 +31,12 @@ GPU_RATE = 1.5
 
 def main(argv: list[str]) -> int:
     config = os.path.expanduser("~/.config/colab-cli/sessions.json")
-    fail_mkdir = False
     args = list(argv)
     while args and args[0].startswith("--"):
         flag = args.pop(0)
         value = args.pop(0)
         if flag == "--config":
             config = value
-        elif flag == "--fail-mkdir":
-            # The worker directory is never made, so the upload into it fails.
-            fail_mkdir = value == "1"
     if not args:
         print("usage: colab COMMAND", file=sys.stderr)
         return 2
@@ -149,10 +147,14 @@ def main(argv: list[str]) -> int:
         return 0
     if cmd == "exec":
         file = opt("-f")
-        with open(file) as f:
-            if fail_mkdir and "AK-DIR-READY" in f.read():
-                print("AK-DIR-READY")
-                return 0
+        hangs = int(os.environ.get("FAKE_COLAB_HANG_EXECS", "0"))
+        count = sessions[name].get("execs", 0)
+        sessions[name]["execs"] = count + 1
+        save(sessions)
+        if count < hangs:
+            # Like CLI 0.8.0 attaching to a runtime's kernel: hang before anything runs.
+            time.sleep(3600)
+            return 1
         log = config + f".{name}.{time.time_ns()}.log"
         with open(log, "wb") as out:
             p = subprocess.Popen(

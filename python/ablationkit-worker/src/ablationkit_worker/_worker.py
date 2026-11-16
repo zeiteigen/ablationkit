@@ -49,6 +49,7 @@ from ._common import (
 )
 
 MAX_LINE_CHARS = 16_384
+MAX_PARTIAL_BYTES = 1024 * 1024
 MAX_BATCH_EVENTS = 500
 MAX_BATCH_BYTES = 4 * 1024 * 1024
 CHUNK_BYTES = 8 * 1024 * 1024
@@ -239,7 +240,6 @@ class Worker:
         self.cancel_sent = False
         self.disk_pressure = False
         self.last_status = time.monotonic()
-        self.partial: dict[str, str] = {"stdout": "", "stderr": ""}
 
     # ------------------------------------------------------------------ setup
 
@@ -591,27 +591,37 @@ class Worker:
             return
         key = f"{stream}_offset"
         offset = int(self.state.get(key, 0))
-        size = path.stat().st_size
-        if size <= offset and not (final and self.partial[stream]):
-            return
-        with path.open("rb") as fh:
-            fh.seek(offset)
-            data = fh.read(min(size - offset, 8 * 1024 * 1024))
-        text = self.partial[stream] + data.decode("utf-8", errors="replace")
-        lines = text.split("\n")
-        self.partial[stream] = lines.pop()
-        if final and self.partial[stream]:
-            lines.append(self.partial[stream])
-            self.partial[stream] = ""
-        for raw in lines:
-            while len(raw) > MAX_LINE_CHARS:
-                self._emit("console.line", {"stream": stream, "text": raw[:MAX_LINE_CHARS]})
-                raw = raw[MAX_LINE_CHARS:]
-            self._emit("console.line", {"stream": stream, "text": _clean_line(raw)})
-        self._flush()
-        # A partial line is re-read after a restart (it was not emitted): spool first, then offset.
-        self.state[key] = offset + len(data) - len(self.partial[stream].encode())
-        self._save_state()
+        while True:
+            size = path.stat().st_size
+            if size <= offset:
+                return
+            with path.open("rb") as fh:
+                fh.seek(offset)
+                data = fh.read(min(size - offset, 8 * 1024 * 1024))
+            # The offset is the first byte not yet emitted: an unfinished last line stays in the
+            # file and is read again with what follows it (also after a restart). It is emitted
+            # as it is once the job ended, or once it outgrew MAX_PARTIAL_BYTES (progress bars
+            # rewrite one line with carriage returns and may never end it).
+            cut = data.rfind(b"\n") + 1
+            if final or (cut == 0 and len(data) >= MAX_PARTIAL_BYTES):
+                cut = len(data)
+            if cut == 0:
+                return
+            lines = data[:cut].decode("utf-8", errors="replace").split("\n")
+            if lines[-1] == "":
+                lines.pop()
+            for raw in lines:
+                text = _clean_line(raw)
+                while len(text) > MAX_LINE_CHARS:
+                    self._emit("console.line", {"stream": stream, "text": text[:MAX_LINE_CHARS]})
+                    text = text[MAX_LINE_CHARS:]
+                self._emit("console.line", {"stream": stream, "text": text})
+            self._flush()
+            offset += cut
+            self.state[key] = offset
+            self._save_state()
+            if not final:
+                return
 
     def _tail_sdk(self) -> None:
         path = self.spool / "sdk-events.jsonl"

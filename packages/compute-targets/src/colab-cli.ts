@@ -4,14 +4,18 @@
  * The researcher signs the CLI in once (`colab sessions` in a terminal; the token stays in the OS
  * keyring). For each attempt the coordinator then:
  *
- * 1. `stage`: allocates a runtime (`colab new -s ak-<attempt> --gpu …`), creates the worker
- *    directory, uploads the bundle and the credentials through the runtime's file API, and
- *    verifies and unpacks the bundle there;
- * 2. `submit`: starts a *keeper* execution in the runtime's kernel: it starts the worker in its own
- *    session (so a kernel interrupt never reaches the job), keeps the kernel busy while the job
- *    runs (which keeps the runtime alive), writes `ak-keeper.json` every few seconds and a snapshot
- *    of the spool's journal every minute, and an archive of the whole spool when the job ends. The
- *    local `colab exec` is stopped once the keeper reports: the execution continues without it;
+ * 1. `stage`: allocates a runtime (`colab new -s ak-<attempt> --gpu …`) and uploads the bundle and
+ *    the credentials through the runtime's file API, next to the worker directory (in `/content`,
+ *    which every runtime has: the file API cannot make directories);
+ * 2. `submit`: starts a *keeper*, the runtime's one execution: it verifies and unpacks the bundle
+ *    into the worker directory, starts the worker in its own session (so a kernel interrupt never
+ *    reaches the job), keeps the kernel busy while the job runs (which keeps the runtime alive),
+ *    writes `ak-keeper.json` every few seconds and a snapshot of the spool's journal every minute,
+ *    and an archive of the whole spool when the job ends. The local `colab exec` is stopped once
+ *    the keeper reports: the execution continues without it. A `colab exec` that attaches to a
+ *    runtime's kernel sometimes hangs before anything runs (CLI 0.8.0), so the runtime gets one
+ *    execution only, and a start that never reports is retried (the status file says whether an
+ *    earlier try started after all);
  * 3. `status` and `collect`: read `ak-keeper.json` and download the snapshots through the file API,
  *    which answers while the kernel is busy; the coordinator imports each through the same dedupe
  *    as `remote import`, so metrics appear while the job runs;
@@ -44,6 +48,9 @@ export const COLAB_WORK_DIR = "/content/ablationkit";
 const DEFAULT_KEEP_SEC = 3600;
 /** How often the keeper snapshots the journal for progress. */
 const PROGRESS_SEC = 60;
+/** How long a keeper gets to report before its start is tried again, and how many tries. */
+const START_TIMEOUT_MS = 150_000;
+const START_TRIES = 3;
 
 export const SIGNIN_HELP =
   "the Colab CLI is not signed in: run `colab sessions` once in a terminal, open the link it prints, approve, and paste the code (the token stays in your keyring)";
@@ -77,34 +84,19 @@ export function colabDir(t: ComputeTarget, attemptId: string): string {
 
 const py = (v: unknown): string => JSON.stringify(v);
 
-/** Make the worker directory (the file API cannot create directories). */
-export function colabMkdirCode(dir: string): string {
-  return [
-    "import os",
-    `os.makedirs(${py(dir)}, mode=0o700, exist_ok=True)`,
-    `print("AK-DIR-READY", flush=True)`,
-  ].join("\n");
-}
-
-/** Verify and unpack the uploaded bundle; refuse a directory whose worker already started. */
-export function colabUnpackCode(dir: string, sha256: string): string {
-  return [
-    "import hashlib, os, tarfile",
-    `D = ${py(dir)}`,
-    'if os.path.exists(os.path.join(D, "state.json")):',
-    '    print("AK-ALREADY-STARTED", flush=True)',
-    "else:",
-    '    data = open(os.path.join(D, "bundle.tgz"), "rb").read()',
-    `    assert hashlib.sha256(data).hexdigest() == ${py(sha256)}, "bundle checksum mismatch"`,
-    '    os.makedirs(os.path.join(D, "bundle"), exist_ok=True)',
-    '    with tarfile.open(os.path.join(D, "bundle.tgz")) as tf:',
-    "        for m in tf.getmembers():",
-    '            assert not (m.name.startswith("/") or ".." in m.name.split("/") or m.issym() or m.islnk()), m.name',
-    '        tf.extractall(os.path.join(D, "bundle"))',
-    '    os.chmod(os.path.join(D, "credentials.json"), 0o600)',
-    '    os.remove(os.path.join(D, "bundle.tgz"))',
-    '    print("AK-STAGED", flush=True)',
-  ].join("\n");
+/**
+ * Where staging uploads the bundle and the credentials: beside the worker directory, in a directory
+ * every runtime has (the file API cannot make directories). The keeper moves them in.
+ */
+export function colabUploads(
+  t: ComputeTarget,
+  attemptId: string,
+): { bundle: string; credentials: string } {
+  const parent = dirname((t.work_dir ?? COLAB_WORK_DIR).replace(/\/$/, ""));
+  return {
+    bundle: `${parent}/ak-${attemptId}.bundle.tgz`,
+    credentials: `${parent}/ak-${attemptId}.credentials.json`,
+  };
 }
 
 /**
@@ -113,12 +105,16 @@ export function colabUnpackCode(dir: string, sha256: string): string {
  */
 export function colabKeeperCode(
   t: ComputeTarget,
-  input: { attemptId: string; session: string },
+  input: { attemptId: string; session: string; bundleSha256: string },
 ): string {
   const live = t.colab?.live === true;
+  const up = colabUploads(t, input.attemptId);
   return [
-    "import json, os, subprocess, sys, tarfile, time",
+    "import hashlib, json, os, shutil, subprocess, sys, tarfile, time",
     `D = ${py(colabDir(t, input.attemptId))}`,
+    `UP_BUNDLE = ${py(up.bundle)}`,
+    `UP_CREDS = ${py(up.credentials)}`,
+    `SHA = ${py(input.bundleSha256)}`,
     // A kernel has no such variable; tests set it to see progress sooner.
     `PROGRESS_SEC = float(os.environ.get("ABLATIONKIT_COLAB_PROGRESS_SEC", "${PROGRESS_SEC}"))`,
     `KEEP_SEC = ${t.colab?.keep_after_sec ?? DEFAULT_KEEP_SEC}`,
@@ -153,10 +149,39 @@ export function colabKeeperCode(
     '        print("snapshot failed:", e, flush=True)',
     "        return False",
     "",
+    "def _unpack():",
+    '    """Verify the uploaded bundle and move it and the credentials into D (once)."""',
+    '    if os.path.isdir(os.path.join(D, "bundle")) and os.path.exists(os.path.join(D, "credentials.json")):',
+    "        return None",
+    "    try:",
+    '        data = open(UP_BUNDLE, "rb").read()',
+    "    except OSError as e:",
+    '        return "the uploaded bundle is missing: %s" % e',
+    "    if hashlib.sha256(data).hexdigest() != SHA:",
+    '        return "bundle checksum mismatch"',
+    "    os.makedirs(D, mode=0o700, exist_ok=True)",
+    '    tmp = os.path.join(D, ".bundle.tmp")',
+    "    shutil.rmtree(tmp, ignore_errors=True)",
+    "    os.makedirs(tmp)",
+    "    with tarfile.open(UP_BUNDLE) as tf:",
+    "        for m in tf.getmembers():",
+    '            if m.name.startswith("/") or ".." in m.name.split("/") or m.issym() or m.islnk():',
+    '                return "unsafe path in bundle: " + m.name',
+    "        tf.extractall(tmp)",
+    '    os.replace(tmp, os.path.join(D, "bundle"))',
+    '    shutil.move(UP_CREDS, os.path.join(D, "credentials.json"))',
+    '    os.chmod(os.path.join(D, "credentials.json"), 0o600)',
+    "    os.remove(UP_BUNDLE)",
+    "    return None",
+    "",
     "def _keep():",
     '    k = os.path.join(D, "ak-keeper.json")',
     "    if os.path.exists(k):",
     '        print("AK-KEEPER-EXISTS", flush=True)',
+    "        return",
+    "    why = _unpack()",
+    "    if why:",
+    '        print("AK-STAGE-FAILED", why, flush=True)',
     "        return",
     "    env = dict(os.environ)",
     '    env.pop("MPLBACKEND", None)',
@@ -226,6 +251,8 @@ async function inTurn<T>(account: string, fn: () => Promise<T>): Promise<T> {
 export interface ColabCliOptions {
   /** The CLI's session state file (`--config`): the coordinator keeps its runtimes apart. */
   readonly stateFile?: string;
+  /** Tests: how long a keeper gets to report before its start is retried (default 150 s). */
+  readonly startTimeoutMs?: number;
 }
 
 interface KeeperStatus {
@@ -320,37 +347,6 @@ export class ColabCliTarget implements TargetAdapter {
     return r.stdout;
   }
 
-  /** Run Python in the runtime's kernel (idle only) and require `marker` in its output. */
-  private async exec(
-    session: string,
-    code: string,
-    marker: string,
-    what: string,
-    timeoutMs: number,
-  ): Promise<string> {
-    const dir = mkdtempSync(join(tmpdir(), "ak-colab-"));
-    try {
-      const file = join(dir, "code.py");
-      writeFileSync(file, code, { mode: 0o600 });
-      const r = await this.run(
-        ["exec", "-s", session, "-f", file, "--timeout", String(Math.ceil(timeoutMs / 1000))],
-        timeoutMs + 60_000,
-      );
-      if (r.code !== 0 || !r.stdout.includes(marker)) {
-        const f = this.failure(what, r);
-        throw f.code === "target_command_failed"
-          ? new TargetError(
-              "target_command_failed",
-              `${what} did not finish: ${redact(`${r.stdout}\n${r.stderr}`).trim().slice(-800)}`,
-            )
-          : f;
-      }
-      return r.stdout;
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
-  }
-
   private async upload(session: string, local: string, remote: string): Promise<void> {
     await this.must(
       `uploading ${remote.split("/").at(-1)}`,
@@ -383,7 +379,6 @@ export class ColabCliTarget implements TargetAdapter {
   async stage(input: StageInput): Promise<StageResult> {
     const c = this.target.colab ?? {};
     const session = colabSession(input.attemptId);
-    const dir = colabDir(this.target, input.attemptId);
     // The runtime's rate is how much the account's rate rises when it is allocated.
     const { before, after } = await inTurn(this.account, async () => {
       const before = await this.usage().catch((e: unknown) => {
@@ -412,28 +407,13 @@ export class ColabCliTarget implements TargetAdapter {
     // From here on a runtime is allocated (and billed): release it on any failure.
     const local = mkdtempSync(join(dirname(input.tgz), ".colab-"));
     try {
-      await this.exec(
-        session,
-        colabMkdirCode(dir),
-        "AK-DIR-READY",
-        "preparing the runtime",
-        300_000,
-      );
-      await this.upload(session, input.tgz, `${dir}/bundle.tgz`);
+      const up = colabUploads(this.target, input.attemptId);
+      await this.upload(session, input.tgz, up.bundle);
       const creds = join(local, "credentials.json");
       writeFileSync(creds, c.live === true ? input.credentials : OFFLINE_CREDENTIALS, {
         mode: 0o600,
       });
-      await this.upload(session, creds, `${dir}/credentials.json`);
-      const out = await this.exec(
-        session,
-        colabUnpackCode(dir, input.bundleSha256),
-        "AK-",
-        "unpacking the bundle",
-        600_000,
-      );
-      if (!out.includes("AK-STAGED"))
-        throw new TargetError("target_command_failed", "already staged and started on the runtime");
+      await this.upload(session, creds, up.credentials);
       return before && after
         ? {
             provider_job_id: session,
@@ -458,43 +438,62 @@ export class ColabCliTarget implements TargetAdapter {
     const session = colabSession(input.attemptId);
     const local = mkdtempSync(join(tmpdir(), "ak-colab-"));
     const file = join(local, "keeper.py");
-    writeFileSync(file, colabKeeperCode(this.target, { attemptId: input.attemptId, session }), {
-      mode: 0o600,
-    });
+    writeFileSync(
+      file,
+      colabKeeperCode(this.target, {
+        attemptId: input.attemptId,
+        session,
+        bundleSha256: input.bundleSha256,
+      }),
+      { mode: 0o600 },
+    );
     let out = "";
     let err = "";
     try {
-      const p = Bun.spawn([...this.argv, "exec", "-s", session, "-f", file, "--timeout", "0"], {
-        stdin: "ignore",
-        stdout: "pipe",
-        stderr: "pipe",
-        env: { ...process.env },
-      });
-      const started = await waitFor(p, /AK-KEEPER-(STARTED|EXISTS)/, 300_000, (o, e) => {
-        out = o;
-        err = e;
-      });
-      // The execution continues in the runtime's kernel without this client.
-      p.kill("SIGTERM");
-      if (started) return { provider_job_id: session };
-      // No marker: if the keeper reported anyway, it runs; otherwise nothing runs, so release.
-      const probe = join(local, "keeper.json");
-      if (
-        await this.download(
-          session,
-          `${colabDir(this.target, input.attemptId)}/ak-keeper.json`,
-          probe,
-        ).catch(() => false)
-      )
-        return { provider_job_id: session };
-      const f = this.failure("starting the worker", { code: 1, stdout: out, stderr: err });
-      await this.run(["stop", "-s", session], 120_000).catch(() => undefined);
-      throw f.code === "target_command_failed"
-        ? new TargetError(
+      for (let attempt = 1; attempt <= START_TRIES; attempt++) {
+        const p = Bun.spawn([...this.argv, "exec", "-s", session, "-f", file, "--timeout", "0"], {
+          stdin: "ignore",
+          stdout: "pipe",
+          stderr: "pipe",
+          env: { ...process.env },
+        });
+        const seen = await waitFor(
+          p,
+          /AK-KEEPER-(STARTED|EXISTS)|AK-STAGE-FAILED/,
+          this.opts.startTimeoutMs ?? START_TIMEOUT_MS,
+          (o, e) => {
+            out = o;
+            err = e;
+          },
+        );
+        // The execution continues in the runtime's kernel without this client.
+        p.kill("SIGTERM");
+        if (seen && /AK-STAGE-FAILED/.test(out)) {
+          const why = /AK-STAGE-FAILED (.*)/.exec(out)?.[1] ?? "staging failed";
+          await this.release(input.attemptId, session).catch(() => undefined);
+          throw new TargetError(
             "target_command_failed",
-            `the worker did not start on the runtime (it was released): ${redact(`${out}\n${err}`).trim().slice(-800)}`,
-          )
-        : f;
+            `the runtime refused the bundle (it was released): ${why}`,
+          );
+        }
+        if (seen) return { provider_job_id: session };
+        // No marker: an earlier try may have started after all (its reply was lost).
+        const probe = join(local, "keeper.json");
+        const remote = `${colabDir(this.target, input.attemptId)}/ak-keeper.json`;
+        if (await this.download(session, remote, probe).catch(() => false))
+          return { provider_job_id: session };
+        const f = this.failure("starting the worker", { code: 1, stdout: out, stderr: err });
+        if (f.code !== "target_command_failed") {
+          await this.release(input.attemptId, session).catch(() => undefined);
+          throw f;
+        }
+      }
+      // Nothing runs: release the runtime.
+      await this.release(input.attemptId, session).catch(() => undefined);
+      throw new TargetError(
+        "target_command_failed",
+        `the worker did not start on the runtime after ${START_TRIES} tries (it was released): ${redact(`${out}\n${err}`).trim().slice(-800) || "no output"}`,
+      );
     } finally {
       rmSync(local, { recursive: true, force: true });
     }

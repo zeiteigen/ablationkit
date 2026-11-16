@@ -5,10 +5,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ComputeTarget } from "@ablationkit/protocol";
 import {
+  ColabCliTarget,
   colabDir,
   colabKeeperCode,
-  colabMkdirCode,
-  colabUnpackCode,
+  colabUploads,
   parseColabUsage,
   redact,
 } from "../src/colab-cli.ts";
@@ -52,11 +52,18 @@ describe("Colab CLI adapter", () => {
     try {
       const offline = target({ mode: "cli", gpu: "L4" });
       const live = target({ mode: "cli", live: true, deliver_deadline_sec: 30 });
+      const sha = "a".repeat(64);
       const scripts = {
-        mkdir: colabMkdirCode(colabDir(offline, "j-1-a1")),
-        unpack: colabUnpackCode(colabDir(offline, "j-1-a1"), "a".repeat(64)),
-        keeper: colabKeeperCode(offline, { attemptId: "j-1-a1", session: "ak-j-1-a1" }),
-        live: colabKeeperCode(live, { attemptId: "j-1-a1", session: "ak-j-1-a1" }),
+        keeper: colabKeeperCode(offline, {
+          attemptId: "j-1-a1",
+          session: "ak-j-1-a1",
+          bundleSha256: sha,
+        }),
+        live: colabKeeperCode(live, {
+          attemptId: "j-1-a1",
+          session: "ak-j-1-a1",
+          bundleSha256: sha,
+        }),
       };
       for (const [name, code] of Object.entries(scripts)) {
         const f = join(dir, `${name}.py`);
@@ -66,13 +73,18 @@ describe("Colab CLI adapter", () => {
         expect(r.exitCode).toBe(0);
       }
       expect(colabDir(offline, "j-1-a1")).toBe("/content/ablationkit/j-1-a1");
+      // Uploads land beside the worker directory, in a directory every runtime has.
+      expect(colabUploads(offline, "j-1-a1")).toEqual({
+        bundle: "/content/ak-j-1-a1.bundle.tgz",
+        credentials: "/content/ak-j-1-a1.credentials.json",
+      });
       expect(scripts.keeper).toContain('env["ABLATIONKIT_WORKER_OFFLINE"] = "1"');
       expect(scripts.keeper).toContain('"ABLATIONKIT_WORKER_DELIVER_DEADLINE_SEC"] = "0"');
       expect(scripts.live).not.toContain("ABLATIONKIT_WORKER_OFFLINE");
       expect(scripts.live).toContain('"ABLATIONKIT_WORKER_DELIVER_DEADLINE_SEC"] = "30"');
-      // Never a second worker for the same directory.
+      // Never a second worker for the same directory; a bad bundle is refused before anything runs.
       expect(scripts.keeper).toContain("AK-KEEPER-EXISTS");
-      expect(scripts.unpack).toContain("AK-ALREADY-STARTED");
+      expect(scripts.keeper).toContain("bundle checksum mismatch");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -94,4 +106,60 @@ describe("Colab CLI adapter", () => {
     });
     expect(adapterFor(target({})).capabilities).toMatchObject({ submit: false, exports: true });
   });
+});
+
+describe("Colab CLI adapter against the fake CLI", () => {
+  const FAKE = join(import.meta.dir, "../../../apps/server/test/fake-colab.py");
+
+  test("a start that hangs before running anything is tried again; a bad bundle is refused and the runtime released", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "ak-colab-hang-"));
+    try {
+      const root = join(dir, "content", "ablationkit");
+      Bun.spawnSync(["mkdir", "-p", root]);
+      // A bundle: any gzip tar; the worker in it is missing, which is fine for starting.
+      Bun.spawnSync(["mkdir", "-p", join(dir, "src", "worker")]);
+      writeFileSync(join(dir, "src", "bundle.json"), "{}");
+      const tgz = join(dir, "bundle.tgz");
+      Bun.spawnSync(["tar", "-czf", tgz, "-C", join(dir, "src"), "."]);
+      const sha = new Bun.CryptoHasher("sha256")
+        .update(await Bun.file(tgz).arrayBuffer())
+        .digest("hex");
+      const t = target(
+        { mode: "cli", cli: ["python3", FAKE], gpu: "L4", keep_after_sec: 0 },
+        { work_dir: root },
+      );
+      const a = new ColabCliTarget(t, { stateFile: join(dir, "s.json"), startTimeoutMs: 1500 });
+      const input = {
+        attemptId: "j-hang-a1",
+        jobId: "j-hang",
+        workerUrl: "http://127.0.0.1:1",
+        bundleSha256: sha,
+        tgz,
+        credentials: "{}",
+        limits: {},
+      };
+      process.env["FAKE_COLAB_HANG_EXECS"] = "1";
+      const staged = await a.stage(input);
+      expect(staged.provider_job_id).toBe("ak-j-hang-a1");
+      expect(await a.submit(input)).toEqual({ provider_job_id: "ak-j-hang-a1" });
+      // The keeper moved the uploads in and unpacked the bundle.
+      expect(await Bun.file(join(root, "j-hang-a1", "bundle", "bundle.json")).exists()).toBe(true);
+      expect(await Bun.file(join(dir, "content", "ak-j-hang-a1.bundle.tgz")).exists()).toBe(false);
+      await a.release("j-hang-a1", "ak-j-hang-a1");
+
+      // A bundle whose checksum does not match: refused, and the runtime is released.
+      delete process.env["FAKE_COLAB_HANG_EXECS"];
+      const bad = { ...input, attemptId: "j-bad-a1", bundleSha256: "b".repeat(64) };
+      await a.stage(bad);
+      await expect(a.submit(bad)).rejects.toThrow("bundle checksum mismatch");
+      const left = JSON.parse(await Bun.file(join(dir, "s.json")).text()) as Record<
+        string,
+        unknown
+      >;
+      expect(Object.keys(left)).toEqual([]);
+    } finally {
+      delete process.env["FAKE_COLAB_HANG_EXECS"];
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }, 30_000);
 });

@@ -324,6 +324,29 @@ def test_runs_the_job_and_delivers_console_metrics_artifacts_and_exit(
     assert json.loads((root / "state.json").read_text())["phase"] == "synced"
 
 
+def test_progress_bars_and_unfinished_lines_are_read_once_in_order(
+    tmp_path: Path, fake: Fake
+) -> None:
+    # A progress bar rewrites one line with carriage returns over several of the worker's reads,
+    # then the line ends; the job's last line has no newline. Re-reading an unfinished line once
+    # duplicated it and drove the offset negative (seek: Invalid argument).
+    script = (
+        "import sys, time\n"
+        "for i in range(40):\n"
+        "    sys.stderr.write('\\rdownloading ' + str(i) * 300)\n"
+        "    sys.stderr.flush()\n"
+        "    time.sleep(0.02)\n"
+        "sys.stderr.write('\\rdownloaded\\n')\n"
+        "print('first', flush=True)\n"
+        "sys.stdout.write('last without newline')\n"
+    )
+    root = make_bundle(tmp_path, fake.url, script)
+    assert Worker(root).run() == 0
+    assert fake.console() == ["first", "last without newline"]
+    assert fake.console("stderr") == ["downloaded"]
+    assert fake.exited()["exit_code"] == 0
+
+
 def test_a_stale_upload_token_is_refreshed_with_the_launch_token(
     tmp_path: Path, fake: Fake
 ) -> None:

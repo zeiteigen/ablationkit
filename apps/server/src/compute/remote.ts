@@ -1392,6 +1392,9 @@ export class RemoteService {
   private async release(a: AttemptRecord): Promise<void> {
     const r = a.remote as RemoteAttemptInfo;
     if (this.released.has(a.attempt_id) || r.provider_state === "released") return;
+    // Only what reached a provider holds resources (an exported notebook never did, even if its
+    // target has since become a Colab runtime target).
+    if (r.staging !== "submitted") return;
     let adapter: TargetAdapter;
     try {
       adapter = this.adapterOf(a);

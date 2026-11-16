@@ -353,15 +353,15 @@ describe("Colab runtimes through the Colab CLI", () => {
     const { call, home } = await setup();
     const repo = project({ "train.py": train(1, 0) });
     await call("/api/v1/projects", { body: { path: repo, project_id: "cu" } });
-    // A worker directory under a path that does not exist on the "runtime": the upload fails
-    // with the CLI's HTTP error, which prints the runtime's proxy token.
-    const root = join(h.tmp("ak-colab-rt-"), "nowhere");
+    // The uploads go beside the worker directory, into a directory that does not exist on this
+    // "runtime": the upload fails with the CLI's HTTP error, which prints the runtime's token.
+    const root = join(h.tmp("ak-colab-rt-"), "missing", "ablationkit");
     const r = await call("/api/v1/targets/colab", {
       method: "PUT",
       body: {
         kind: "colab",
         work_dir: root,
-        colab: { mode: "cli", cli: ["python3", FAKE_COLAB, "--fail-mkdir", "1"], gpu: "L4" },
+        colab: { mode: "cli", cli: ["python3", FAKE_COLAB], gpu: "L4" },
       },
     });
     expect(r.status).toBe(201);
