@@ -47,7 +47,7 @@ Spec anchors: §0 summary and decisions, §2.2 information architecture, §3 arc
 
 | Task | Command |
 | --- | --- |
-| Install | `bun install --frozen-lockfile && uv sync --locked` (or `sh scripts/setup.sh`: also puts `ablationkit` on PATH from this checkout, links `skills/` into every Claude Code config (`~/.claude`, `~/.claude-*` profiles) and Codex (`$CODEX_HOME`, default `~/.codex`), and registers the `ablationkit` MCP server with them at user scope; `--no-mcp` skips that, `--uninstall` undoes it; `--guard` also applies the opt-in agent guard (ADR 0041) to every registered project) |
+| Install | `bun install --frozen-lockfile && uv sync --locked` (or `sh scripts/setup.sh`: also puts `ablationkit` on PATH from this checkout, links `skills/` into every Claude Code config (`~/.claude`, `~/.claude-*` profiles) and Codex (`$CODEX_HOME`, default `~/.codex`), and registers the executive's MCP server (`ablationkit-executive`) with them at user scope (agents on the host are executives; `--agent-mcp` also registers the agents' `ablationkit mcp` there); `--no-mcp` skips that, `--uninstall` undoes it; `--guard` also applies the opt-in agent guard (ADR 0041) to every registered project) |
 | Check environment | `bun run doctor` |
 | Everything CI runs | `bun run ci` |
 | Test | `bun run test` (or `bun test <path>`, `uv run pytest`) |

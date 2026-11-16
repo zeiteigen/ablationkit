@@ -74,8 +74,8 @@ commands:
   extension publish EXT              publish an approved build to your user registry
   dev doctor [--json]                check the development environment
   dev build [--check CMD…]           checks + a reviewable modified build (activate in the web UI)
-  mcp [--project ID] [--label T]     agents: the MCP server their harness launches, one per session
-                                     (claude mcp add ablationkit -- ablationkit mcp)
+  mcp [--project ID] [--label T]     research agents: their MCP server, one process per session (set up
+                                     in agent containers; uncontained: claude mcp add ablationkit -- ablationkit mcp)
   executive [--label T]              your agent on this machine as executive: the MCP server that reads
                                      the research and runs the agents, but does no research (ADR 0064)
                                      (claude mcp add ablationkit-executive -- ablationkit executive)

@@ -19,6 +19,8 @@ Agents use AblationKit **only through `ablationkit mcp`**, an MCP server the har
 
 ## Adding the MCP server to your harness
 
+Research agents normally run in [agent containers](agent-containers.md), which register this server for themselves. Your own agent on this machine gets the [executive's server](executive.md) instead, which is what `scripts/setup.sh` registers (ADR 0064). Add `ablationkit mcp` to a harness on this machine only to run a research agent there without a container (`scripts/setup.sh --agent-mcp` does it at user scope).
+
 The project's checkout must be registered first: `ablationkit project add PATH`. The registration writes `.ablationkit/project.json` into the checkout.
 
 - **Claude Code:** `claude mcp add ablationkit -- ablationkit mcp`. From a source checkout without `ablationkit` on `PATH`, use `claude mcp add ablationkit -- bun /path/to/ablationkit/apps/cli/src/main.ts mcp`.

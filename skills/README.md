@@ -42,9 +42,13 @@ Restart the agent session so it discovers the skill.
 
 ## Add the MCP server
 
-Agents use AblationKit only through `ablationkit mcp`, an MCP server over stdio that the harness
-launches, one process per agent session. `scripts/setup.sh` adds it for you; by hand, once per
-harness (user scope, so it works in every registered project):
+Research agents use AblationKit only through `ablationkit mcp`, an MCP server over stdio that the
+harness launches, one process per agent session. In an agent container (`ablationkit agent start`)
+it is set up for them. Agents on the researcher's machine get the executive's server instead
+(`claude mcp add --scope user ablationkit-executive -- ablationkit executive`, ADR 0064), which is
+what `scripts/setup.sh` registers. For a research agent you run on the host without a container,
+add `ablationkit mcp` by hand (or `scripts/setup.sh --agent-mcp`), once per harness, at user scope
+so it works in every registered project:
 
 - **Claude Code:**
 

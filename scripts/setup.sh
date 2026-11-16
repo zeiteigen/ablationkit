@@ -6,7 +6,9 @@
 #                                          register the MCP server
 #   sh scripts/setup.sh --prefix DIR       launcher goes in DIR/bin (default ~/.local)
 #   sh scripts/setup.sh --no-deps          skip bun install / uv sync
-#   sh scripts/setup.sh --no-mcp           don't register the MCP servers (agents' and executive's)
+#   sh scripts/setup.sh --no-mcp           don't register the executive's MCP server
+#   sh scripts/setup.sh --agent-mcp        also register the agents' MCP server (`ablationkit mcp`),
+#                                          for research agents you run on this machine uncontained
 #   sh scripts/setup.sh --guard            also apply the agent guard to registered projects (opt-in)
 #   sh scripts/setup.sh --claude-config D  also set up the Claude Code config in D (CLAUDE_CONFIG_DIR)
 #   sh scripts/setup.sh --force            replace an ablationkit launcher or MCP entry this script
@@ -21,10 +23,12 @@
 # gets the skills (<config>/skills) and, at user scope, the `ablationkit` MCP server
 # (`ablationkit mcp`, ADR 0040). Codex gets both when its home (CODEX_HOME, default ~/.codex)
 # exists (skills/README.md). Restart agent sessions afterwards so they pick them up. Agents on
-# this machine act for you and may use the whole CLI (ADR 0062); execution agents belong in agent
-# containers (`ablationkit agent start`, ADR 0061). --guard still writes the agent guard (ADR
-# 0041) into registered projects, for agents you run uncontained here; `ablationkit project
-# unguard --all` takes it out. Your data in ${ABLATIONKIT_HOME:-~/.ablationkit} is never touched.
+# this machine are your executives: they get `ablationkit executive` (ADR 0064), not the agents'
+# `ablationkit mcp`, which research agents get in their agent containers (`ablationkit agent
+# start`, ADR 0061); --agent-mcp registers it here too. They may also use the CLI (ADR 0062).
+# --guard still writes the agent guard (ADR 0041) into registered projects, for agents you run
+# uncontained here; `ablationkit project unguard --all` takes it out.
+# Your data in ${ABLATIONKIT_HOME:-~/.ablationkit} is never touched.
 set -eu
 
 MARKER="# ablationkit dev launcher (scripts/setup.sh)"
@@ -32,6 +36,7 @@ MARKER="# ablationkit dev launcher (scripts/setup.sh)"
 prefix="${HOME}/.local"
 deps=1
 mcp=1
+agent_mcp=0
 guard=0
 force=0
 uninstall=0
@@ -41,12 +46,13 @@ while [ $# -gt 0 ]; do
     --prefix) prefix="$2"; shift 2 ;;
     --no-deps) deps=0; shift ;;
     --no-mcp) mcp=0; shift ;;
+    --agent-mcp) agent_mcp=1; shift ;;
     --guard) guard=1; shift ;;
     --no-guard) guard=0; shift ;;
     --claude-config) claude_extra="$claude_extra $2"; shift 2 ;;
     --force) force=1; shift ;;
     --uninstall) uninstall=1; shift ;;
-    -h|--help) sed -n '2,27p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,31p' "$0"; exit 0 ;;
     *) echo "setup.sh: unknown argument $1" >&2; exit 2 ;;
   esac
 done
@@ -81,8 +87,9 @@ for cfg in $claude_cfgs; do skill_dirs="$skill_dirs $(cfg_skills "$cfg")"; done
 codex_home="${CODEX_HOME:-$HOME/.codex}"
 [ -d "$codex_home" ] && skill_dirs="$skill_dirs $codex_home/skills"
 
-# The MCP servers: the agents' (`ablationkit mcp`, ADR 0040) and the executive's on this
-# machine (`ablationkit executive`, ADR 0064), as name:subcommand.
+# The MCP servers, as name:subcommand: the executive's (`ablationkit executive`, ADR 0064), which
+# is what agents on this machine get, and the agents' (`ablationkit mcp`, ADR 0040), which research
+# agents get inside their agent containers, and on this machine only with --agent-mcp.
 mcp_servers="ablationkit:mcp ablationkit-executive:executive"
 
 # The command an existing MCP entry named $2 runs ("" when there is none). Read from the config
@@ -210,14 +217,30 @@ for dir in $skill_dirs; do
 done
 
 # MCP servers, at user scope so they work in every registered project (they find the project
-# from the directory they start in): `ablationkit mcp` for agents doing the research (ADR 0040),
-# `ablationkit executive` for an agent on this machine overseeing it and running the agents (ADR
-# 0064).
+# from the directory they start in). Agents on this machine are executives (ADR 0064): they get
+# `ablationkit executive`. Research agents run in agent containers, which register `ablationkit
+# mcp` for themselves; on this machine it is registered only with --agent-mcp, and an entry for
+# this launcher left by an earlier setup is taken out.
 registered=0
 if [ "$mcp" = 1 ]; then
+  if [ "$agent_mcp" != 1 ]; then
+    if command -v claude >/dev/null 2>&1; then
+      for cfg in $claude_cfgs; do
+        if [ "$(claude_mcp_command "$cfg" ablationkit)" = "$launcher" ]; then
+          claude_in "$cfg" mcp remove --scope user ablationkit >/dev/null 2>&1 \
+            && echo "removed the agents' ablationkit MCP server from $(cfg_label "$cfg") (agents here are executives; --agent-mcp keeps it)"
+        fi
+      done
+    fi
+    if command -v codex >/dev/null 2>&1 && [ "$(codex_mcp_command ablationkit)" = "$launcher" ]; then
+      codex mcp remove ablationkit >/dev/null 2>&1 \
+        && echo "removed the agents' ablationkit MCP server from Codex (agents here are executives; --agent-mcp keeps it)"
+    fi
+  fi
   for entry in $mcp_servers; do
     name=${entry%%:*}
     sub=${entry#*:}
+    [ "$name" = ablationkit ] && [ "$agent_mcp" != 1 ] && continue
     if command -v claude >/dev/null 2>&1; then
       for cfg in $claude_cfgs; do
         label=$(cfg_label "$cfg")

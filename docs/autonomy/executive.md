@@ -11,7 +11,7 @@ An agent on your machine can act as your executive through its own MCP server, `
 
 ## Set it up
 
-`scripts/setup.sh` registers it with Claude Code and Codex beside the agents' server. By hand:
+`scripts/setup.sh` registers it with Claude Code and Codex, and only it: agents on your machine see the executive's server, and research agents see the agents' server in their containers (`--agent-mcp` registers that one on your machine too, for research agents you run uncontained). By hand:
 
 - **Claude Code:** `claude mcp add --scope user ablationkit-executive -- ablationkit executive`
 - **Codex:** `codex mcp add ablationkit-executive -- ablationkit executive`

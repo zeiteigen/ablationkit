@@ -128,11 +128,27 @@ ablationkit ui</code></pre>
       Connect your coding agent
      </h2>
      <p>
-      The UI does not launch or steer agents. Configure your harness to start
+      Agents that do the research get the agents' MCP server,
       <code>
        ablationkit mcp
       </code>
-      in the registered checkout; the MCP server discovers the project from that directory or a parent.
+      . In an agent container (below) it is set up for them. Your own agent on this machine gets the executive's server instead (
+      <code>
+       ablationkit executive
+      </code>
+      , further down), which is what
+      <code>
+       scripts/setup.sh
+      </code>
+      registers. To run a research agent on this machine without a container, add
+      <code>
+       ablationkit mcp
+      </code>
+      to its harness yourself (or run
+      <code>
+       scripts/setup.sh --agent-mcp
+      </code>
+      ). The server finds the project from the directory it starts in, or a parent.
      </p>
      <details>
       <summary>
@@ -216,7 +232,11 @@ args = ["mcp"]</code></pre>
       </p>
      </div>
      <p>
-      For an agent on this machine that should oversee the research rather than do it, add the executive's server instead:
+      For your agent on this machine, which oversees the research rather than doing it, the executive's server (registered by
+      <code>
+       scripts/setup.sh
+      </code>
+      ):
       <code>
        claude mcp add ablationkit-executive -- ablationkit executive
       </code>
