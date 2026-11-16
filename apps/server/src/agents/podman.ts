@@ -148,6 +148,11 @@ export function hostBinary(path: string, what: string): string {
   } finally {
     closeSync(fd);
   }
+  const name = real.split("/").at(-1) ?? "";
+  if (["mise", "rtx", "busybox", "toybox"].includes(name))
+    throw new BinaryError(
+      `${what}: ${path} is ${real}, a multi-call binary that picks a tool by its name (a version manager's wrapper?); give the real binary's path (for mise: \`mise which ${what}\`)`,
+    );
   if (head[0] !== 0x7f || head.toString("latin1", 1, 4) !== "ELF")
     throw new BinaryError(
       `${what}: ${real} is not an executable binary (a version manager's shim?); give the real binary's path`,

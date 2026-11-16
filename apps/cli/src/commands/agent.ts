@@ -20,7 +20,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { delimiter, join, resolve } from "node:path";
+import { basename, delimiter, join, resolve } from "node:path";
 import { CoordinatorClient } from "../client.ts";
 import {
   type CliContext,
@@ -118,23 +118,28 @@ function isElf(path: string): boolean {
   }
 }
 
+/** Multi-call binaries that pick a tool by the name they are run as (mise's command wrappers). */
+export const DISPATCHERS: ReadonlySet<string> = new Set(["mise", "rtx", "busybox", "toybox"]);
+
 /**
- * The real binary for `name` on PATH: the first entry whose file (symlinks resolved) is an ELF
- * executable, so a version manager's shell shim earlier on PATH is skipped.
+ * The real binary for `name` on PATH, symlinks resolved: an ELF executable (a version manager's
+ * shell shim is skipped) that is not a multi-call dispatcher such as mise, which would look for
+ * the tool again inside the container. One whose own file is called `name` wins; otherwise the
+ * first other (Claude Code's installer names its binary after the version).
  */
 export function findBinary(name: string, path: string | undefined): string | undefined {
+  const found: string[] = [];
   for (const dir of (path ?? "").split(delimiter)) {
     if (!dir) continue;
-    const p = join(dir, name);
     let real: string;
     try {
-      real = realpathSync(p);
+      real = realpathSync(join(dir, name));
     } catch {
       continue;
     }
-    if (isElf(real)) return real;
+    if (isElf(real) && !DISPATCHERS.has(basename(real))) found.push(real);
   }
-  return undefined;
+  return found.find((r) => basename(r) === name) ?? found[0];
 }
 
 function gitConfig(cwd: string, key: string): string | undefined {

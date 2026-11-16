@@ -4,7 +4,15 @@
  * the session's Unix socket with the token file the coordinator wrote.
  */
 import { afterEach, expect, test } from "bun:test";
-import { chmodSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  copyFileSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { findBinary } from "../src/commands/agent.ts";
@@ -30,6 +38,29 @@ test("findBinary skips a shell shim earlier on PATH and returns the real binary"
   expect(findBinary("claude", `${join(d, "shims")}:${join(d, "real")}`)).toBe(process.execPath);
   expect(findBinary("claude", join(d, "shims"))).toBeUndefined();
   expect(findBinary("nope", undefined)).toBeUndefined();
+});
+
+test("findBinary skips a multi-call dispatcher (mise's command wrappers) and prefers the tool's own file", () => {
+  const d = tmp();
+  for (const x of ["bin", "wrappers", "installs", "versions"]) mkdirSync(join(d, x));
+  // Small real ELF files with the names that matter.
+  copyFileSync("/usr/bin/true", join(d, "bin", "mise"));
+  copyFileSync("/usr/bin/true", join(d, "installs", "claude"));
+  copyFileSync("/usr/bin/true", join(d, "versions", "2.1.325"));
+  chmodSync(join(d, "bin", "mise"), 0o755);
+  chmodSync(join(d, "installs", "claude"), 0o755);
+  chmodSync(join(d, "versions", "2.1.325"), 0o755);
+  symlinkSync(join(d, "bin", "mise"), join(d, "wrappers", "claude"));
+  expect(findBinary("claude", join(d, "wrappers"))).toBeUndefined();
+  expect(findBinary("claude", `${join(d, "wrappers")}:${join(d, "installs")}`)).toBe(
+    join(d, "installs", "claude"),
+  );
+  // Claude Code's own installer: `claude` links to a binary named after its version.
+  mkdirSync(join(d, "local"));
+  symlinkSync(join(d, "versions", "2.1.325"), join(d, "local", "claude"));
+  expect(findBinary("claude", `${join(d, "wrappers")}:${join(d, "local")}`)).toBe(
+    join(d, "versions", "2.1.325"),
+  );
 });
 
 test("a contained session reads its token file and calls the agent API over the socket", async () => {
