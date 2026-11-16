@@ -797,12 +797,13 @@ describe("ablationkit mcp (ADR 0040)", () => {
     await b.end();
   }, 30_000);
 
-  test("eight tools over every operation; nothing edits policy or approves (ADR 0054)", () => {
+  test("nine tools over every operation; nothing edits policy or approves (ADRs 0054, 0060)", () => {
     const names = MCP_TOOLS.map((t) => t.name);
     expect(names).toEqual([
       "ablationkit_project",
       "ablationkit_read",
       "ablationkit_job",
+      "ablationkit_wait",
       "ablationkit_run",
       "ablationkit_task",
       "ablationkit_note",
@@ -844,9 +845,11 @@ describe("ablationkit mcp (ADR 0040)", () => {
     expect(ids).not.toContain("llm.settings.update");
     // Reads are marked read-only, so a harness can allow them at once.
     const hint = (n: string) => MCP_TOOLS.find((t) => t.name === n)?.annotations["readOnlyHint"];
-    expect([hint("ablationkit_project"), hint("ablationkit_read"), hint("ablationkit_do")]).toEqual(
-      [true, true, false],
-    );
+    expect(
+      [hint("ablationkit_project"), hint("ablationkit_read"), hint("ablationkit_wait")].concat(
+        hint("ablationkit_do"),
+      ),
+    ).toEqual([true, true, true, false]);
     // Grouped tools are closed objects; every operation's own schema is too.
     for (const t of MCP_TOOLS.filter(
       (t) => !["ablationkit_read", "ablationkit_do"].includes(t.name),

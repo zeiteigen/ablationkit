@@ -1,6 +1,6 @@
 ---
 name: ablationkit-mcp
-description: How to use AblationKit's MCP server (`ablationkit mcp`, its eight ablationkit_* tools) - the agent session, starting with ablationkit_project, reading with ablationkit_read and acting through ablationkit_job, _run, _task, _note, _work and _do, argument shapes, refs and IDs, paging, refusals and what to do about them, what only the researcher can do, and which task skill to load next. Use whenever you call an ablationkit_* tool, when a call is refused, or when someone asks you to record, run or read anything in AblationKit and no task-specific AblationKit skill fits.
+description: How to use AblationKit's MCP server (`ablationkit mcp`, its nine ablationkit_* tools) - the agent session, starting with ablationkit_project, reading with ablationkit_read, waiting for jobs with ablationkit_wait and acting through ablationkit_job, _run, _task, _note, _work and _do, argument shapes, refs and IDs, paging, refusals and what to do about them, what only the researcher can do, and which task skill to load next. Use whenever you call an ablationkit_* tool, when a call is refused, or when someone asks you to record, run or read anything in AblationKit and no task-specific AblationKit skill fits.
 ---
 
 # Use AblationKit through its MCP server
@@ -13,13 +13,14 @@ You reach it **only** through the `ablationkit_*` tools of the `ablationkit` MCP
 (`ablationkit mcp`), which your harness launches. AblationKit does not start or steer you; your
 harness owns your session, your Git and your sandbox.
 
-## Eight tools
+## Nine tools
 
 | Tool | What it does | How you call it |
 | --- | --- | --- |
 | `ablationkit_project` | The project, the researcher's directions in force, your session, the policy and the compute limit | `{}` |
 | `ablationkit_read` | Reads anything, changes nothing: jobs and logs, runs, tasks, the vault, the library, records, models, evaluations, LLM traces and prompts, extensions | `{op: "run.metrics", run: "…", key: "loss"}` |
 | `ablationkit_job` | Run a job, or cancel one | `{action: "submit", command: […], …}` |
+| `ablationkit_wait` | Wait for your jobs to end (results in), start, or log a metric at a step; returns at once when the researcher writes to you | `{}` (your live jobs) or `{jobs: […], for: "metric", metric: "loss", step: 1000}` |
 | `ablationkit_run` | Say what a run showed, import an earlier run, record or change a study | `{action: "describe", run: "…", summary: "…"}` |
 | `ablationkit_task` | Create, complete or abandon a research task | `{action: "create", goal: "…"}` |
 | `ablationkit_note` | Write the vault: add, update or archive a note; set the shelf and the ledger | `{action: "add", note_id: "…", type: "finding", …}` |
@@ -32,6 +33,12 @@ with `op: "run.metrics"`. The operation's arguments go alongside `op` or `action
 `ablationkit_read` with `{op: "help"}` lists every operation with its arguments, and
 `{op: "help", about: "run.metrics"}` describes one in full. A misspelt, missing or mistyped
 argument is refused before anything is sent, with what the operation takes.
+
+**Wait with `ablationkit_wait`, never with `sleep` or a polling loop in your shell.** It returns
+when what you asked for happens (by default: one of your live jobs ended and its results are in),
+when `timeout_sec` passes (default 600, at most 3600; keep it under your harness's tool-call
+timeout) with what each job is doing, or at once when the researcher writes to you, with their
+words. Call it again to keep waiting; do other work between calls if there is any.
 
 ## The session
 

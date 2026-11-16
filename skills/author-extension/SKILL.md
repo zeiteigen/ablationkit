@@ -74,7 +74,7 @@ refusals).
 7. Run a Python contribution with `ablationkit_do extension.run` (`extension_id`,
    `contribution`, `params`, `refs: [{kind: "run", id: RUN_ID}]`; find run IDs with
    `ablationkit_read run.search`; `target_id` runs it as a job on a compute target if the policy
-   allows), poll `ablationkit_read extension.execution` until it is no longer `running`, and read
+   allows), check `ablationkit_read extension.execution` until it is no longer `running` (`ablationkit_wait` waits for jobs, not executions), and read
    `ablationkit_read extension.execution_log` if it failed. Stop a stuck one with
    `ablationkit_do extension.execution_cancel`; `ablationkit_read extension.executions` lists past ones.
    Report the execution ID, metrics and MLflow run in your notes (`ablationkit_do research.add`). A

@@ -196,7 +196,9 @@ result that exists only in your chat reply is not recorded.
    researcher can fix (`colab_signin_required`: they sign the Colab CLI in once;
    `accelerator_unavailable`: their account cannot have that GPU) is for the researcher; say so
    and do other work meanwhile. Only a target that exports notebooks (`staging: exported`) waits
-   for a person. Follow it with `ablationkit_read job.show` and
+   for a person. Wait for it with `ablationkit_wait` (it returns when a job ends with its results
+   in, or when a run reaches a step with `for: "metric"`; never sleep or poll in a shell), and
+   follow it with `ablationkit_read job.show` and
    `ablationkit_read job.log` (`tail` for the end of the console); cancel your own job with
    `ablationkit_job cancel`. A comparison is a study: `ablationkit_run study` (title, summary,
    variants with a description each, baseline, metric goals, protocol), and the same call with

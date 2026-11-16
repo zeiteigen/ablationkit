@@ -43,6 +43,7 @@ tool result of your session.
 | `ablationkit_read job.show` | **`job_id`** | Attempts, state, exit, compute, MLflow run. |
 | `ablationkit_read job.log` | **`job_id`**, `attempt_id`, `tail`, or `after` + `limit`, `stream` (`stdout`, `stderr`) | Console lines; `next_after` continues, `done` says it ended. |
 | `ablationkit_job cancel` | **`job_id`** | Only jobs your session submitted. |
+| `ablationkit_wait` | `jobs` (job IDs) or `runs` (run names or MLflow run IDs); default: your session's live jobs. `for`: `end` (default: ended, results in MLflow and collected from a remote target), `start` (running), `metric` (with **`metric`**, `step`); `until`: `any` (default) or `all`; `timeout_sec` (default 600, ≤ 3600) | `{done, reason, waited_sec, ready, jobs, next}`. `reason`: `condition`, `timeout` (call again), `researcher` (their direction or agenda change comes with the result) or `nothing_to_wait_for`. Each job: `state`, `ready`, `results`, `run` (for `run.metrics`), `exit_code`, `metric`, `remote`. A job that ended counts for `start` and `metric` too. Sends MCP progress notifications when the call has a progress token. |
 
 ## Runs
 

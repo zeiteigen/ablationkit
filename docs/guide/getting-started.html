@@ -160,19 +160,27 @@ args = ["mcp"]</code></pre>
       .
      </p>
      <p>
-      The server offers eight tools.
+      The server offers nine tools.
       <code>
        ablationkit_project
       </code>
-      and
+      ,
       <code>
        ablationkit_read
+      </code>
+      and
+      <code>
+       ablationkit_wait
       </code>
       only read, so you can allow them without a prompt (in Claude Code,
       <code>
        mcp__ablationkit__ablationkit_read
       </code>
       in your allowed tools).
+      <code>
+       ablationkit_wait
+      </code>
+      is how agents wait for their jobs instead of sleeping in a shell: it returns when a job ends with its results in, starts, or reaches a training step, after at most an hour per call, and at once when you write a direction or change the agenda.
       <code>
        ablationkit_job
       </code>
