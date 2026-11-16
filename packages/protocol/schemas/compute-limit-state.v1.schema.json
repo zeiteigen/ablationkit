@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ablationkit:schema:compute-limit-state.v1",
+  "title": "ComputeLimitState",
+  "description": "What the researcher was told about a project's agent compute limit, so a burst of refusals or one crossing notifies once.",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schema_version",
+    "project_id"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "type": "number"
+    },
+    "project_id": {
+      "title": "ProjectId",
+      "description": "Stable project identifier (lowercase slug). Never a path; paths live in the local registry.",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,62}$",
+      "type": "string"
+    },
+    "refused": {
+      "title": "ComputeLimitRefusals",
+      "description": "Agent submissions refused since the last admitted one under this policy revision: one notification per burst.",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "first_at",
+        "last_at",
+        "count",
+        "policy_revision",
+        "message"
+      ],
+      "properties": {
+        "first_at": {
+          "title": "Timestamp",
+          "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+          "type": "string"
+        },
+        "last_at": {
+          "title": "Timestamp",
+          "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+          "type": "string"
+        },
+        "count": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "policy_revision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "message": {
+          "maxLength": 2000,
+          "type": "string"
+        }
+      }
+    },
+    "over_limit_since": {
+      "title": "Timestamp",
+      "description": "When the hours used went over the limit (a remote clock or an import can push them past it); cleared once they are within it again.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    }
+  }
+}

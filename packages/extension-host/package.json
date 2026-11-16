@@ -1,0 +1,21 @@
+{
+  "name": "@ablationkit/extension-host",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./templates": "./src/templates.ts",
+    "./backend": "./src/backend.ts",
+    "./backend-client": "./src/backend-client.ts",
+    "./backend-validation": "./src/backend-validation.ts",
+    "./cli": "./src/cli.ts"
+  },
+  "dependencies": {
+    "@ablationkit/core": "workspace:*",
+    "@ablationkit/protocol": "workspace:*",
+    "@ablationkit/tracking-mlflow": "workspace:*",
+    "@ablationkit/process-supervisor": "workspace:*",
+    "@sinclair/typebox": "0.34.52"
+  }
+}

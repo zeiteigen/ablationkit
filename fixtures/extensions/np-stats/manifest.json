@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "np-stats",
+  "version": "0.1.0",
+  "name": "NumPy metric statistics",
+  "description": "A Python analysis with a real pinned dependency (numpy) in its own uv environment; used by the opt-in test:extensions check.",
+  "host_api": "^1.0.0",
+  "contributes": [
+    {
+      "id": "stats",
+      "point": "project.analysis",
+      "title": "Metric statistics",
+      "entry": "python/stats.py:stats"
+    }
+  ],
+  "python": {
+    "requires_python": ">=3.12,<3.13",
+    "project": "python",
+    "lockfile": "python/uv.lock",
+    "max_runtime_seconds": 60,
+    "max_memory_mb": 512,
+    "gpu": false,
+    "network": "none"
+  },
+  "capabilities": ["project.analysis.execute", "project.runs.read", "project.results.write"]
+}

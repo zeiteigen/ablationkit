@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "id": "ngram-explorer",
+  "version": "0.1.0",
+  "name": "N-gram internals",
+  "description": "Project-authored: shows what this project's n-gram model learned (per-context next-token entropy) from the run's model/internals.json, and compares tokenizers across runs in Python.",
+  "host_api": "^1.0.0",
+  "contributes": [
+    {
+      "id": "internals",
+      "point": "run.tab",
+      "title": "Model internals",
+      "entry": "ui/Internals.tsx"
+    },
+    {
+      "id": "compare",
+      "point": "project.analysis",
+      "title": "Compare tokenizers",
+      "entry": "python/compare.py:compare"
+    }
+  ],
+  "python": {
+    "requires_python": ">=3.10",
+    "project": "python",
+    "lockfile": "python/uv.lock",
+    "max_runtime_seconds": 60,
+    "max_memory_mb": 256,
+    "gpu": false,
+    "network": "none"
+  },
+  "capabilities": ["project.runs.read", "project.artifacts.preview", "project.analysis.execute"]
+}

@@ -1,0 +1,44 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "spool_acked_seq": 439,
+      "cancel_requested": false,
+      "heartbeat_sec": 30,
+      "upload_token": "akw_0123456789abcdef.AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "upload_expires_at": "2026-11-05T10:00:00.000Z",
+      "artifacts": [
+        {
+          "path": "ckpt/model.bin",
+          "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "spool_acked_seq": -1,
+      "cancel_requested": true,
+      "heartbeat_sec": 30,
+      "artifacts": []
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "cursor below -1",
+      "value": {
+        "schema_version": 1,
+        "spool_acked_seq": -2,
+        "cancel_requested": false,
+        "heartbeat_sec": 30,
+        "upload_token": "akw_0123456789abcdef.AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "upload_expires_at": "2026-11-05T10:00:00.000Z",
+        "artifacts": [
+          {
+            "path": "ckpt/model.bin",
+            "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ablationkit:schema:ingest-state.v1",
+  "title": "IngestState",
+  "description": "Per-attempt ingest high-water marks and counters.",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schema_version",
+    "attempt_id",
+    "producers",
+    "accepted",
+    "duplicates",
+    "rejected"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "type": "number"
+    },
+    "attempt_id": {
+      "title": "AttemptId",
+      "description": "Identifier of one attempt of a job.",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "producers": {
+      "description": "Highest producer_seq accepted per producer; anything at or below is a replay.",
+      "type": "object",
+      "patternProperties": {
+        "^(.*)$": {
+          "title": "SequenceNumber",
+          "description": "Non-negative sequence number.",
+          "minimum": 0,
+          "maximum": 9007199254740991,
+          "type": "integer"
+        }
+      }
+    },
+    "accepted": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "duplicates": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "rejected": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "last_rejection": {
+      "maxLength": 2000,
+      "type": "string"
+    },
+    "spool_acked_seq": {
+      "minimum": -1,
+      "type": "integer",
+      "description": "Highest worker spool seq applied (remote workers send it with each batch)."
+    }
+  }
+}

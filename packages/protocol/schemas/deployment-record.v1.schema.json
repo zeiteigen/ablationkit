@@ -1,0 +1,250 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ablationkit:schema:deployment-record.v1",
+  "title": "DeploymentRecord",
+  "description": "A deployment request and its lifecycle (§7.7.4 item 5): pinned model, named target, exposure, TTL and budget. A preview is never a public deployment.",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schema_version",
+    "deployment_id",
+    "project_id",
+    "kind",
+    "target",
+    "model_uri",
+    "exposure",
+    "ttl_minutes",
+    "status",
+    "policy_revision",
+    "requested_by",
+    "requested_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "type": "number"
+    },
+    "deployment_id": {
+      "pattern": "^dep-[a-z0-9-]{1,60}$",
+      "type": "string"
+    },
+    "project_id": {
+      "title": "ProjectId",
+      "description": "Stable project identifier (lowercase slug). Never a path; paths live in the local registry.",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,62}$",
+      "type": "string"
+    },
+    "kind": {
+      "title": "DeploymentKind",
+      "anyOf": [
+        {
+          "const": "preview_local",
+          "type": "string"
+        },
+        {
+          "const": "remote_research",
+          "type": "string"
+        },
+        {
+          "const": "persistent",
+          "type": "string"
+        },
+        {
+          "const": "public",
+          "type": "string"
+        }
+      ]
+    },
+    "target": {
+      "maxLength": 100,
+      "type": "string"
+    },
+    "model_uri": {
+      "maxLength": 1000,
+      "description": "Pinned model: `models:/<name>/<version>` or `runs:/<run>/<path>`. Aliases and `latest` are refused.",
+      "type": "string"
+    },
+    "exposure": {
+      "anyOf": [
+        {
+          "const": "loopback",
+          "type": "string"
+        },
+        {
+          "const": "tailnet",
+          "type": "string"
+        },
+        {
+          "const": "public",
+          "type": "string"
+        }
+      ]
+    },
+    "ttl_minutes": {
+      "minimum": 1,
+      "maximum": 100000,
+      "type": "integer"
+    },
+    "max_cents": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "status": {
+      "anyOf": [
+        {
+          "const": "blocked",
+          "type": "string"
+        },
+        {
+          "const": "approved",
+          "type": "string"
+        },
+        {
+          "const": "running",
+          "type": "string"
+        },
+        {
+          "const": "stopped",
+          "type": "string"
+        },
+        {
+          "const": "expired",
+          "type": "string"
+        },
+        {
+          "const": "invalidated",
+          "type": "string"
+        },
+        {
+          "const": "failed",
+          "type": "string"
+        }
+      ]
+    },
+    "status_reason": {
+      "maxLength": 2000,
+      "type": "string"
+    },
+    "policy_revision": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "requested_by": {
+      "title": "ResearchActor",
+      "description": "Who made a change: a human session, an agent token or the system. Work under a task links the task (`task:ID`).",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "anyOf": [
+            {
+              "const": "human",
+              "type": "string"
+            },
+            {
+              "const": "agent",
+              "type": "string"
+            },
+            {
+              "const": "system",
+              "type": "string"
+            }
+          ]
+        },
+        "id": {
+          "maxLength": 200,
+          "type": "string"
+        }
+      }
+    },
+    "requested_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "started_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "expires_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "stopped_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "endpoint": {
+      "maxLength": 500,
+      "type": "string"
+    },
+    "launcher": {
+      "maxLength": 100,
+      "type": "string"
+    },
+    "provider": {
+      "title": "DeploymentProvider",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "target_id",
+        "target_kind",
+        "provider_ref",
+        "independent_supervision"
+      ],
+      "properties": {
+        "target_id": {
+          "maxLength": 100,
+          "type": "string"
+        },
+        "target_kind": {
+          "maxLength": 32,
+          "type": "string"
+        },
+        "provider_ref": {
+          "maxLength": 200,
+          "description": "The provider's ID for the endpoint (a Runpod pod ID).",
+          "type": "string"
+        },
+        "independent_supervision": {
+          "type": "boolean",
+          "description": "The endpoint's lifetime is supervised by the provider, not the coordinator: it survives a coordinator restart and stops itself at `expires_at` (spec §10 offline nuance, criterion 12)."
+        },
+        "model_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "model_bytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "estimate_cents": {
+          "minimum": 0,
+          "type": "integer",
+          "description": "Rate card times TTL: an estimate, not a bill."
+        },
+        "state": {
+          "maxLength": 100,
+          "description": "The provider's last reported state, shown as is.",
+          "type": "string"
+        },
+        "checked_at": {
+          "title": "Timestamp",
+          "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+          "type": "string"
+        }
+      }
+    }
+  }
+}

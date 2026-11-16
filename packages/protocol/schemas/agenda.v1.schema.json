@@ -1,0 +1,358 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ablationkit:schema:agenda.v1",
+  "title": "Agenda",
+  "description": "A project's agenda (ADR 0058): the researcher's plan, which agents work from. Only the researcher writes it (the human listener); agents read it, and are told when it changed since they last read it.",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schema_version",
+    "project_id",
+    "revision",
+    "items",
+    "rules",
+    "next_line",
+    "next_rule",
+    "updated_at",
+    "updated_by",
+    "history"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "type": "number"
+    },
+    "project_id": {
+      "title": "ProjectId",
+      "description": "Stable project identifier (lowercase slug). Never a path; paths live in the local registry.",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,62}$",
+      "type": "string"
+    },
+    "revision": {
+      "minimum": 0,
+      "description": "Moves on every change; 0 for an agenda never written.",
+      "type": "integer"
+    },
+    "items": {
+      "maxItems": 200,
+      "description": "In order: an item's place among the items of its lane is its priority.",
+      "type": "array",
+      "items": {
+        "title": "AgendaItem",
+        "description": "One item of the agenda: a vault note (`note_id`) or a line of text (`text`), in a lane. Its place in the list is its order within its lane.",
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "item_id",
+          "lane",
+          "added_at",
+          "moved_at"
+        ],
+        "properties": {
+          "item_id": {
+            "title": "AgendaItemId",
+            "description": "An agenda item's identifier: `note:<note-id>` for an item that is a vault note, `L<n>` for a line of the researcher's own text. Jobs and tasks name it as `agenda_item`.",
+            "pattern": "^(note:[a-z0-9][a-z0-9-]{0,95}|L[0-9]{1,6})$",
+            "type": "string"
+          },
+          "lane": {
+            "title": "AgendaLane",
+            "description": "now: what agents should work on. next: what comes after. parked: do not spend on it for now. dropped: decided against, with a reason.",
+            "anyOf": [
+              {
+                "const": "now",
+                "type": "string"
+              },
+              {
+                "const": "next",
+                "type": "string"
+              },
+              {
+                "const": "parked",
+                "type": "string"
+              },
+              {
+                "const": "dropped",
+                "type": "string"
+              }
+            ]
+          },
+          "note_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,95}$",
+            "description": "The vault note this item is (an item that is a note has no text).",
+            "type": "string"
+          },
+          "text": {
+            "minLength": 1,
+            "maxLength": 300,
+            "description": "The researcher's own line (an item that is not a note).",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 500,
+            "description": "Why it was dropped or parked, in the researcher's words.",
+            "type": "string"
+          },
+          "added_at": {
+            "title": "Timestamp",
+            "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+            "type": "string"
+          },
+          "moved_at": {
+            "title": "Timestamp",
+            "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+            "type": "string"
+          }
+        }
+      }
+    },
+    "rules": {
+      "maxItems": 50,
+      "type": "array",
+      "items": {
+        "title": "AgendaRule",
+        "description": "A standing instruction for every agent session of the project, in the researcher's words (`three seeds before anything is established`).",
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "rule_id",
+          "text",
+          "added_at"
+        ],
+        "properties": {
+          "rule_id": {
+            "pattern": "^R[0-9]{1,6}$",
+            "type": "string"
+          },
+          "text": {
+            "minLength": 1,
+            "maxLength": 300,
+            "type": "string"
+          },
+          "added_at": {
+            "title": "Timestamp",
+            "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+            "type": "string"
+          }
+        }
+      }
+    },
+    "next_line": {
+      "minimum": 1,
+      "description": "The number the next `L<n>` takes.",
+      "type": "integer"
+    },
+    "next_rule": {
+      "minimum": 1,
+      "description": "The number the next `R<n>` takes.",
+      "type": "integer"
+    },
+    "updated_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "updated_by": {
+      "title": "ResearchActor",
+      "description": "Who made a change: a human session, an agent token or the system. Work under a task links the task (`task:ID`).",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "anyOf": [
+            {
+              "const": "human",
+              "type": "string"
+            },
+            {
+              "const": "agent",
+              "type": "string"
+            },
+            {
+              "const": "system",
+              "type": "string"
+            }
+          ]
+        },
+        "id": {
+          "maxLength": 200,
+          "type": "string"
+        }
+      }
+    },
+    "history": {
+      "maxItems": 50,
+      "description": "The last revisions, oldest first (the current one included), so a session is told what changed since the revision it last read.",
+      "type": "array",
+      "items": {
+        "title": "AgendaRevision",
+        "description": "The agenda as one revision left it.",
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "revision",
+          "at",
+          "by",
+          "items",
+          "rules"
+        ],
+        "properties": {
+          "revision": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "at": {
+            "title": "Timestamp",
+            "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+            "type": "string"
+          },
+          "by": {
+            "title": "ResearchActor",
+            "description": "Who made a change: a human session, an agent token or the system. Work under a task links the task (`task:ID`).",
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "anyOf": [
+                  {
+                    "const": "human",
+                    "type": "string"
+                  },
+                  {
+                    "const": "agent",
+                    "type": "string"
+                  },
+                  {
+                    "const": "system",
+                    "type": "string"
+                  }
+                ]
+              },
+              "id": {
+                "maxLength": 200,
+                "type": "string"
+              }
+            }
+          },
+          "items": {
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "title": "AgendaItem",
+              "description": "One item of the agenda: a vault note (`note_id`) or a line of text (`text`), in a lane. Its place in the list is its order within its lane.",
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "item_id",
+                "lane",
+                "added_at",
+                "moved_at"
+              ],
+              "properties": {
+                "item_id": {
+                  "title": "AgendaItemId",
+                  "description": "An agenda item's identifier: `note:<note-id>` for an item that is a vault note, `L<n>` for a line of the researcher's own text. Jobs and tasks name it as `agenda_item`.",
+                  "pattern": "^(note:[a-z0-9][a-z0-9-]{0,95}|L[0-9]{1,6})$",
+                  "type": "string"
+                },
+                "lane": {
+                  "title": "AgendaLane",
+                  "description": "now: what agents should work on. next: what comes after. parked: do not spend on it for now. dropped: decided against, with a reason.",
+                  "anyOf": [
+                    {
+                      "const": "now",
+                      "type": "string"
+                    },
+                    {
+                      "const": "next",
+                      "type": "string"
+                    },
+                    {
+                      "const": "parked",
+                      "type": "string"
+                    },
+                    {
+                      "const": "dropped",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "note_id": {
+                  "pattern": "^[a-z0-9][a-z0-9-]{0,95}$",
+                  "description": "The vault note this item is (an item that is a note has no text).",
+                  "type": "string"
+                },
+                "text": {
+                  "minLength": 1,
+                  "maxLength": 300,
+                  "description": "The researcher's own line (an item that is not a note).",
+                  "type": "string"
+                },
+                "reason": {
+                  "maxLength": 500,
+                  "description": "Why it was dropped or parked, in the researcher's words.",
+                  "type": "string"
+                },
+                "added_at": {
+                  "title": "Timestamp",
+                  "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+                  "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+                  "type": "string"
+                },
+                "moved_at": {
+                  "title": "Timestamp",
+                  "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+                  "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "rules": {
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "title": "AgendaRule",
+              "description": "A standing instruction for every agent session of the project, in the researcher's words (`three seeds before anything is established`).",
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "rule_id",
+                "text",
+                "added_at"
+              ],
+              "properties": {
+                "rule_id": {
+                  "pattern": "^R[0-9]{1,6}$",
+                  "type": "string"
+                },
+                "text": {
+                  "minLength": 1,
+                  "maxLength": 300,
+                  "type": "string"
+                },
+                "added_at": {
+                  "title": "Timestamp",
+                  "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+                  "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

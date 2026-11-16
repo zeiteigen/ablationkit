@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ablationkit:schema:worker-handshake.v1",
+  "title": "WorkerHandshake",
+  "description": "Reconnection handshake and heartbeat from a remote worker (spec §5.3).",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schema_version",
+    "worker_id",
+    "hostname",
+    "worker_version",
+    "bundle_id",
+    "phase",
+    "last_acked_seq",
+    "spool",
+    "drained",
+    "refresh"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "type": "number"
+    },
+    "worker_id": {
+      "pattern": "^w-[a-f0-9]{8,32}$",
+      "type": "string"
+    },
+    "hostname": {
+      "maxLength": 253,
+      "type": "string"
+    },
+    "worker_version": {
+      "maxLength": 100,
+      "type": "string"
+    },
+    "bundle_id": {
+      "pattern": "^b-[a-f0-9]{12}$",
+      "type": "string"
+    },
+    "provider_job_id": {
+      "maxLength": 200,
+      "type": "string"
+    },
+    "phase": {
+      "title": "WorkerPhase",
+      "description": "`lost`: the worker restarted and the job's process was gone without an exit record (a reboot, a requeue). It is never rerun.",
+      "anyOf": [
+        {
+          "const": "starting",
+          "type": "string"
+        },
+        {
+          "const": "running",
+          "type": "string"
+        },
+        {
+          "const": "exited",
+          "type": "string"
+        },
+        {
+          "const": "lost",
+          "type": "string"
+        },
+        {
+          "const": "draining",
+          "type": "string"
+        }
+      ]
+    },
+    "last_acked_seq": {
+      "minimum": -1,
+      "type": "integer",
+      "description": "The worker's own acknowledged cursor (it may lag the coordinator's after a lost response)."
+    },
+    "spool": {
+      "title": "WorkerSpoolReport",
+      "additionalProperties": false,
+      "type": "object",
+      "properties": {
+        "next_seq": {
+          "title": "SequenceNumber",
+          "description": "Non-negative sequence number.",
+          "minimum": 0,
+          "maximum": 9007199254740991,
+          "type": "integer"
+        },
+        "pending_events": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "pending_artifacts": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "bytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "dropped_events": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "disk_free_bytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "disk_pressure": {
+          "type": "boolean"
+        }
+      }
+    },
+    "drained": {
+      "type": "boolean",
+      "description": "The job has exited and every event and artifact was acknowledged."
+    },
+    "refresh": {
+      "type": "boolean",
+      "description": "Ask for a fresh upload token."
+    }
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ablationkit:schema:project-registry.v1",
+  "title": "ProjectRegistry",
+  "description": "Local project registry (`registry.json`): project IDs mapped to local paths.",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schema_version",
+    "projects"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "type": "number"
+    },
+    "projects": {
+      "description": "Registered projects, by registration order.",
+      "type": "array",
+      "items": {
+        "title": "ProjectRegistration",
+        "description": "One registered project: its stable ID and where it lives on this machine.",
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "project_id",
+          "name",
+          "path",
+          "registered_at",
+          "updated_at",
+          "previous_paths"
+        ],
+        "properties": {
+          "project_id": {
+            "title": "ProjectId",
+            "description": "Stable project identifier (lowercase slug). Never a path; paths live in the local registry.",
+            "pattern": "^[a-z0-9][a-z0-9-]{0,62}$",
+            "type": "string"
+          },
+          "name": {
+            "description": "Display name, from the manifest.",
+            "minLength": 1,
+            "maxLength": 200,
+            "type": "string"
+          },
+          "path": {
+            "title": "AbsolutePath",
+            "description": "Current checkout path on the coordinator machine.",
+            "pattern": "^/.*$",
+            "minLength": 1,
+            "maxLength": 4096,
+            "type": "string"
+          },
+          "registered_at": {
+            "title": "Timestamp",
+            "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Timestamp",
+            "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+            "type": "string"
+          },
+          "previous_paths": {
+            "description": "Earlier checkout paths, oldest first, kept when a project is remapped.",
+            "type": "array",
+            "items": {
+              "title": "AbsolutePath",
+              "description": "Absolute, machine-specific filesystem path. Only the local registry stores these.",
+              "pattern": "^/.*$",
+              "minLength": 1,
+              "maxLength": 4096,
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

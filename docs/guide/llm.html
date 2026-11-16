@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1" name="viewport"/>
+  <meta content="Trace failures and evaluate changes on the same examples." name="description"/>
+  <title>
+   LLM and RAG research · AblationKit guide
+  </title>
+  <link href="guide.css" rel="stylesheet"/>
+ </head>
+ <body class="ak-guide">
+  <a class="akg-skip" href="#content">
+   Skip to content
+  </a>
+  <header>
+   <a class="akg-brand" href="index.html">
+    AblationKit
+    <span>
+     User guide
+    </span>
+   </a>
+   <p>
+    From a question to evidence you can read.
+   </p>
+  </header>
+  <div class="akg-layout">
+   <nav aria-label="Guide chapters">
+    <a href="index.html">
+     Start here
+    </a>
+    <a href="getting-started.html">
+     Your first project
+    </a>
+    <a href="reading.html">
+     Read the research
+    </a>
+    <a href="experiments.html">
+     Run and compare
+    </a>
+    <a aria-current="page" href="llm.html">
+     LLM and RAG research
+    </a>
+    <a href="operations.html">
+     Manage your workspace
+    </a>
+   </nav>
+   <main id="content">
+    <h1>
+     LLM and RAG research
+    </h1>
+    <p class="akg-lead">
+     Use the bundled LLM backend to connect an answer to its trace, prompt version, evaluation examples, and saved evidence.
+    </p>
+    <section>
+     <h2>
+      Open the LLM page
+     </h2>
+     <p>
+      Choose
+      <strong>
+       LLM
+      </strong>
+      in the project navigation. If it is under More, enable a relevant task profile in Project settings. The bundled backend must be enabled for the project; its controls live with Extensions.
+     </p>
+    </section>
+    <section>
+     <h2>
+      Follow a failing answer
+     </h2>
+     <ol class="akg-flow">
+      <li>
+       <strong>
+        Trace
+       </strong>
+       <span>
+        Find the failing call
+       </span>
+      </li>
+      <li>
+       <strong>
+        Spans
+       </strong>
+       <span>
+        Inspect retrieval and tools
+       </span>
+      </li>
+      <li>
+       <strong>
+        Example
+       </strong>
+       <span>
+        Capture the expected result
+       </span>
+      </li>
+      <li>
+       <strong>
+        Evaluation
+       </strong>
+       <span>
+        Test the proposed change
+       </span>
+      </li>
+     </ol>
+     <p>
+      In
+      <strong>
+       Traces
+      </strong>
+      , open the span tree and waterfall. Inspect inputs, outputs, retrieval results, tool calls, errors, and feedback where recorded. For RAG, follow the query through retrieval, reranking, and generation. An unrecorded field is missing evidence; it does not establish that the pipeline skipped that step.
+     </p>
+    </section>
+    <section>
+     <h2>
+      Compare prompts on the same inputs
+     </h2>
+     <ol class="akg-steps">
+      <li>
+       <strong>
+        Prompts:
+       </strong>
+       inspect versions, aliases, and diffs. Pin versions for comparisons so a moving alias cannot silently change the experiment.
+      </li>
+      <li>
+       <strong>
+        Golden sets:
+       </strong>
+       create or select a versioned set of inputs and expectations. JSONL paths are relative to the project checkout. Include edge cases and representative failures.
+      </li>
+      <li>
+       <strong>
+        Evaluations → New evaluation:
+       </strong>
+       select the golden set, add targets (recorded runs or prompt/model settings), and choose scorers. Optional judge scorers require their model configuration.
+      </li>
+      <li>
+       <strong>
+        Run evaluation:
+       </strong>
+       inspect per-example results as well as aggregates. Follow failing examples back to their traces before deciding what to change.
+      </li>
+     </ol>
+     <details>
+      <summary>
+       What to ask an agent to record
+      </summary>
+      <p>
+       Ask it to pin prompt versions, model and decoding settings, golden-set version, and scorers; summarize failure clusters; link each conclusion to examples and traces; and explain what the comparison does and does not establish.
+      </p>
+     </details>
+    </section>
+    <section>
+     <h2>
+      Explore before running a full evaluation
+     </h2>
+     <p>
+      The
+      <strong>
+       Playground
+      </strong>
+      tries prompt targets on individual inputs or a golden set. Choose
+      <strong>
+       Save as evidence
+      </strong>
+      for results you want to retain. Inspect them under Evidence. Trace storage depends on the capture policy.
+     </p>
+    </section>
+    <aside class="akg-callout">
+     <h2>
+      Check Data controls first
+     </h2>
+     <p>
+      Review capture, retention, provider, and egress settings before sending inputs or collecting traces. An evaluation or judge call can use an external model provider. Choose inputs and settings appropriate to your project.
+     </p>
+    </aside>
+    <footer>
+     <a href="index.html">
+      Guide home
+     </a>
+     <span>
+      AblationKit · User documentation
+     </span>
+    </footer>
+   </main>
+  </div>
+ </body>
+</html>

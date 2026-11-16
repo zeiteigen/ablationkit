@@ -1,0 +1,335 @@
+/*
+ * The researcher's agenda on Standing (ADR 0058): the panel at the top and the chip and
+ * moves on each ledger line. Classes are `ag-`, scoped under `.vault` like the vault's own, with
+ * colours from the theme's tokens.
+ */
+/* biome-ignore-all lint/style/noDescendingSpecificity: the panel's rules and the ledger line's are ordered by place; the selectors it compares never match the same element */
+.vault .ag {
+  margin: 26px 0 0;
+  padding: 14px 0 12px;
+  border-top: 1px solid var(--line-strong);
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+}
+.vault .ag-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.vault .ag-meta {
+  font-size: 12.5px;
+  color: var(--faint);
+}
+.vault .ag-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 32%);
+  gap: 28px;
+  margin-top: 10px;
+}
+@media (max-width: 860px) {
+  .vault .ag-cols {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+}
+.vault .ag-lane + .ag-lane {
+  margin-top: 12px;
+}
+.vault .ag-lh {
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--v-dim);
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+}
+.vault .ag-lane.ln-now .ag-lh {
+  color: var(--fg);
+}
+.vault .ag-ls {
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--faint);
+  margin-left: 8px;
+}
+.vault .ag ol,
+.vault .ag ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.vault .ag-row {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 6px 4px 6px 0;
+  border-bottom: 1px solid var(--line);
+  outline: none;
+}
+.vault .ag-row:focus-visible,
+.vault .ag-row:focus {
+  background: var(--v-pop);
+  box-shadow: inset 2px 0 0 var(--ink);
+}
+.vault .ag-num {
+  flex: 0 0 18px;
+  text-align: right;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+.vault .ag-main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.vault .ag-title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.vault .ag-note {
+  color: var(--fg);
+  border-bottom: 1px solid var(--line-strong);
+}
+.vault .ag-note:hover {
+  border-bottom-color: var(--fg);
+}
+.vault .ag-text {
+  color: var(--fg);
+}
+.vault .ag-kind,
+.vault .ag-work,
+.vault .ag-reason {
+  font-size: 12px;
+  color: var(--faint);
+}
+.vault .ag-id {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--faint);
+}
+.vault .ag-work {
+  display: flex;
+  gap: 10px;
+}
+.vault .ag-work a {
+  border-bottom: 1px solid var(--line-strong);
+}
+.vault .ag-work.ag-none {
+  color: color-mix(in srgb, var(--faint) 70%, var(--bg));
+}
+.vault .ag-reason {
+  margin-top: 2px;
+  color: var(--muted);
+}
+.vault .ag-row.ln-parked .ag-text,
+.vault .ag-row.ln-parked .ag-note,
+.vault .ag-row.ln-dropped .ag-text,
+.vault .ag-row.ln-dropped .ag-note {
+  color: var(--muted);
+}
+.vault .ag-row.ln-dropped .ag-text,
+.vault .ag-row.ln-dropped .ag-note {
+  text-decoration: line-through;
+  text-decoration-color: var(--line-strong);
+}
+.vault .ag-sub {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+  margin-top: 1px;
+}
+.vault .ag-row .ag-acts {
+  position: absolute;
+  right: 0;
+  top: 4px;
+  display: none;
+  gap: 2px;
+  padding-left: 12px;
+  background: linear-gradient(to right, transparent, var(--bg) 12px);
+}
+.vault .ag-row:hover .ag-acts,
+.vault .ag-row:focus .ag-acts,
+.vault .ag-row:focus-within .ag-acts {
+  display: flex;
+}
+.vault .ag-row:focus .ag-acts,
+.vault .ag-row:focus-within .ag-acts {
+  background: linear-gradient(to right, transparent, var(--v-pop) 12px);
+}
+.vault .ag-acts button,
+.vault .ag-x,
+.vault .ag-more {
+  font-size: 12px;
+  color: var(--muted);
+  padding: 1px 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+}
+.vault .ag-acts button:hover,
+.vault .ag-x:hover,
+.vault .ag-more:hover {
+  color: var(--fg);
+  border-color: var(--line-strong);
+}
+.vault .ag-more {
+  margin-top: 8px;
+  padding-left: 0;
+}
+.vault .ag-add input,
+.vault .ag-ask input {
+  width: 100%;
+  font: inherit;
+  font-size: 13px;
+  color: var(--fg);
+  background: transparent;
+  border: 0;
+  border-bottom: 1px dashed var(--line-strong);
+  padding: 6px 0 5px 28px;
+  outline: none;
+}
+.vault .ag-ask input {
+  padding-left: 0;
+  margin-top: 4px;
+  border-bottom-style: solid;
+  border-bottom-color: var(--ink);
+}
+.vault .ag-add input:focus {
+  border-bottom-color: var(--fg);
+}
+.vault .ag-rules .ag-add input {
+  padding-left: 0;
+}
+.vault .ag-rule {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--v-soft);
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+}
+.vault .ag-rule .ag-x {
+  margin-left: auto;
+  opacity: 0;
+}
+.vault .ag-rule:hover .ag-x,
+.vault .ag-rule .ag-x:focus {
+  opacity: 1;
+}
+.vault .ag-empty {
+  margin: 6px 0 2px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.vault .ag-checks {
+  margin-top: 10px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.vault .ag-checks li {
+  padding: 3px 0;
+}
+.vault .ag-code {
+  color: var(--warn);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  margin-right: 4px;
+}
+.vault .ag-readers,
+.vault .ag-keys {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--faint);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+.vault .ag-keys {
+  display: block;
+}
+.vault .ag-read::before {
+  content: "✓ ";
+  color: var(--ok);
+}
+.vault .ag-unread::before {
+  content: "○ ";
+  color: var(--warn);
+}
+.vault .ag-err {
+  color: var(--err);
+  font-size: 13px;
+}
+
+/* ------------------------------------------------------------------ on a ledger line */
+.vault .ag-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.vault .ag-line[data-agenda-lane="none"] {
+  display: none;
+}
+.vault .v-lline:hover .ag-line,
+.vault .v-lline.v-focus .ag-line {
+  display: flex;
+  margin-top: 4px;
+}
+.vault .ag-line .ag-acts {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+}
+.vault .v-lline:hover .ag-line .ag-acts,
+.vault .v-lline.v-focus .ag-line .ag-acts {
+  opacity: 1;
+}
+.vault .ag-line .ag-acts kbd {
+  font-size: 10px;
+  padding: 0 3px;
+}
+.vault .ag-chip {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 1px 7px;
+  border-radius: 10px;
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+}
+.vault .ag-chip.ln-now {
+  color: var(--bg);
+  background: var(--fg);
+  border-color: var(--fg);
+}
+.vault .ag-chip.ln-next {
+  color: var(--fg);
+  border-color: var(--fg);
+}
+.vault .ag-chip.ln-dropped {
+  text-decoration: line-through;
+}
+.vault .v-lline.d-title .ag-line:not([data-agenda-lane="none"]) {
+  display: inline-flex;
+  margin-left: 10px;
+}
+.vault .ag-line.ag-asking {
+  display: flex;
+  margin-top: 4px;
+}
+.vault .ag-line .ag-ask {
+  flex: 1 1 auto;
+  max-width: 60ch;
+}
+.vault .ag-line .ag-ask input {
+  margin-top: 0;
+}
+.vault .ag-line .ag-reason {
+  margin-top: 0;
+}

@@ -1,0 +1,292 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ablationkit:schema:llm-settings.v1",
+  "title": "LlmSettings",
+  "description": "A project's LLM data controls: OpenAI-compatible providers with their egress approvals and rates, and the trace capture, redaction and retention policy.",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schema_version",
+    "project_id",
+    "revision",
+    "updated_at",
+    "updated_by",
+    "providers",
+    "capture"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "type": "number"
+    },
+    "project_id": {
+      "title": "ProjectId",
+      "description": "Stable project identifier (lowercase slug). Never a path; paths live in the local registry.",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,62}$",
+      "type": "string"
+    },
+    "revision": {
+      "minimum": 0,
+      "description": "0 is the built-in default.",
+      "type": "integer"
+    },
+    "updated_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "updated_by": {
+      "maxLength": 200,
+      "type": "string"
+    },
+    "providers": {
+      "maxItems": 20,
+      "type": "array",
+      "items": {
+        "title": "LlmProviderConfig",
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "provider_id",
+          "kind",
+          "base_url",
+          "models",
+          "locality"
+        ],
+        "properties": {
+          "provider_id": {
+            "title": "LlmProviderId",
+            "pattern": "^[a-z0-9][a-z0-9-]{0,39}$",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 200,
+            "type": "string"
+          },
+          "kind": {
+            "const": "openai_compatible",
+            "type": "string"
+          },
+          "base_url": {
+            "pattern": "^https?://[^ ]+$",
+            "maxLength": 500,
+            "description": "Base URL of an OpenAI-compatible API (vLLM, llama.cpp server, Ollama), e.g. `http://127.0.0.1:11434/v1`.",
+            "type": "string"
+          },
+          "api_key_env": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$",
+            "description": "Name of a coordinator environment variable holding the API key. The key itself is never stored or shown.",
+            "type": "string"
+          },
+          "models": {
+            "minItems": 1,
+            "maxItems": 100,
+            "description": "Model names that may be requested from this provider.",
+            "type": "array",
+            "items": {
+              "minLength": 1,
+              "maxLength": 200,
+              "type": "string"
+            }
+          },
+          "locality": {
+            "description": "Derived from the host: loopback addresses are `local`; anything else is `external` and needs an egress approval.",
+            "anyOf": [
+              {
+                "const": "local",
+                "type": "string"
+              },
+              {
+                "const": "external",
+                "type": "string"
+              }
+            ]
+          },
+          "egress": {
+            "title": "LlmEgressApproval",
+            "description": "A researcher's approval to send data to an external provider.",
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "approved_at",
+              "approved_by",
+              "allow_datasets"
+            ],
+            "properties": {
+              "approved_at": {
+                "title": "Timestamp",
+                "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+                "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+                "type": "string"
+              },
+              "approved_by": {
+                "maxLength": 200,
+                "type": "string"
+              },
+              "allow_datasets": {
+                "description": "Whether golden-set examples and recorded traces may be sent to this provider (generation or judging). Without it only ad-hoc playground inputs may go.",
+                "type": "boolean"
+              },
+              "note": {
+                "maxLength": 2000,
+                "type": "string"
+              }
+            }
+          },
+          "rates": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "title": "LlmRate",
+              "description": "A token rate for estimating cost. Estimates are labelled as estimates with this source and version; they are never presented as billed cost.",
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "model",
+                "input_usd_per_mtok",
+                "output_usd_per_mtok",
+                "source",
+                "version"
+              ],
+              "properties": {
+                "model": {
+                  "minLength": 1,
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                "input_usd_per_mtok": {
+                  "pattern": "^-?[0-9]+([.][0-9]+)?([eE][-+]?[0-9]+)?$",
+                  "maxLength": 40,
+                  "description": "US dollars per million input tokens.",
+                  "type": "string"
+                },
+                "output_usd_per_mtok": {
+                  "pattern": "^-?[0-9]+([.][0-9]+)?([eE][-+]?[0-9]+)?$",
+                  "maxLength": 40,
+                  "description": "US dollars per million output tokens.",
+                  "type": "string"
+                },
+                "source": {
+                  "minLength": 1,
+                  "maxLength": 300,
+                  "description": "Where the rate came from (a price page URL, an invoice, 'local: free').",
+                  "type": "string"
+                },
+                "version": {
+                  "minLength": 1,
+                  "maxLength": 100,
+                  "description": "Rate card date or version.",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "timeout_sec": {
+            "minimum": 1,
+            "maximum": 600,
+            "type": "integer"
+          }
+        }
+      }
+    },
+    "capture": {
+      "title": "LlmCapturePolicy",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "mode",
+        "builtin_redactions",
+        "patterns",
+        "retention_days",
+        "remote_capture"
+      ],
+      "properties": {
+        "mode": {
+          "title": "CaptureMode",
+          "description": "What trace bodies (prompts, outputs, retrieved passages, tool arguments) are kept. `full`: as recorded. `redacted`: with the redaction rules applied. `metadata_only`: span names, types, timings, status and token counts, no bodies. `off`: playground and job traces are not written at all (evaluations still record metadata-only traces, which MLflow needs).",
+          "anyOf": [
+            {
+              "const": "full",
+              "type": "string"
+            },
+            {
+              "const": "redacted",
+              "type": "string"
+            },
+            {
+              "const": "metadata_only",
+              "type": "string"
+            },
+            {
+              "const": "off",
+              "type": "string"
+            }
+          ]
+        },
+        "builtin_redactions": {
+          "maxItems": 10,
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "const": "email",
+                "type": "string"
+              },
+              {
+                "const": "secret",
+                "type": "string"
+              },
+              {
+                "const": "phone",
+                "type": "string"
+              },
+              {
+                "const": "card",
+                "type": "string"
+              },
+              {
+                "const": "ipv4",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "patterns": {
+          "maxItems": 50,
+          "type": "array",
+          "items": {
+            "title": "RedactionPattern",
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "name",
+              "regex"
+            ],
+            "properties": {
+              "name": {
+                "pattern": "^[a-z0-9_-]{1,40}$",
+                "type": "string"
+              },
+              "regex": {
+                "minLength": 1,
+                "maxLength": 500,
+                "type": "string"
+              }
+            }
+          }
+        },
+        "retention_days": {
+          "minimum": 1,
+          "maximum": 3650,
+          "description": "Traces older than this are deleted from MLflow by the retention sweeper. Saved evidence is kept until deleted.",
+          "type": "integer"
+        },
+        "remote_capture": {
+          "description": "Whether remote workers may capture trace bodies. Off by default (spec §16).",
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

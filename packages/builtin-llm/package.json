@@ -1,0 +1,23 @@
+{
+  "name": "@ablationkit/builtin-llm",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./manifest": "./src/manifest.ts",
+    "./migrate-policy": "./src/migrate-policy.ts"
+  },
+  "dependencies": {
+    "@ablationkit/core": "workspace:*",
+    "@ablationkit/protocol": "workspace:*",
+    "@ablationkit/tracking-mlflow": "workspace:*",
+    "@ablationkit/llm-research": "workspace:*",
+    "@ablationkit/extension-host": "workspace:*",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0"
+  }
+}

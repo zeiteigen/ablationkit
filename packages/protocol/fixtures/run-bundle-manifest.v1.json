@@ -1,0 +1,124 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "bundle_id": "b-0123456789ab",
+      "project_id": "hpc",
+      "job_id": "j-0123456789ab",
+      "attempt_id": "j-0123456789ab-a1",
+      "target_id": "hpc",
+      "target_kind": "slurm",
+      "created_at": "2026-11-05T10:00:00.000Z",
+      "worker_url": "http://ws.tail1234.ts.net:7422",
+      "argv": ["python3", "train.py"],
+      "environment": "uv",
+      "cwd": ".",
+      "env": {
+        "EPOCHS": "10"
+      },
+      "limits": {
+        "runtime_max_sec": 3600
+      },
+      "artifact_paths": ["out/*.json"],
+      "source_commit": "cccccccccccccccccccccccccccccccccccccccc",
+      "files": [
+        {
+          "path": "source/train.py",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "size": 120
+        },
+        {
+          "path": "worker/ablationkit_worker/__init__.py",
+          "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "size": 300
+        }
+      ],
+      "heartbeat_sec": 30,
+      "max_backoff_sec": 60,
+      "spool_max_bytes": 1073741824,
+      "min_free_disk_bytes": 1073741824,
+      "deliver_deadline_sec": 604800
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "source not pinned to a full commit",
+      "value": {
+        "schema_version": 1,
+        "bundle_id": "b-0123456789ab",
+        "project_id": "hpc",
+        "job_id": "j-0123456789ab",
+        "attempt_id": "j-0123456789ab-a1",
+        "target_id": "hpc",
+        "target_kind": "slurm",
+        "created_at": "2026-11-05T10:00:00.000Z",
+        "worker_url": "http://ws.tail1234.ts.net:7422",
+        "argv": ["python3", "train.py"],
+        "environment": "uv",
+        "cwd": ".",
+        "env": {
+          "EPOCHS": "10"
+        },
+        "limits": {
+          "runtime_max_sec": 3600
+        },
+        "artifact_paths": ["out/*.json"],
+        "source_commit": "main",
+        "files": [
+          {
+            "path": "source/train.py",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "size": 120
+          },
+          {
+            "path": "worker/ablationkit_worker/__init__.py",
+            "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "size": 300
+          }
+        ],
+        "heartbeat_sec": 30,
+        "max_backoff_sec": 60,
+        "spool_max_bytes": 1073741824,
+        "min_free_disk_bytes": 1073741824,
+        "deliver_deadline_sec": 604800
+      }
+    },
+    {
+      "reason": "absolute bundle path",
+      "value": {
+        "schema_version": 1,
+        "bundle_id": "b-0123456789ab",
+        "project_id": "hpc",
+        "job_id": "j-0123456789ab",
+        "attempt_id": "j-0123456789ab-a1",
+        "target_id": "hpc",
+        "target_kind": "slurm",
+        "created_at": "2026-11-05T10:00:00.000Z",
+        "worker_url": "http://ws.tail1234.ts.net:7422",
+        "argv": ["python3", "train.py"],
+        "environment": "uv",
+        "cwd": ".",
+        "env": {
+          "EPOCHS": "10"
+        },
+        "limits": {
+          "runtime_max_sec": 3600
+        },
+        "artifact_paths": ["out/*.json"],
+        "source_commit": "cccccccccccccccccccccccccccccccccccccccc",
+        "files": [
+          {
+            "path": "/etc/passwd",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "size": 1
+          }
+        ],
+        "heartbeat_sec": 30,
+        "max_backoff_sec": 60,
+        "spool_max_bytes": 1073741824,
+        "min_free_disk_bytes": 1073741824,
+        "deliver_deadline_sec": 604800
+      }
+    }
+  ]
+}

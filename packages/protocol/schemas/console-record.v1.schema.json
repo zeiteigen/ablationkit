@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ablationkit:schema:console-record.v1",
+  "title": "ConsoleRecord",
+  "description": "One console line of an attempt. Independent of MLflow (criterion 11).",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schema_version",
+    "seq",
+    "ts",
+    "stream",
+    "text"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "type": "number"
+    },
+    "seq": {
+      "title": "SequenceNumber",
+      "description": "Non-negative sequence number.",
+      "minimum": 0,
+      "maximum": 9007199254740991,
+      "type": "integer"
+    },
+    "ts": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "stream": {
+      "title": "ConsoleStream",
+      "description": "`log`: a Python logging record from the SDK handler. `system`: a note from AblationKit itself.",
+      "anyOf": [
+        {
+          "const": "stdout",
+          "type": "string"
+        },
+        {
+          "const": "stderr",
+          "type": "string"
+        },
+        {
+          "const": "log",
+          "type": "string"
+        },
+        {
+          "const": "system",
+          "type": "string"
+        }
+      ]
+    },
+    "text": {
+      "maxLength": 65536,
+      "type": "string"
+    },
+    "level": {
+      "maxLength": 32,
+      "type": "string"
+    },
+    "logger": {
+      "maxLength": 256,
+      "type": "string"
+    },
+    "event_id": {
+      "title": "EventId",
+      "description": "Globally unique event identifier chosen by the producer; the dedupe key at ingest.",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "type": "string"
+    }
+  }
+}

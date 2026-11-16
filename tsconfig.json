@@ -1,0 +1,42 @@
+{
+  "compilerOptions": {
+    "target": "ES2024",
+    "lib": ["ES2024"],
+    "module": "Preserve",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "types": ["bun"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  "include": [
+    "apps/*/src",
+    "apps/*/test",
+    "packages/*/src",
+    "packages/*/test",
+    "packages/*/scripts",
+    "scripts",
+    "apps/web/e2e",
+    "apps/desktop/e2e",
+    "apps/desktop/build.ts",
+    "apps/web/build.ts"
+  ],
+  "exclude": [
+    "apps/web/src",
+    "apps/web/test",
+    "apps/desktop/src",
+    "packages/extension-sdk",
+    "packages/builtin-llm/src/ui.tsx",
+    "packages/builtin-llm/src/ui"
+  ]
+}

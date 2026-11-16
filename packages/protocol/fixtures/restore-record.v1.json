@@ -1,0 +1,85 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "backup_id": "20261105T180000Z-move",
+      "backup_reason": "move",
+      "backup_created_at": "2026-11-05T18:00:00Z",
+      "restored_at": "2026-11-05T18:00:00Z",
+      "source": {
+        "hostname": "workstation",
+        "home": "/home/r/.ablationkit"
+      },
+      "hostname": "new-box",
+      "projects": [
+        {
+          "project_id": "lab",
+          "from_path": "/home/r/lab",
+          "to_path": "/srv/lab",
+          "checkout": "present",
+          "files_written": 3,
+          "files_kept": []
+        }
+      ],
+      "sessions_revoked": 2,
+      "settings_changes": ["remote.worker_url: (unset) -> http://100.64.0.9:7422"],
+      "extension_envs": ["lab/py-evaluator@eb-0123456789abcdef"],
+      "warnings": []
+    },
+    {
+      "schema_version": 1,
+      "backup_id": "20261105T180000Z",
+      "backup_reason": "manual",
+      "backup_created_at": "2026-11-05T18:00:00Z",
+      "restored_at": "2026-11-05T18:00:00Z",
+      "hostname": "workstation",
+      "projects": [],
+      "sessions_revoked": 0,
+      "settings_changes": [],
+      "extension_envs": [],
+      "warnings": ["lab: no checkout at /srv/lab"]
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "unknown checkout state",
+      "value": {
+        "schema_version": 1,
+        "backup_id": "20261105T180000Z",
+        "backup_reason": "manual",
+        "backup_created_at": "2026-11-05T18:00:00Z",
+        "restored_at": "2026-11-05T18:00:00Z",
+        "hostname": "h",
+        "projects": [
+          {
+            "project_id": "lab",
+            "from_path": "/a",
+            "to_path": "/b",
+            "checkout": "cloned",
+            "files_written": 0,
+            "files_kept": []
+          }
+        ],
+        "sessions_revoked": 0,
+        "settings_changes": [],
+        "extension_envs": [],
+        "warnings": []
+      }
+    },
+    {
+      "reason": "missing hostname",
+      "value": {
+        "schema_version": 1,
+        "backup_id": "20261105T180000Z",
+        "backup_reason": "manual",
+        "backup_created_at": "2026-11-05T18:00:00Z",
+        "restored_at": "2026-11-05T18:00:00Z",
+        "projects": [],
+        "sessions_revoked": 0,
+        "settings_changes": [],
+        "extension_envs": [],
+        "warnings": []
+      }
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "name": "@ablationkit/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@ablationkit/auth": "workspace:*",
+    "@ablationkit/autonomy-policy": "workspace:*",
+    "@ablationkit/builtin-llm": "workspace:*",
+    "@ablationkit/collector": "workspace:*",
+    "@ablationkit/compute-targets": "workspace:*",
+    "@ablationkit/core": "workspace:*",
+    "@ablationkit/data-controls": "workspace:*",
+    "@ablationkit/extension-host": "workspace:*",
+    "@ablationkit/inference-adapters": "workspace:*",
+    "@ablationkit/process-supervisor": "workspace:*",
+    "@ablationkit/protocol": "workspace:*",
+    "@ablationkit/tracking-mlflow": "workspace:*",
+    "@ablationkit/vault": "workspace:*",
+    "@babel/parser": "7.28.4"
+  }
+}

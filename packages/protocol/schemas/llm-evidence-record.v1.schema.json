@@ -1,0 +1,338 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ablationkit:schema:llm-evidence-record.v1",
+  "title": "LlmEvidenceRecord",
+  "description": "An explicitly saved playground comparison: the pinned variants, inputs hash and trace IDs here; the inputs, outputs, usage and timings are one MLflow artifact.",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schema_version",
+    "evidence_id",
+    "project_id",
+    "kind",
+    "title",
+    "targets",
+    "inputs_sha256",
+    "examples",
+    "trace_ids",
+    "mlflow_run_id",
+    "experiment_id",
+    "artifact_path",
+    "artifact_bytes",
+    "stored",
+    "created_by",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "type": "number"
+    },
+    "evidence_id": {
+      "title": "LlmEvidenceId",
+      "description": "Saved LLM evidence ID, `lx-<id>`.",
+      "pattern": "^lx-[a-z0-9]{6,40}$",
+      "type": "string"
+    },
+    "project_id": {
+      "title": "ProjectId",
+      "description": "Stable project identifier (lowercase slug). Never a path; paths live in the local registry.",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,62}$",
+      "type": "string"
+    },
+    "kind": {
+      "const": "playground",
+      "type": "string"
+    },
+    "title": {
+      "minLength": 1,
+      "maxLength": 300,
+      "type": "string"
+    },
+    "note": {
+      "maxLength": 4000,
+      "type": "string"
+    },
+    "targets": {
+      "minItems": 1,
+      "maxItems": 6,
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "title": "PromptTarget",
+            "description": "A pinned prompt version rendered with each example's inputs and sent to one provider model.",
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "kind",
+              "label",
+              "prompt",
+              "provider_id",
+              "model",
+              "params"
+            ],
+            "properties": {
+              "kind": {
+                "const": "prompt",
+                "type": "string"
+              },
+              "label": {
+                "pattern": "^[A-Za-z0-9_.-]{1,40}$",
+                "type": "string"
+              },
+              "prompt": {
+                "title": "PinnedPrompt",
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "name",
+                  "version",
+                  "template_sha256",
+                  "format"
+                ],
+                "properties": {
+                  "name": {
+                    "minLength": 1,
+                    "maxLength": 256,
+                    "type": "string"
+                  },
+                  "version": {
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "alias": {
+                    "maxLength": 256,
+                    "description": "The alias the request named; `version` is what it resolved to.",
+                    "type": "string"
+                  },
+                  "template_sha256": {
+                    "pattern": "^[a-f0-9]{64}$",
+                    "type": "string"
+                  },
+                  "format": {
+                    "anyOf": [
+                      {
+                        "const": "text",
+                        "type": "string"
+                      },
+                      {
+                        "const": "chat",
+                        "type": "string"
+                      }
+                    ]
+                  }
+                }
+              },
+              "provider_id": {
+                "title": "LlmProviderId",
+                "pattern": "^[a-z0-9][a-z0-9-]{0,39}$",
+                "type": "string"
+              },
+              "model": {
+                "minLength": 1,
+                "maxLength": 200,
+                "type": "string"
+              },
+              "params": {
+                "title": "GenerationParams",
+                "additionalProperties": false,
+                "type": "object",
+                "properties": {
+                  "temperature": {
+                    "pattern": "^-?[0-9]+([.][0-9]+)?([eE][-+]?[0-9]+)?$",
+                    "maxLength": 40,
+                    "description": "0..2",
+                    "type": "string"
+                  },
+                  "top_p": {
+                    "pattern": "^-?[0-9]+([.][0-9]+)?([eE][-+]?[0-9]+)?$",
+                    "maxLength": 40,
+                    "description": "0..1",
+                    "type": "string"
+                  },
+                  "max_tokens": {
+                    "minimum": 1,
+                    "maximum": 32768,
+                    "type": "integer"
+                  },
+                  "seed": {
+                    "minimum": 0,
+                    "maximum": 2147483647,
+                    "description": "Sent to the provider; honoured only if the provider supports it, so repeated trials are not exact reproductions.",
+                    "type": "integer"
+                  },
+                  "stop": {
+                    "maxItems": 4,
+                    "type": "array",
+                    "items": {
+                      "maxLength": 100,
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "title": "RecordedTarget",
+            "description": "Traces a project's own application recorded (for example a RAG job over the golden set); they are scored, not regenerated.",
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "kind",
+              "label",
+              "source_run_id",
+              "traces",
+              "matched"
+            ],
+            "properties": {
+              "kind": {
+                "const": "recorded",
+                "type": "string"
+              },
+              "label": {
+                "pattern": "^[A-Za-z0-9_.-]{1,40}$",
+                "type": "string"
+              },
+              "source_run_id": {
+                "title": "MlflowRunId",
+                "description": "MLflow run ID, as MLflow returns it.",
+                "pattern": "^[A-Za-z0-9_-]{1,64}$",
+                "type": "string"
+              },
+              "traces": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "matched": {
+                "minimum": 0,
+                "description": "Traces tagged with an example ID of the golden-set version.",
+                "type": "integer"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "golden_set": {
+      "title": "EvidenceGoldenSet",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "golden_set_id",
+        "version",
+        "sha256"
+      ],
+      "properties": {
+        "golden_set_id": {
+          "title": "GoldenSetId",
+          "description": "Golden set ID, `gs-<id>`.",
+          "pattern": "^gs-[a-z0-9]{6,40}$",
+          "type": "string"
+        },
+        "version": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "type": "string"
+        }
+      }
+    },
+    "inputs_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "examples": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "trace_ids": {
+      "maxItems": 10000,
+      "type": "array",
+      "items": {
+        "title": "TraceId",
+        "description": "MLflow trace ID (`tr-<32 hex>`).",
+        "pattern": "^tr-[a-f0-9]{32}$",
+        "type": "string"
+      }
+    },
+    "mlflow_run_id": {
+      "title": "MlflowRunId",
+      "description": "MLflow run ID, as MLflow returns it.",
+      "pattern": "^[A-Za-z0-9_-]{1,64}$",
+      "type": "string"
+    },
+    "experiment_id": {
+      "title": "MlflowExperimentId",
+      "description": "MLflow experiment ID, as MLflow returns it.",
+      "pattern": "^[A-Za-z0-9_-]{1,64}$",
+      "type": "string"
+    },
+    "artifact_path": {
+      "maxLength": 500,
+      "type": "string"
+    },
+    "artifact_bytes": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "stored": {
+      "maxItems": 20,
+      "description": "What the artifact holds, in words shown to the researcher.",
+      "type": "array",
+      "items": {
+        "maxLength": 200,
+        "type": "string"
+      }
+    },
+    "source_commit": {
+      "maxLength": 64,
+      "type": "string"
+    },
+    "created_by": {
+      "title": "LlmActor",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "anyOf": [
+            {
+              "const": "human",
+              "type": "string"
+            },
+            {
+              "const": "agent",
+              "type": "string"
+            },
+            {
+              "const": "system",
+              "type": "string"
+            }
+          ]
+        },
+        "id": {
+          "maxLength": 200,
+          "type": "string"
+        }
+      }
+    },
+    "created_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "deleted_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    }
+  }
+}

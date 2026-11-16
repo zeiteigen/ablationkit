@@ -1,0 +1,8 @@
+name: vision-digits
+python_env: python_env.yaml
+
+entry_points:
+  main:
+    parameters:
+      C: {type: float, default: 1.0}
+    command: "python train.py --C {C}"

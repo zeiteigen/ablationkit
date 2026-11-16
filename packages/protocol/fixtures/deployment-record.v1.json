@@ -1,0 +1,72 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "deployment_id": "dep-20261103-ab12",
+      "project_id": "custom-architecture-lab",
+      "kind": "preview_local",
+      "target": "local",
+      "model_uri": "models:/width/3",
+      "exposure": "loopback",
+      "ttl_minutes": 30,
+      "status": "running",
+      "policy_revision": 4,
+      "requested_by": {
+        "kind": "agent",
+        "id": "tok-2"
+      },
+      "requested_at": "2026-11-03T10:00:00Z",
+      "started_at": "2026-11-03T10:00:01Z",
+      "expires_at": "2026-11-03T10:30:01Z",
+      "launcher": "fake"
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "unknown kind",
+      "value": {
+        "schema_version": 1,
+        "deployment_id": "dep-20261103-ab12",
+        "project_id": "custom-architecture-lab",
+        "kind": "prod",
+        "target": "local",
+        "model_uri": "models:/width/3",
+        "exposure": "loopback",
+        "ttl_minutes": 30,
+        "status": "running",
+        "policy_revision": 4,
+        "requested_by": {
+          "kind": "agent",
+          "id": "tok-2"
+        },
+        "requested_at": "2026-11-03T10:00:00Z",
+        "started_at": "2026-11-03T10:00:01Z",
+        "expires_at": "2026-11-03T10:30:01Z",
+        "launcher": "fake"
+      }
+    },
+    {
+      "reason": "bad id",
+      "value": {
+        "schema_version": 1,
+        "deployment_id": "x",
+        "project_id": "custom-architecture-lab",
+        "kind": "preview_local",
+        "target": "local",
+        "model_uri": "models:/width/3",
+        "exposure": "loopback",
+        "ttl_minutes": 30,
+        "status": "running",
+        "policy_revision": 4,
+        "requested_by": {
+          "kind": "agent",
+          "id": "tok-2"
+        },
+        "requested_at": "2026-11-03T10:00:00Z",
+        "started_at": "2026-11-03T10:00:01Z",
+        "expires_at": "2026-11-03T10:30:01Z",
+        "launcher": "fake"
+      }
+    }
+  ]
+}

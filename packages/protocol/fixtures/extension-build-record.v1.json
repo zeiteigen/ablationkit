@@ -1,0 +1,303 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "build_id": "eb-0123456789abcdef",
+      "project_id": "p-1",
+      "extension_id": "model-explorer",
+      "version": "0.2.0",
+      "manifest": {
+        "schema_version": 1,
+        "id": "model-explorer",
+        "version": "0.2.0",
+        "name": "Model explorer",
+        "host_api": "^1.0.0",
+        "contributes": [
+          {
+            "id": "tab",
+            "point": "run.tab",
+            "title": "Explorer",
+            "entry": "ui/src/View.tsx"
+          },
+          {
+            "id": "analyze",
+            "point": "project.analysis",
+            "title": "Analyze",
+            "entry": "python/analysis.py:analyze"
+          },
+          {
+            "id": "note",
+            "point": "project.action",
+            "title": "Note",
+            "operation": "research.note.create",
+            "params": {
+              "title": "Checkpoint",
+              "n": 3,
+              "flag": true
+            }
+          }
+        ],
+        "python": {
+          "requires_python": ">=3.11",
+          "project": "python",
+          "lockfile": "python/uv.lock",
+          "max_runtime_seconds": 300,
+          "max_memory_mb": 2048,
+          "gpu": false,
+          "network": "none"
+        },
+        "capabilities": ["project.runs.read", "project.analysis.execute", "inference.predict"],
+        "capability_config": {
+          "inference": {
+            "models": ["iris@champion"],
+            "max_requests_per_hour": 100,
+            "max_request_bytes": 65536,
+            "max_rows": 50
+          }
+        }
+      },
+      "origin": "checkout",
+      "files": [
+        {
+          "path": "manifest.json",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "bytes": 812
+        }
+      ],
+      "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "lockfile_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "capability_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "bundle_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "ui": [
+        {
+          "contribution": "tab",
+          "file": "tab.js",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "bytes": 150000
+        }
+      ],
+      "python": {
+        "status": "ready",
+        "python_version": "3.12.14",
+        "environment_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "packages": ["numpy==2.3.1"]
+      },
+      "host_api_version": "1.0.0",
+      "status": "ready",
+      "diagnostics": [
+        {
+          "level": "warning",
+          "code": "python_unused",
+          "message": "x"
+        }
+      ],
+      "built_by": {
+        "kind": "agent",
+        "id": "tok-agent"
+      },
+      "built_at": "2026-11-04T10:00:00.000Z"
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "status is ready or failed",
+      "value": {
+        "schema_version": 1,
+        "build_id": "eb-0123456789abcdef",
+        "project_id": "p-1",
+        "extension_id": "model-explorer",
+        "version": "0.2.0",
+        "manifest": {
+          "schema_version": 1,
+          "id": "model-explorer",
+          "version": "0.2.0",
+          "name": "Model explorer",
+          "host_api": "^1.0.0",
+          "contributes": [
+            {
+              "id": "tab",
+              "point": "run.tab",
+              "title": "Explorer",
+              "entry": "ui/src/View.tsx"
+            },
+            {
+              "id": "analyze",
+              "point": "project.analysis",
+              "title": "Analyze",
+              "entry": "python/analysis.py:analyze"
+            },
+            {
+              "id": "note",
+              "point": "project.action",
+              "title": "Note",
+              "operation": "research.note.create",
+              "params": {
+                "title": "Checkpoint",
+                "n": 3,
+                "flag": true
+              }
+            }
+          ],
+          "python": {
+            "requires_python": ">=3.11",
+            "project": "python",
+            "lockfile": "python/uv.lock",
+            "max_runtime_seconds": 300,
+            "max_memory_mb": 2048,
+            "gpu": false,
+            "network": "none"
+          },
+          "capabilities": ["project.runs.read", "project.analysis.execute", "inference.predict"],
+          "capability_config": {
+            "inference": {
+              "models": ["iris@champion"],
+              "max_requests_per_hour": 100,
+              "max_request_bytes": 65536,
+              "max_rows": 50
+            }
+          }
+        },
+        "origin": "checkout",
+        "files": [
+          {
+            "path": "manifest.json",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "bytes": 812
+          }
+        ],
+        "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "lockfile_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "capability_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "bundle_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "ui": [
+          {
+            "contribution": "tab",
+            "file": "tab.js",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "bytes": 150000
+          }
+        ],
+        "python": {
+          "status": "ready",
+          "python_version": "3.12.14",
+          "environment_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "packages": ["numpy==2.3.1"]
+        },
+        "host_api_version": "1.0.0",
+        "status": "building",
+        "diagnostics": [
+          {
+            "level": "warning",
+            "code": "python_unused",
+            "message": "x"
+          }
+        ],
+        "built_by": {
+          "kind": "agent",
+          "id": "tok-agent"
+        },
+        "built_at": "2026-11-04T10:00:00.000Z"
+      }
+    },
+    {
+      "reason": "hashes are SHA-256",
+      "value": {
+        "schema_version": 1,
+        "build_id": "eb-0123456789abcdef",
+        "project_id": "p-1",
+        "extension_id": "model-explorer",
+        "version": "0.2.0",
+        "manifest": {
+          "schema_version": 1,
+          "id": "model-explorer",
+          "version": "0.2.0",
+          "name": "Model explorer",
+          "host_api": "^1.0.0",
+          "contributes": [
+            {
+              "id": "tab",
+              "point": "run.tab",
+              "title": "Explorer",
+              "entry": "ui/src/View.tsx"
+            },
+            {
+              "id": "analyze",
+              "point": "project.analysis",
+              "title": "Analyze",
+              "entry": "python/analysis.py:analyze"
+            },
+            {
+              "id": "note",
+              "point": "project.action",
+              "title": "Note",
+              "operation": "research.note.create",
+              "params": {
+                "title": "Checkpoint",
+                "n": 3,
+                "flag": true
+              }
+            }
+          ],
+          "python": {
+            "requires_python": ">=3.11",
+            "project": "python",
+            "lockfile": "python/uv.lock",
+            "max_runtime_seconds": 300,
+            "max_memory_mb": 2048,
+            "gpu": false,
+            "network": "none"
+          },
+          "capabilities": ["project.runs.read", "project.analysis.execute", "inference.predict"],
+          "capability_config": {
+            "inference": {
+              "models": ["iris@champion"],
+              "max_requests_per_hour": 100,
+              "max_request_bytes": 65536,
+              "max_rows": 50
+            }
+          }
+        },
+        "origin": "checkout",
+        "files": [
+          {
+            "path": "manifest.json",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "bytes": 812
+          }
+        ],
+        "source_sha256": "abc",
+        "lockfile_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "capability_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "bundle_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "ui": [
+          {
+            "contribution": "tab",
+            "file": "tab.js",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "bytes": 150000
+          }
+        ],
+        "python": {
+          "status": "ready",
+          "python_version": "3.12.14",
+          "environment_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "packages": ["numpy==2.3.1"]
+        },
+        "host_api_version": "1.0.0",
+        "status": "ready",
+        "diagnostics": [
+          {
+            "level": "warning",
+            "code": "python_unused",
+            "message": "x"
+          }
+        ],
+        "built_by": {
+          "kind": "agent",
+          "id": "tok-agent"
+        },
+        "built_at": "2026-11-04T10:00:00.000Z"
+      }
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+# Installs the pinned toolchain, then runs `bun run ci` (scripts/ci.ts), which holds every check.
+# Keep checks in scripts/ci.ts, not here, so local runs and CI stay identical.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: 0.12.13
+      - name: Install Python
+        run: uv python install
+      - name: Install Chromium for the Playwright smoke tests
+        run: bun install --frozen-lockfile && bunx playwright-core install --with-deps chromium
+        working-directory: apps/web
+      # The desktop e2e (Stage 17) needs an Electron and a display. Electron is a system dependency
+      # (apps/desktop/run.ts), so CI fetches the same major the Arch package provides.
+      - name: Install Electron and Xvfb for the desktop e2e
+        run: |
+          sudo apt-get update && sudo apt-get install -y xvfb
+          npm install --no-save --prefix "$RUNNER_TEMP/electron" electron@43.8.3
+          echo "ABLATIONKIT_ELECTRON=$RUNNER_TEMP/electron/node_modules/electron/dist/electron" >> "$GITHUB_ENV"
+      - name: Run CI checks
+        run: xvfb-run -a bun run ci

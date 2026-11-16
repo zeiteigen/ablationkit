@@ -1,0 +1,44 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "project_id": "demo"
+    },
+    {
+      "schema_version": 1,
+      "project_id": "demo",
+      "refused": {
+        "first_at": "2026-11-10T09:00:00Z",
+        "last_at": "2026-11-10T09:05:00Z",
+        "count": 3,
+        "policy_revision": 2,
+        "message": "used 9.5 and reserved 0 of 10 weighted hours; the job needed 2"
+      },
+      "over_limit_since": "2026-11-10T08:00:00Z"
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "no refusals counted",
+      "value": {
+        "schema_version": 1,
+        "project_id": "demo",
+        "refused": {
+          "first_at": "2026-11-10T09:00:00Z",
+          "last_at": "2026-11-10T09:00:00Z",
+          "count": 0,
+          "policy_revision": 0,
+          "message": "x"
+        }
+      }
+    },
+    {
+      "reason": "unknown field",
+      "value": {
+        "schema_version": 1,
+        "project_id": "demo",
+        "budget": 1
+      }
+    }
+  ]
+}

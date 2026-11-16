@@ -1,0 +1,295 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "evidence_id": "ie-0123456789abcdef",
+      "project_id": "custom-architecture-lab",
+      "kind": "comparison",
+      "via": "one_shot",
+      "title": "C=1 vs C=0.01 on iris",
+      "note": "v1 wins",
+      "models": [
+        {
+          "model_id": "m-59c48f6bab2b4dfeb7eefdaadde2b9ed",
+          "registered_name": "iris clf",
+          "version": "1",
+          "source_run_id": "e1c747043f8e4023a3e7e0be54117df5",
+          "source_commit": "0123456789abcdef0123456789abcdef01234567"
+        },
+        {
+          "model_id": "m-2ea58415778e45a5aa79348604358b91",
+          "registered_name": "iris clf",
+          "version": "2"
+        }
+      ],
+      "task": "tabular",
+      "output": "classification",
+      "rows": 150,
+      "input_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "dataset": {
+        "path": "data/iris.csv",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "offset": 0,
+        "limit": 150,
+        "targets": "target",
+        "split": "all",
+        "source_commit": "0123456789abcdef0123456789abcdef01234567"
+      },
+      "code_revision": "0123456789abcdef0123456789abcdef01234567",
+      "environment": {
+        "kind": "managed",
+        "mlflow_version": "3.17.2",
+        "python_version": "3.12.14",
+        "bridge_version": 1
+      },
+      "stored": [
+        "input_rows",
+        "outputs",
+        "probabilities",
+        "targets",
+        "comparison",
+        "timings",
+        "provenance"
+      ],
+      "mlflow_run_id": "f1c747043f8e4023a3e7e0be54117df5",
+      "experiment_id": "1",
+      "artifact_path": "ablationkit/inference/evidence.json",
+      "artifact_bytes": 48211,
+      "predicted_at": "2026-11-03T10:00:00Z",
+      "saved_by": {
+        "kind": "human",
+        "id": "tok-1"
+      },
+      "saved_at": "2026-11-03T10:01:00Z"
+    },
+    {
+      "schema_version": 1,
+      "evidence_id": "ie-0123456789abcdef",
+      "project_id": "custom-architecture-lab",
+      "kind": "prediction",
+      "via": "session",
+      "title": "C=1 vs C=0.01 on iris",
+      "note": "v1 wins",
+      "models": [
+        {
+          "model_id": "m-59c48f6bab2b4dfeb7eefdaadde2b9ed",
+          "registered_name": "iris clf",
+          "version": "1",
+          "source_run_id": "e1c747043f8e4023a3e7e0be54117df5",
+          "source_commit": "0123456789abcdef0123456789abcdef01234567"
+        }
+      ],
+      "task": "tabular",
+      "output": "classification",
+      "rows": 1,
+      "input_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "code_revision": "0123456789abcdef0123456789abcdef01234567",
+      "environment": {
+        "kind": "managed",
+        "mlflow_version": "3.17.2",
+        "python_version": "3.12.14",
+        "bridge_version": 1
+      },
+      "stored": ["inputs", "outputs", "timings", "provenance"],
+      "mlflow_run_id": "f1c747043f8e4023a3e7e0be54117df5",
+      "experiment_id": "1",
+      "artifact_path": "ablationkit/inference/evidence.json",
+      "artifact_bytes": 48211,
+      "predicted_at": "2026-11-03T10:00:00Z",
+      "saved_by": {
+        "kind": "human",
+        "id": "tok-1"
+      },
+      "saved_at": "2026-11-03T10:01:00Z",
+      "session_id": "is-0123456789abcdef",
+      "deleted_at": "2026-11-03T11:00:00Z",
+      "params": {
+        "k": 1
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "no models",
+      "value": {
+        "schema_version": 1,
+        "evidence_id": "ie-0123456789abcdef",
+        "project_id": "custom-architecture-lab",
+        "kind": "comparison",
+        "via": "one_shot",
+        "title": "C=1 vs C=0.01 on iris",
+        "note": "v1 wins",
+        "models": [],
+        "task": "tabular",
+        "output": "classification",
+        "rows": 150,
+        "input_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "dataset": {
+          "path": "data/iris.csv",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "offset": 0,
+          "limit": 150,
+          "targets": "target",
+          "split": "all",
+          "source_commit": "0123456789abcdef0123456789abcdef01234567"
+        },
+        "code_revision": "0123456789abcdef0123456789abcdef01234567",
+        "environment": {
+          "kind": "managed",
+          "mlflow_version": "3.17.2",
+          "python_version": "3.12.14",
+          "bridge_version": 1
+        },
+        "stored": [
+          "input_rows",
+          "outputs",
+          "probabilities",
+          "targets",
+          "comparison",
+          "timings",
+          "provenance"
+        ],
+        "mlflow_run_id": "f1c747043f8e4023a3e7e0be54117df5",
+        "experiment_id": "1",
+        "artifact_path": "ablationkit/inference/evidence.json",
+        "artifact_bytes": 48211,
+        "predicted_at": "2026-11-03T10:00:00Z",
+        "saved_by": {
+          "kind": "human",
+          "id": "tok-1"
+        },
+        "saved_at": "2026-11-03T10:01:00Z"
+      }
+    },
+    {
+      "reason": "short input hash",
+      "value": {
+        "schema_version": 1,
+        "evidence_id": "ie-0123456789abcdef",
+        "project_id": "custom-architecture-lab",
+        "kind": "comparison",
+        "via": "one_shot",
+        "title": "C=1 vs C=0.01 on iris",
+        "note": "v1 wins",
+        "models": [
+          {
+            "model_id": "m-59c48f6bab2b4dfeb7eefdaadde2b9ed",
+            "registered_name": "iris clf",
+            "version": "1",
+            "source_run_id": "e1c747043f8e4023a3e7e0be54117df5",
+            "source_commit": "0123456789abcdef0123456789abcdef01234567"
+          },
+          {
+            "model_id": "m-2ea58415778e45a5aa79348604358b91",
+            "registered_name": "iris clf",
+            "version": "2"
+          }
+        ],
+        "task": "tabular",
+        "output": "classification",
+        "rows": 150,
+        "input_sha256": "abc",
+        "dataset": {
+          "path": "data/iris.csv",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "offset": 0,
+          "limit": 150,
+          "targets": "target",
+          "split": "all",
+          "source_commit": "0123456789abcdef0123456789abcdef01234567"
+        },
+        "code_revision": "0123456789abcdef0123456789abcdef01234567",
+        "environment": {
+          "kind": "managed",
+          "mlflow_version": "3.17.2",
+          "python_version": "3.12.14",
+          "bridge_version": 1
+        },
+        "stored": [
+          "input_rows",
+          "outputs",
+          "probabilities",
+          "targets",
+          "comparison",
+          "timings",
+          "provenance"
+        ],
+        "mlflow_run_id": "f1c747043f8e4023a3e7e0be54117df5",
+        "experiment_id": "1",
+        "artifact_path": "ablationkit/inference/evidence.json",
+        "artifact_bytes": 48211,
+        "predicted_at": "2026-11-03T10:00:00Z",
+        "saved_by": {
+          "kind": "human",
+          "id": "tok-1"
+        },
+        "saved_at": "2026-11-03T10:01:00Z"
+      }
+    },
+    {
+      "reason": "unknown kind",
+      "value": {
+        "schema_version": 1,
+        "evidence_id": "ie-0123456789abcdef",
+        "project_id": "custom-architecture-lab",
+        "kind": "demo",
+        "via": "one_shot",
+        "title": "C=1 vs C=0.01 on iris",
+        "note": "v1 wins",
+        "models": [
+          {
+            "model_id": "m-59c48f6bab2b4dfeb7eefdaadde2b9ed",
+            "registered_name": "iris clf",
+            "version": "1",
+            "source_run_id": "e1c747043f8e4023a3e7e0be54117df5",
+            "source_commit": "0123456789abcdef0123456789abcdef01234567"
+          },
+          {
+            "model_id": "m-2ea58415778e45a5aa79348604358b91",
+            "registered_name": "iris clf",
+            "version": "2"
+          }
+        ],
+        "task": "tabular",
+        "output": "classification",
+        "rows": 150,
+        "input_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "dataset": {
+          "path": "data/iris.csv",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "offset": 0,
+          "limit": 150,
+          "targets": "target",
+          "split": "all",
+          "source_commit": "0123456789abcdef0123456789abcdef01234567"
+        },
+        "code_revision": "0123456789abcdef0123456789abcdef01234567",
+        "environment": {
+          "kind": "managed",
+          "mlflow_version": "3.17.2",
+          "python_version": "3.12.14",
+          "bridge_version": 1
+        },
+        "stored": [
+          "input_rows",
+          "outputs",
+          "probabilities",
+          "targets",
+          "comparison",
+          "timings",
+          "provenance"
+        ],
+        "mlflow_run_id": "f1c747043f8e4023a3e7e0be54117df5",
+        "experiment_id": "1",
+        "artifact_path": "ablationkit/inference/evidence.json",
+        "artifact_bytes": 48211,
+        "predicted_at": "2026-11-03T10:00:00Z",
+        "saved_by": {
+          "kind": "human",
+          "id": "tok-1"
+        },
+        "saved_at": "2026-11-03T10:01:00Z"
+      }
+    }
+  ]
+}

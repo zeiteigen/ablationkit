@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1" name="viewport"/>
+  <meta content="From a checkout to your first recorded experiment." name="description"/>
+  <title>
+   Your first project · AblationKit guide
+  </title>
+  <link href="guide.css" rel="stylesheet"/>
+ </head>
+ <body class="ak-guide">
+  <a class="akg-skip" href="#content">
+   Skip to content
+  </a>
+  <header>
+   <a class="akg-brand" href="index.html">
+    AblationKit
+    <span>
+     User guide
+    </span>
+   </a>
+   <p>
+    From a question to evidence you can read.
+   </p>
+  </header>
+  <div class="akg-layout">
+   <nav aria-label="Guide chapters">
+    <a href="index.html">
+     Start here
+    </a>
+    <a aria-current="page" href="getting-started.html">
+     Your first project
+    </a>
+    <a href="reading.html">
+     Read the research
+    </a>
+    <a href="experiments.html">
+     Run and compare
+    </a>
+    <a href="llm.html">
+     LLM and RAG research
+    </a>
+    <a href="operations.html">
+     Manage your workspace
+    </a>
+   </nav>
+   <main id="content">
+    <h1>
+     Your first project
+    </h1>
+    <p class="akg-lead">
+     Start with a small, known command. Once its results are visible, add more experiments or ask an agent to investigate a question.
+    </p>
+    <ol class="akg-steps">
+     <li>
+      <h2>
+       Start the coordinator and register your checkout
+      </h2>
+      <p>
+       With AblationKit installed, run these commands on the workstation. Replace the example path with your repository's absolute path.
+      </p>
+      <pre><code>ablationkit coordinator start
+ablationkit project add /absolute/path/to/project
+ablationkit ui</code></pre>
+      <p>
+       The last command opens a one-time sign-in link. If you are running from the AblationKit source checkout without installing the CLI, prefix commands with
+       <code>
+        bun run
+       </code>
+       .
+      </p>
+     </li>
+     <li>
+      <h2>
+       Open the project
+      </h2>
+      <p>
+       Choose it in the sidebar. Open
+       <strong>
+        Project settings
+       </strong>
+       , choose its task profiles, and check the project doctor if setup is incomplete. Profiles control the visibility of backend pages. Data &amp; Evals and Models wait under
+       <strong>
+        More
+       </strong>
+       until the project logs a model or runs an evaluation; a page under More is still available.
+      </p>
+     </li>
+     <li>
+      <h2>
+       Launch a short job
+      </h2>
+      <p>
+       Open
+       <strong>
+        Runs → Jobs → Launch job
+       </strong>
+       . Enter a command such as
+       <code>
+        python train.py --lr 0.01
+       </code>
+       that exists in your checkout. Choose the project uv environment or system PATH, set the relative working directory, and supply suitable time, CPU, and memory limits.
+      </p>
+      <p>
+       Open the resulting job to inspect its attempts and console. To record metrics, parameters, and artifacts, instrument your program with the job SDK or configure the launch dialog's metrics file and artifact globs. A successful process alone does not supply scientific results.
+      </p>
+     </li>
+     <li>
+      <h2>
+       Inspect the results
+      </h2>
+      <p>
+       Open
+       <strong>
+        Runs
+       </strong>
+       , select the recorded run, and inspect its metrics, parameters, tags, and artifacts. If delivery is pending, check Settings → System before rerunning the experiment. Continue with
+       <a href="experiments.html">
+        Run and compare
+       </a>
+       .
+      </p>
+     </li>
+    </ol>
+    <section>
+     <h2>
+      Connect your coding agent
+     </h2>
+     <p>
+      The UI does not launch or steer agents. Configure your harness to start
+      <code>
+       ablationkit mcp
+      </code>
+      in the registered checkout; the MCP server discovers the project from that directory or a parent.
+     </p>
+     <details>
+      <summary>
+       Claude Code setup
+      </summary>
+      <pre><code>claude mcp add ablationkit -- ablationkit mcp</code></pre>
+     </details>
+     <details>
+      <summary>
+       Codex MCP configuration
+      </summary>
+      <pre><code>[mcp_servers.ablationkit]
+command = "ablationkit"
+args = ["mcp"]</code></pre>
+     </details>
+     <p>
+      Each MCP process creates one agent session. You can inspect and end sessions in
+      <strong>
+       Settings → Agent sessions
+      </strong>
+      , and a project's own in
+      <strong>
+       Project settings → Agents
+      </strong>
+      .
+     </p>
+     <p>
+      The server offers eight tools.
+      <code>
+       ablationkit_project
+      </code>
+      and
+      <code>
+       ablationkit_read
+      </code>
+      only read, so you can allow them without a prompt (in Claude Code,
+      <code>
+       mcp__ablationkit__ablationkit_read
+      </code>
+      in your allowed tools).
+      <code>
+       ablationkit_job
+      </code>
+      ,
+      <code>
+       ablationkit_run
+      </code>
+      ,
+      <code>
+       ablationkit_task
+      </code>
+      ,
+      <code>
+       ablationkit_note
+      </code>
+      and
+      <code>
+       ablationkit_work
+      </code>
+      record the agent's work, and
+      <code>
+       ablationkit_do
+      </code>
+      does the rest (research records, deployments, LLM prompts and golden sets, extensions). The
+      project policy and the compute limit apply to every call, whatever you allow.
+     </p>
+     <div class="akg-example">
+      <h3>
+       A useful first request
+      </h3>
+      <p>
+       “Track this investigation as an AblationKit task. Run a short baseline, explain what its metrics show, and write the findings as vault notes in a notebook. Keep the run within five minutes.”
+      </p>
+     </div>
+     <p>
+      Set
+      <a href="operations.html#permissions">
+       agent permissions and compute limits
+      </a>
+      before asking an agent to run substantial work.
+     </p>
+    </section>
+    <footer>
+     <a href="index.html">
+      Guide home
+     </a>
+     <span>
+      AblationKit · User documentation
+     </span>
+    </footer>
+   </main>
+  </div>
+ </body>
+</html>

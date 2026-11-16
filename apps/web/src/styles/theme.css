@@ -1,0 +1,50 @@
+/* The sketchbook palette from Ali Shahzad's brand guide. Keep ink accents local. */
+@font-face {
+  font-family: "Nunito Sans";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/nunito-sans-regular.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Nunito Sans";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/nunito-sans-semibold.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Shadows Into Light";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/shadows-into-light.ttf") format("truetype");
+}
+:root {
+  color-scheme: dark;
+  --bg: #0a0a0a;
+  --panel: #0b0b0b;
+  --sunk: #141414;
+  --fg: #e9e9e9;
+  --muted: #a0a0a0;
+  --faint: #858585;
+  --line: #1f1f1f;
+  --line-strong: #2c2c2c;
+  --grain: rgb(255 255 255 / 0.03);
+  --ink: #c4484e;
+  --accent: #ecece6;
+  --accent-fg: #0a0a0a;
+  --accent-soft: #1b1b1b;
+  /* Status colours are reserved for operational meaning, independent of brand ink. */
+  --ok: #9fc5ad;
+  --ok-soft: #142019;
+  --warn: #ddbd87;
+  --warn-soft: #261f14;
+  --err: #ef969b;
+  --err-soft: #2b1719;
+  --info-soft: #191919;
+  --sans: "Nunito Sans", system-ui, sans-serif;
+  --hand: "Shadows Into Light", cursive;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --radius: 4px;
+}

@@ -1,0 +1,42 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "project_id": "custom-architecture-lab",
+      "name": "iris clf",
+      "version": "2",
+      "model_id": "m-59c48f6bab2b4dfeb7eefdaadde2b9ed",
+      "run_id": "1a12fc4ed043484abc166539e84f89cb",
+      "source": "models:/m-59c48f6bab2b4dfeb7eefdaadde2b9ed",
+      "created_at": "2026-11-03T10:00:00Z"
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "version 0",
+      "value": {
+        "schema_version": 1,
+        "project_id": "custom-architecture-lab",
+        "name": "iris clf",
+        "version": "0",
+        "model_id": "m-59c48f6bab2b4dfeb7eefdaadde2b9ed",
+        "run_id": "1a12fc4ed043484abc166539e84f89cb",
+        "source": "models:/m-59c48f6bab2b4dfeb7eefdaadde2b9ed",
+        "created_at": "2026-11-03T10:00:00Z"
+      }
+    },
+    {
+      "reason": "name with a slash",
+      "value": {
+        "schema_version": 1,
+        "project_id": "custom-architecture-lab",
+        "name": "a/b",
+        "version": "2",
+        "model_id": "m-59c48f6bab2b4dfeb7eefdaadde2b9ed",
+        "run_id": "1a12fc4ed043484abc166539e84f89cb",
+        "source": "models:/m-59c48f6bab2b4dfeb7eefdaadde2b9ed",
+        "created_at": "2026-11-03T10:00:00Z"
+      }
+    }
+  ]
+}

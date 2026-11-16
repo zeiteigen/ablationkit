@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "id": "__ID__",
+  "version": "0.1.0",
+  "name": "__NAME__",
+  "description": "An interactive model demo: a form, a prediction through the inference bridge, and an explicit save as evidence. Set the allowed model in capability_config.",
+  "host_api": "^1.0.0",
+  "contributes": [
+    {
+      "id": "demo",
+      "point": "model.demo",
+      "title": "__NAME__",
+      "entry": "ui/src/Demo.tsx"
+    }
+  ],
+  "capabilities": ["inference.predict"],
+  "capability_config": {
+    "inference": {
+      "models": ["__MODEL__"],
+      "max_requests_per_hour": 100,
+      "max_request_bytes": 65536,
+      "max_rows": 20
+    }
+  }
+}

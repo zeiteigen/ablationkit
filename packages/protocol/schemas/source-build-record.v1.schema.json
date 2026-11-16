@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ablationkit:schema:source-build-record.v1",
+  "title": "SourceBuildRecord",
+  "description": "A reviewable modified build of AblationKit itself (Level 2, spec §8.5): commit, branch, changes against the base, the checks run and their results. Activation is separate and only changes the next start.",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schema_version",
+    "build_id",
+    "commit",
+    "changed_files",
+    "source_dir",
+    "checks",
+    "status",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "type": "number"
+    },
+    "build_id": {
+      "title": "SourceBuildId",
+      "description": "A modified AblationKit build, `b-<commit12>-<n>`.",
+      "pattern": "^b-[a-f0-9]{12}-[0-9]{1,4}$",
+      "type": "string"
+    },
+    "commit": {
+      "pattern": "^[a-f0-9]{40}$",
+      "type": "string"
+    },
+    "branch": {
+      "maxLength": 200,
+      "type": "string"
+    },
+    "base_ref": {
+      "maxLength": 200,
+      "type": "string"
+    },
+    "base_commit": {
+      "pattern": "^[a-f0-9]{40}$",
+      "type": "string"
+    },
+    "changed_files": {
+      "maxItems": 5000,
+      "description": "Files changed against the base, for review.",
+      "type": "array",
+      "items": {
+        "maxLength": 500,
+        "type": "string"
+      }
+    },
+    "diffstat": {
+      "maxLength": 20000,
+      "type": "string"
+    },
+    "source_dir": {
+      "maxLength": 1000,
+      "type": "string"
+    },
+    "checks": {
+      "maxItems": 50,
+      "type": "array",
+      "items": {
+        "title": "SourceBuildCheck",
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "command",
+          "status",
+          "duration_ms"
+        ],
+        "properties": {
+          "command": {
+            "maxLength": 500,
+            "type": "string"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "const": "passed",
+                "type": "string"
+              },
+              {
+                "const": "failed",
+                "type": "string"
+              },
+              {
+                "const": "skipped",
+                "type": "string"
+              }
+            ]
+          },
+          "exit_code": {
+            "type": "integer"
+          },
+          "duration_ms": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "output_tail": {
+            "maxLength": 8000,
+            "type": "string"
+          }
+        }
+      }
+    },
+    "status": {
+      "description": "`ready`: built and every check passed (or was explicitly skipped).",
+      "anyOf": [
+        {
+          "const": "ready",
+          "type": "string"
+        },
+        {
+          "const": "checks_failed",
+          "type": "string"
+        },
+        {
+          "const": "failed",
+          "type": "string"
+        }
+      ]
+    },
+    "error": {
+      "maxLength": 4000,
+      "type": "string"
+    },
+    "created_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    }
+  }
+}

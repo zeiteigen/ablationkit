@@ -1,0 +1,155 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "seq": 0,
+      "ts": "2026-11-02T18:00:00Z",
+      "type": "enqueue",
+      "op_id": "op-01HZX",
+      "op": {
+        "kind": "log_batch",
+        "project_id": "demo",
+        "ref": "att-01",
+        "payload": {
+          "metrics": [
+            {
+              "key": "loss",
+              "value": 0.5,
+              "timestamp": 1793660517000,
+              "step": 1
+            }
+          ]
+        },
+        "enqueued_at": "2026-11-02T18:00:00Z",
+        "bytes": 80
+      }
+    },
+    {
+      "schema_version": 1,
+      "seq": 1,
+      "ts": "2026-11-02T18:00:00Z",
+      "type": "ack",
+      "op_id": "op-01HZX",
+      "result": {
+        "run_id": "26fa61cc0d4e4821be5898deed81ed27"
+      }
+    },
+    {
+      "schema_version": 1,
+      "seq": 2,
+      "ts": "2026-11-02T18:00:00Z",
+      "type": "fail",
+      "op_id": "op-01HZX",
+      "error": {
+        "kind": "rejected",
+        "message": "Changing param values is not allowed",
+        "status": 400,
+        "code": "INVALID_PARAMETER_VALUE"
+      }
+    },
+    {
+      "schema_version": 1,
+      "seq": 3,
+      "ts": "2026-11-02T18:00:00Z",
+      "type": "requeue",
+      "op_id": "op-01HZX"
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "bad op id",
+      "value": {
+        "schema_version": 1,
+        "seq": 0,
+        "ts": "2026-11-02T18:00:00Z",
+        "type": "enqueue",
+        "op_id": "01HZX",
+        "op": {
+          "kind": "log_batch",
+          "project_id": "demo",
+          "ref": "att-01",
+          "payload": {
+            "metrics": [
+              {
+                "key": "loss",
+                "value": 0.5,
+                "timestamp": 1793660517000,
+                "step": 1
+              }
+            ]
+          },
+          "enqueued_at": "2026-11-02T18:00:00Z",
+          "bytes": 80
+        }
+      }
+    },
+    {
+      "reason": "unknown op kind",
+      "value": {
+        "schema_version": 1,
+        "seq": 0,
+        "ts": "2026-11-02T18:00:00Z",
+        "type": "enqueue",
+        "op_id": "op-01HZX",
+        "op": {
+          "kind": "delete_everything",
+          "project_id": "demo",
+          "ref": "att-01",
+          "payload": {
+            "metrics": [
+              {
+                "key": "loss",
+                "value": 0.5,
+                "timestamp": 1793660517000,
+                "step": 1
+              }
+            ]
+          },
+          "enqueued_at": "2026-11-02T18:00:00Z",
+          "bytes": 80
+        }
+      }
+    },
+    {
+      "reason": "bad error kind",
+      "value": {
+        "schema_version": 1,
+        "seq": 2,
+        "ts": "2026-11-02T18:00:00Z",
+        "type": "fail",
+        "op_id": "op-1",
+        "error": {
+          "kind": "oops",
+          "message": "x"
+        }
+      }
+    },
+    {
+      "reason": "negative bytes",
+      "value": {
+        "schema_version": 1,
+        "seq": 0,
+        "ts": "2026-11-02T18:00:00Z",
+        "type": "enqueue",
+        "op_id": "op-01HZX",
+        "op": {
+          "kind": "log_batch",
+          "project_id": "demo",
+          "ref": "att-01",
+          "payload": {
+            "metrics": [
+              {
+                "key": "loss",
+                "value": 0.5,
+                "timestamp": 1793660517000,
+                "step": 1
+              }
+            ]
+          },
+          "enqueued_at": "2026-11-02T18:00:00Z",
+          "bytes": -1
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,290 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "execution_id": "xe-0123456789abcdef",
+      "project_id": "p-1",
+      "extension_id": "model-explorer",
+      "build_id": "eb-0123456789abcdef",
+      "contribution": "analyze",
+      "entry": "python/analysis.py:analyze",
+      "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "lockfile_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "capability_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "environment": {
+        "python_version": "3.12.14",
+        "environment_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "params_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "refs": [
+        {
+          "kind": "run",
+          "id": "0123abcd"
+        }
+      ],
+      "status": "succeeded",
+      "created_by": {
+        "kind": "agent",
+        "id": "tok-agent"
+      },
+      "created_at": "2026-11-04T10:00:00.000Z",
+      "finished_at": "2026-11-04T10:00:05.000Z",
+      "limits": {
+        "runtime_max_sec": 300,
+        "memory_max_bytes": 2147483648,
+        "cpu_quota_percent": 100,
+        "tasks_max": 128,
+        "output_max_bytes": 67108864
+      },
+      "enforcement": {
+        "limits": "enforced",
+        "network": "enforced",
+        "reasons": ["filesystem reads advisory"]
+      },
+      "termination": {
+        "exit_code": 0,
+        "duration_ms": 4900
+      },
+      "progress": {
+        "percent": 100,
+        "message": "done"
+      },
+      "result": {
+        "status": "ok",
+        "summary": "20 runs",
+        "metrics": {
+          "runs": "20",
+          "mean_loss": "0.231"
+        },
+        "tables": [
+          {
+            "title": "runs",
+            "columns": ["run", "loss"],
+            "rows": [["r1", "0.2"], ["r2", 3, true]]
+          }
+        ],
+        "warnings": [],
+        "errors": [],
+        "artifacts": [
+          {
+            "path": "analysis.json",
+            "bytes": 120,
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "content_type": "application/json"
+          }
+        ],
+        "data": {
+          "points": [1, 2]
+        }
+      },
+      "mlflow_run_id": "0123456789abcdef0123456789abcdef"
+    },
+    {
+      "schema_version": 1,
+      "execution_id": "xe-0123456789abcdef",
+      "project_id": "p-1",
+      "extension_id": "model-explorer",
+      "build_id": "eb-0123456789abcdef",
+      "contribution": "analyze",
+      "entry": "python/analysis.py:analyze",
+      "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "lockfile_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "capability_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "environment": {
+        "python_version": "3.12.14",
+        "environment_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "params_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "refs": [
+        {
+          "kind": "run",
+          "id": "0123abcd"
+        }
+      ],
+      "status": "interrupted",
+      "created_by": {
+        "kind": "agent",
+        "id": "tok-agent"
+      },
+      "created_at": "2026-11-04T10:00:00.000Z",
+      "limits": {
+        "runtime_max_sec": 300,
+        "memory_max_bytes": 2147483648,
+        "cpu_quota_percent": 100,
+        "tasks_max": 128,
+        "output_max_bytes": 67108864
+      },
+      "enforcement": {
+        "limits": "enforced",
+        "network": "enforced",
+        "reasons": ["filesystem reads advisory"]
+      },
+      "error": "the coordinator stopped"
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "metric values are decimal strings",
+      "value": {
+        "schema_version": 1,
+        "execution_id": "xe-0123456789abcdef",
+        "project_id": "p-1",
+        "extension_id": "model-explorer",
+        "build_id": "eb-0123456789abcdef",
+        "contribution": "analyze",
+        "entry": "python/analysis.py:analyze",
+        "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "lockfile_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "capability_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "environment": {
+          "python_version": "3.12.14",
+          "environment_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "params_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "refs": [
+          {
+            "kind": "run",
+            "id": "0123abcd"
+          }
+        ],
+        "status": "succeeded",
+        "created_by": {
+          "kind": "agent",
+          "id": "tok-agent"
+        },
+        "created_at": "2026-11-04T10:00:00.000Z",
+        "finished_at": "2026-11-04T10:00:05.000Z",
+        "limits": {
+          "runtime_max_sec": 300,
+          "memory_max_bytes": 2147483648,
+          "cpu_quota_percent": 100,
+          "tasks_max": 128,
+          "output_max_bytes": 67108864
+        },
+        "enforcement": {
+          "limits": "enforced",
+          "network": "enforced",
+          "reasons": ["filesystem reads advisory"]
+        },
+        "termination": {
+          "exit_code": 0,
+          "duration_ms": 4900
+        },
+        "progress": {
+          "percent": 100,
+          "message": "done"
+        },
+        "result": {
+          "status": "ok",
+          "summary": "20 runs",
+          "metrics": {
+            "runs": 20
+          },
+          "tables": [
+            {
+              "title": "runs",
+              "columns": ["run", "loss"],
+              "rows": [["r1", "0.2"], ["r2", 3, true]]
+            }
+          ],
+          "warnings": [],
+          "errors": [],
+          "artifacts": [
+            {
+              "path": "analysis.json",
+              "bytes": 120,
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "content_type": "application/json"
+            }
+          ],
+          "data": {
+            "points": [1, 2]
+          }
+        },
+        "mlflow_run_id": "0123456789abcdef0123456789abcdef"
+      }
+    },
+    {
+      "reason": "status is a fixed list",
+      "value": {
+        "schema_version": 1,
+        "execution_id": "xe-0123456789abcdef",
+        "project_id": "p-1",
+        "extension_id": "model-explorer",
+        "build_id": "eb-0123456789abcdef",
+        "contribution": "analyze",
+        "entry": "python/analysis.py:analyze",
+        "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "lockfile_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "capability_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "environment": {
+          "python_version": "3.12.14",
+          "environment_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "params_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "refs": [
+          {
+            "kind": "run",
+            "id": "0123abcd"
+          }
+        ],
+        "status": "done",
+        "created_by": {
+          "kind": "agent",
+          "id": "tok-agent"
+        },
+        "created_at": "2026-11-04T10:00:00.000Z",
+        "finished_at": "2026-11-04T10:00:05.000Z",
+        "limits": {
+          "runtime_max_sec": 300,
+          "memory_max_bytes": 2147483648,
+          "cpu_quota_percent": 100,
+          "tasks_max": 128,
+          "output_max_bytes": 67108864
+        },
+        "enforcement": {
+          "limits": "enforced",
+          "network": "enforced",
+          "reasons": ["filesystem reads advisory"]
+        },
+        "termination": {
+          "exit_code": 0,
+          "duration_ms": 4900
+        },
+        "progress": {
+          "percent": 100,
+          "message": "done"
+        },
+        "result": {
+          "status": "ok",
+          "summary": "20 runs",
+          "metrics": {
+            "runs": "20",
+            "mean_loss": "0.231"
+          },
+          "tables": [
+            {
+              "title": "runs",
+              "columns": ["run", "loss"],
+              "rows": [["r1", "0.2"], ["r2", 3, true]]
+            }
+          ],
+          "warnings": [],
+          "errors": [],
+          "artifacts": [
+            {
+              "path": "analysis.json",
+              "bytes": 120,
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "content_type": "application/json"
+            }
+          ],
+          "data": {
+            "points": [1, 2]
+          }
+        },
+        "mlflow_run_id": "0123456789abcdef0123456789abcdef"
+      }
+    }
+  ]
+}

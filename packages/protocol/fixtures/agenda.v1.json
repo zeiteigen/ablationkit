@@ -1,0 +1,106 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "project_id": "custom-architecture-lab",
+      "revision": 0,
+      "items": [],
+      "rules": [],
+      "next_line": 1,
+      "next_rule": 1,
+      "updated_at": "2026-11-13T10:00:00Z",
+      "updated_by": { "kind": "system" },
+      "history": []
+    },
+    {
+      "schema_version": 1,
+      "project_id": "custom-architecture-lab",
+      "revision": 1,
+      "items": [
+        {
+          "item_id": "note:wd-matters",
+          "lane": "now",
+          "note_id": "wd-matters",
+          "added_at": "2026-11-13T10:00:00Z",
+          "moved_at": "2026-11-13T10:00:00Z"
+        },
+        {
+          "item_id": "L1",
+          "lane": "dropped",
+          "text": "Tokenizer ablations",
+          "reason": "not the paper's question",
+          "added_at": "2026-11-13T10:00:00Z",
+          "moved_at": "2026-11-13T10:00:00Z"
+        }
+      ],
+      "rules": [
+        {
+          "rule_id": "R1",
+          "text": "Three seeds before anything is established",
+          "added_at": "2026-11-13T10:00:00Z"
+        }
+      ],
+      "next_line": 2,
+      "next_rule": 2,
+      "updated_at": "2026-11-13T10:00:00Z",
+      "updated_by": { "kind": "human", "id": "session-1" },
+      "history": [
+        {
+          "revision": 1,
+          "at": "2026-11-13T10:00:00Z",
+          "by": { "kind": "human", "id": "session-1" },
+          "items": [],
+          "rules": []
+        }
+      ]
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "an item named neither note:<id> nor L<n>",
+      "value": {
+        "schema_version": 1,
+        "project_id": "custom-architecture-lab",
+        "revision": 1,
+        "items": [
+          {
+            "item_id": "item-1",
+            "lane": "now",
+            "text": "x",
+            "added_at": "2026-11-13T10:00:00Z",
+            "moved_at": "2026-11-13T10:00:00Z"
+          }
+        ],
+        "rules": [],
+        "next_line": 1,
+        "next_rule": 1,
+        "updated_at": "2026-11-13T10:00:00Z",
+        "updated_by": { "kind": "human" },
+        "history": []
+      }
+    },
+    {
+      "reason": "an unknown lane",
+      "value": {
+        "schema_version": 1,
+        "project_id": "custom-architecture-lab",
+        "revision": 1,
+        "items": [
+          {
+            "item_id": "L1",
+            "lane": "someday",
+            "text": "x",
+            "added_at": "2026-11-13T10:00:00Z",
+            "moved_at": "2026-11-13T10:00:00Z"
+          }
+        ],
+        "rules": [],
+        "next_line": 2,
+        "next_rule": 1,
+        "updated_at": "2026-11-13T10:00:00Z",
+        "updated_by": { "kind": "human" },
+        "history": []
+      }
+    }
+  ]
+}

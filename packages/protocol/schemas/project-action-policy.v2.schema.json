@@ -1,0 +1,321 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ablationkit:schema:project-action-policy.v2",
+  "title": "ProjectActionPolicy",
+  "description": "One immutable revision of a project's action policy (§7.7.3), stored by the coordinator under `state/<project>/policy/`. Version 1 revisions are migrated on read (ADR 0037).",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schema_version",
+    "project_id",
+    "revision",
+    "created_at",
+    "created_by",
+    "jobs",
+    "deployments",
+    "compute"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 2,
+      "type": "number"
+    },
+    "project_id": {
+      "title": "ProjectId",
+      "description": "Stable project identifier (lowercase slug). Never a path; paths live in the local registry.",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,62}$",
+      "type": "string"
+    },
+    "revision": {
+      "minimum": 0,
+      "description": "0 is the built-in default.",
+      "type": "integer"
+    },
+    "created_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "created_by": {
+      "maxLength": 200,
+      "type": "string"
+    },
+    "summary": {
+      "maxLength": 2000,
+      "type": "string"
+    },
+    "jobs": {
+      "title": "JobGates",
+      "additionalProperties": false,
+      "description": "Jobs an agent submits: on this machine, or to a remote compute target.",
+      "type": "object",
+      "required": [
+        "run_local",
+        "submit_remote"
+      ],
+      "properties": {
+        "run_local": {
+          "title": "LocalJobGate",
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "decision"
+          ],
+          "properties": {
+            "decision": {
+              "title": "PolicyDecision",
+              "description": "`allow` lets an agent do it when every condition passes; `deny` refuses it with a reason naming the policy field.",
+              "anyOf": [
+                {
+                  "const": "deny",
+                  "type": "string"
+                },
+                {
+                  "const": "allow",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        "submit_remote": {
+          "title": "RemoteJobGate",
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "decision",
+            "allowed_targets"
+          ],
+          "properties": {
+            "decision": {
+              "title": "PolicyDecision",
+              "description": "`allow` lets an agent do it when every condition passes; `deny` refuses it with a reason naming the policy field.",
+              "anyOf": [
+                {
+                  "const": "deny",
+                  "type": "string"
+                },
+                {
+                  "const": "allow",
+                  "type": "string"
+                }
+              ]
+            },
+            "allowed_targets": {
+              "maxItems": 100,
+              "description": "Compute targets an agent may submit to: a target ID, or a kind (`ssh`, `slurm`, `runpod`, `colab`) for every target of that kind.",
+              "type": "array",
+              "items": {
+                "minLength": 1,
+                "maxLength": 100,
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "deployments": {
+      "title": "DeploymentGates",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "preview_local",
+        "remote_research",
+        "persistent",
+        "public"
+      ],
+      "properties": {
+        "preview_local": {
+          "title": "DeploymentGate",
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "decision"
+          ],
+          "properties": {
+            "decision": {
+              "title": "PolicyDecision",
+              "description": "`allow` lets an agent do it when every condition passes; `deny` refuses it with a reason naming the policy field.",
+              "anyOf": [
+                {
+                  "const": "deny",
+                  "type": "string"
+                },
+                {
+                  "const": "allow",
+                  "type": "string"
+                }
+              ]
+            },
+            "exposure": {
+              "maxLength": 40,
+              "type": "string"
+            },
+            "allowed_targets": {
+              "maxItems": 100,
+              "description": "Deployment targets.",
+              "type": "array",
+              "items": {
+                "minLength": 1,
+                "maxLength": 100,
+                "type": "string"
+              }
+            },
+            "max_runtime_minutes": {
+              "minimum": 1,
+              "maximum": 100000,
+              "type": "integer"
+            }
+          }
+        },
+        "remote_research": {
+          "title": "DeploymentGate",
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "decision"
+          ],
+          "properties": {
+            "decision": {
+              "title": "PolicyDecision",
+              "description": "`allow` lets an agent do it when every condition passes; `deny` refuses it with a reason naming the policy field.",
+              "anyOf": [
+                {
+                  "const": "deny",
+                  "type": "string"
+                },
+                {
+                  "const": "allow",
+                  "type": "string"
+                }
+              ]
+            },
+            "exposure": {
+              "maxLength": 40,
+              "type": "string"
+            },
+            "allowed_targets": {
+              "maxItems": 100,
+              "description": "Deployment targets.",
+              "type": "array",
+              "items": {
+                "minLength": 1,
+                "maxLength": 100,
+                "type": "string"
+              }
+            },
+            "max_runtime_minutes": {
+              "minimum": 1,
+              "maximum": 100000,
+              "type": "integer"
+            }
+          }
+        },
+        "persistent": {
+          "title": "DeploymentGate",
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "decision"
+          ],
+          "properties": {
+            "decision": {
+              "title": "PolicyDecision",
+              "description": "`allow` lets an agent do it when every condition passes; `deny` refuses it with a reason naming the policy field.",
+              "anyOf": [
+                {
+                  "const": "deny",
+                  "type": "string"
+                },
+                {
+                  "const": "allow",
+                  "type": "string"
+                }
+              ]
+            },
+            "exposure": {
+              "maxLength": 40,
+              "type": "string"
+            },
+            "allowed_targets": {
+              "maxItems": 100,
+              "description": "Deployment targets.",
+              "type": "array",
+              "items": {
+                "minLength": 1,
+                "maxLength": 100,
+                "type": "string"
+              }
+            },
+            "max_runtime_minutes": {
+              "minimum": 1,
+              "maximum": 100000,
+              "type": "integer"
+            }
+          }
+        },
+        "public": {
+          "title": "DeploymentGate",
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "decision"
+          ],
+          "properties": {
+            "decision": {
+              "title": "PolicyDecision",
+              "description": "`allow` lets an agent do it when every condition passes; `deny` refuses it with a reason naming the policy field.",
+              "anyOf": [
+                {
+                  "const": "deny",
+                  "type": "string"
+                },
+                {
+                  "const": "allow",
+                  "type": "string"
+                }
+              ]
+            },
+            "exposure": {
+              "maxLength": 40,
+              "type": "string"
+            },
+            "allowed_targets": {
+              "maxItems": 100,
+              "description": "Deployment targets.",
+              "type": "array",
+              "items": {
+                "minLength": 1,
+                "maxLength": 100,
+                "type": "string"
+              }
+            },
+            "max_runtime_minutes": {
+              "minimum": 1,
+              "maximum": 100000,
+              "type": "integer"
+            }
+          }
+        }
+      }
+    },
+    "compute": {
+      "title": "ComputeLimit",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "limit_hours"
+      ],
+      "properties": {
+        "limit_hours": {
+          "minimum": 0,
+          "maximum": 1000000,
+          "description": "Weighted compute hours agent-submitted jobs may use in this project.",
+          "type": "integer"
+        }
+      }
+    }
+  }
+}

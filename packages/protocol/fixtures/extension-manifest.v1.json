@@ -1,0 +1,266 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "id": "model-explorer",
+      "version": "0.2.0",
+      "name": "Model explorer",
+      "host_api": "^1.0.0",
+      "contributes": [
+        {
+          "id": "tab",
+          "point": "run.tab",
+          "title": "Explorer",
+          "entry": "ui/src/View.tsx"
+        },
+        {
+          "id": "analyze",
+          "point": "project.analysis",
+          "title": "Analyze",
+          "entry": "python/analysis.py:analyze"
+        },
+        {
+          "id": "note",
+          "point": "project.action",
+          "title": "Note",
+          "operation": "research.note.create",
+          "params": {
+            "title": "Checkpoint",
+            "n": 3,
+            "flag": true
+          }
+        }
+      ],
+      "python": {
+        "requires_python": ">=3.11",
+        "project": "python",
+        "lockfile": "python/uv.lock",
+        "max_runtime_seconds": 300,
+        "max_memory_mb": 2048,
+        "gpu": false,
+        "network": "none"
+      },
+      "capabilities": ["project.runs.read", "project.analysis.execute", "inference.predict"],
+      "capability_config": {
+        "inference": {
+          "models": ["iris@champion"],
+          "max_requests_per_hour": 100,
+          "max_request_bytes": 65536,
+          "max_rows": 50
+        }
+      }
+    },
+    {
+      "schema_version": 1,
+      "id": "ui-only",
+      "version": "1.0.0",
+      "host_api": "^1.0.0",
+      "contributes": [
+        {
+          "id": "p",
+          "point": "project.panel",
+          "title": "P",
+          "entry": "ui/P.tsx"
+        }
+      ],
+      "capabilities": []
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "IDs are lowercase",
+      "value": {
+        "schema_version": 1,
+        "id": "Model",
+        "version": "0.2.0",
+        "name": "Model explorer",
+        "host_api": "^1.0.0",
+        "contributes": [
+          {
+            "id": "tab",
+            "point": "run.tab",
+            "title": "Explorer",
+            "entry": "ui/src/View.tsx"
+          },
+          {
+            "id": "analyze",
+            "point": "project.analysis",
+            "title": "Analyze",
+            "entry": "python/analysis.py:analyze"
+          },
+          {
+            "id": "note",
+            "point": "project.action",
+            "title": "Note",
+            "operation": "research.note.create",
+            "params": {
+              "title": "Checkpoint",
+              "n": 3,
+              "flag": true
+            }
+          }
+        ],
+        "python": {
+          "requires_python": ">=3.11",
+          "project": "python",
+          "lockfile": "python/uv.lock",
+          "max_runtime_seconds": 300,
+          "max_memory_mb": 2048,
+          "gpu": false,
+          "network": "none"
+        },
+        "capabilities": ["project.runs.read", "project.analysis.execute", "inference.predict"],
+        "capability_config": {
+          "inference": {
+            "models": ["iris@champion"],
+            "max_requests_per_hour": 100,
+            "max_request_bytes": 65536,
+            "max_rows": 50
+          }
+        }
+      }
+    },
+    {
+      "reason": "versions are semver",
+      "value": {
+        "schema_version": 1,
+        "id": "model-explorer",
+        "version": "1.0",
+        "name": "Model explorer",
+        "host_api": "^1.0.0",
+        "contributes": [
+          {
+            "id": "tab",
+            "point": "run.tab",
+            "title": "Explorer",
+            "entry": "ui/src/View.tsx"
+          },
+          {
+            "id": "analyze",
+            "point": "project.analysis",
+            "title": "Analyze",
+            "entry": "python/analysis.py:analyze"
+          },
+          {
+            "id": "note",
+            "point": "project.action",
+            "title": "Note",
+            "operation": "research.note.create",
+            "params": {
+              "title": "Checkpoint",
+              "n": 3,
+              "flag": true
+            }
+          }
+        ],
+        "python": {
+          "requires_python": ">=3.11",
+          "project": "python",
+          "lockfile": "python/uv.lock",
+          "max_runtime_seconds": 300,
+          "max_memory_mb": 2048,
+          "gpu": false,
+          "network": "none"
+        },
+        "capabilities": ["project.runs.read", "project.analysis.execute", "inference.predict"],
+        "capability_config": {
+          "inference": {
+            "models": ["iris@champion"],
+            "max_requests_per_hour": 100,
+            "max_request_bytes": 65536,
+            "max_rows": 50
+          }
+        }
+      }
+    },
+    {
+      "reason": "contribution points are a fixed list",
+      "value": {
+        "schema_version": 1,
+        "id": "model-explorer",
+        "version": "0.2.0",
+        "name": "Model explorer",
+        "host_api": "^1.0.0",
+        "contributes": [
+          {
+            "id": "x",
+            "point": "shell.exec",
+            "title": "X"
+          }
+        ],
+        "python": {
+          "requires_python": ">=3.11",
+          "project": "python",
+          "lockfile": "python/uv.lock",
+          "max_runtime_seconds": 300,
+          "max_memory_mb": 2048,
+          "gpu": false,
+          "network": "none"
+        },
+        "capabilities": ["project.runs.read", "project.analysis.execute", "inference.predict"],
+        "capability_config": {
+          "inference": {
+            "models": ["iris@champion"],
+            "max_requests_per_hour": 100,
+            "max_request_bytes": 65536,
+            "max_rows": 50
+          }
+        }
+      }
+    },
+    {
+      "reason": "unknown fields are rejected",
+      "value": {
+        "schema_version": 1,
+        "id": "model-explorer",
+        "version": "0.2.0",
+        "name": "Model explorer",
+        "host_api": "^1.0.0",
+        "contributes": [
+          {
+            "id": "tab",
+            "point": "run.tab",
+            "title": "Explorer",
+            "entry": "ui/src/View.tsx"
+          },
+          {
+            "id": "analyze",
+            "point": "project.analysis",
+            "title": "Analyze",
+            "entry": "python/analysis.py:analyze"
+          },
+          {
+            "id": "note",
+            "point": "project.action",
+            "title": "Note",
+            "operation": "research.note.create",
+            "params": {
+              "title": "Checkpoint",
+              "n": 3,
+              "flag": true
+            }
+          }
+        ],
+        "python": {
+          "requires_python": ">=3.11",
+          "project": "python",
+          "lockfile": "python/uv.lock",
+          "max_runtime_seconds": 300,
+          "max_memory_mb": 2048,
+          "gpu": false,
+          "network": "none"
+        },
+        "capabilities": ["project.runs.read", "project.analysis.execute", "inference.predict"],
+        "capability_config": {
+          "inference": {
+            "models": ["iris@champion"],
+            "max_requests_per_hour": 100,
+            "max_request_bytes": 65536,
+            "max_rows": 50
+          }
+        },
+        "extra": 1
+      }
+    }
+  ]
+}

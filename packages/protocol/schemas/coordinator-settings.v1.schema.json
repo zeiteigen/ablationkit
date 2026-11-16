@@ -1,0 +1,324 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ablationkit:schema:coordinator-settings.v1",
+  "title": "CoordinatorSettings",
+  "description": "Coordinator listener and origin settings (`settings.json`).",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schema_version"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "type": "number"
+    },
+    "human": {
+      "title": "ListenerSettings",
+      "description": "Human API (browser, Electron, CLI). Default 127.0.0.1:7420.",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "host",
+        "port"
+      ],
+      "properties": {
+        "host": {
+          "title": "ListenHost",
+          "description": "IP address or hostname to bind.",
+          "pattern": "^[A-Za-z0-9.:\\[\\]-]{1,253}$",
+          "type": "string"
+        },
+        "port": {
+          "title": "ListenPort",
+          "description": "TCP port; 0 picks a free port.",
+          "minimum": 0,
+          "maximum": 65535,
+          "type": "integer"
+        }
+      }
+    },
+    "agent": {
+      "title": "ListenerSettings",
+      "description": "Agent API. Loopback only. Default 127.0.0.1:7421.",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "host",
+        "port"
+      ],
+      "properties": {
+        "host": {
+          "title": "ListenHost",
+          "description": "IP address or hostname to bind.",
+          "pattern": "^[A-Za-z0-9.:\\[\\]-]{1,253}$",
+          "type": "string"
+        },
+        "port": {
+          "title": "ListenPort",
+          "description": "TCP port; 0 picks a free port.",
+          "minimum": 0,
+          "maximum": 65535,
+          "type": "integer"
+        }
+      }
+    },
+    "worker": {
+      "title": "ListenerSettings",
+      "description": "Worker upload API. Default 127.0.0.1:7422. Host `tailscale` binds the machine's Tailscale IPv4 address (remote workers).",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "host",
+        "port"
+      ],
+      "properties": {
+        "host": {
+          "title": "ListenHost",
+          "description": "IP address or hostname to bind.",
+          "pattern": "^[A-Za-z0-9.:\\[\\]-]{1,253}$",
+          "type": "string"
+        },
+        "port": {
+          "title": "ListenPort",
+          "description": "TCP port; 0 picks a free port.",
+          "minimum": 0,
+          "maximum": 65535,
+          "type": "integer"
+        }
+      }
+    },
+    "trusted_origins": {
+      "description": "Origins for the human API. The first one is used for login links. Default http://localhost:<human port>.",
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "title": "TrustedOrigin",
+        "description": "An origin the human API accepts.",
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "origin"
+        ],
+        "properties": {
+          "origin": {
+            "description": "Browser origin allowed to use the human API, for example `http://localhost:7420`.",
+            "pattern": "^https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?$",
+            "type": "string"
+          }
+        }
+      }
+    },
+    "mlflow": {
+      "title": "MlflowSidecarSettings",
+      "description": "Managed MLflow sidecar and tracking outbox settings.",
+      "additionalProperties": false,
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "description": "Start the managed MLflow sidecar with the coordinator. Default true. When false, tracking writes queue in the outbox.",
+          "type": "boolean"
+        },
+        "port": {
+          "title": "ListenPort",
+          "description": "Loopback port for the sidecar. Default 7423. MLflow never binds off loopback.",
+          "minimum": 0,
+          "maximum": 65535,
+          "type": "integer"
+        },
+        "outbox_max_ops": {
+          "minimum": 1,
+          "maximum": 10000000,
+          "description": "Outbox bound: pending and failed writes. Default 100000.",
+          "type": "integer"
+        },
+        "outbox_max_bytes": {
+          "minimum": 1024,
+          "maximum": 1099511627776,
+          "description": "Outbox bound: queued payload bytes. Default 256 MiB.",
+          "type": "integer"
+        }
+      }
+    },
+    "jobs": {
+      "title": "JobSettings",
+      "description": "Local job runner and collector settings.",
+      "additionalProperties": false,
+      "type": "object",
+      "properties": {
+        "supervisor": {
+          "description": "`auto` (default): systemd user scopes when available, otherwise direct mode (limits advisory).",
+          "anyOf": [
+            {
+              "const": "auto",
+              "type": "string"
+            },
+            {
+              "const": "systemd",
+              "type": "string"
+            },
+            {
+              "const": "direct",
+              "type": "string"
+            }
+          ]
+        },
+        "spool_max_bytes": {
+          "minimum": 1048576,
+          "description": "Per-attempt collector spool bound. Default 1 GiB.",
+          "type": "integer"
+        },
+        "max_artifact_bytes": {
+          "minimum": 1024,
+          "description": "Largest single artifact upload. Default 2 GiB.",
+          "type": "integer"
+        },
+        "deliver_deadline_sec": {
+          "minimum": 1,
+          "description": "How long a collector keeps retrying delivery after its job exits. Default 7 days (the worker token grace).",
+          "type": "integer"
+        }
+      }
+    },
+    "extensions": {
+      "title": "ExtensionSettings",
+      "description": "Extension host settings.",
+      "additionalProperties": false,
+      "type": "object",
+      "properties": {
+        "safe_mode": {
+          "description": "Start with every extension inactive: nothing mounts or runs; the Extensions page stays usable for disable and rollback.",
+          "type": "boolean"
+        },
+        "max_concurrent_executions": {
+          "minimum": 1,
+          "maximum": 64,
+          "type": "integer"
+        },
+        "require_approval": {
+          "description": "Require the researcher's approval before a build is enabled (ADR 0045). Default false: a successful build in a project is enabled as it is built.",
+          "type": "boolean"
+        }
+      }
+    },
+    "remote": {
+      "title": "RemoteSettings",
+      "description": "Remote worker mode (ADR 0023).",
+      "additionalProperties": false,
+      "type": "object",
+      "properties": {
+        "worker_url": {
+          "pattern": "^https?://[^ ]+$",
+          "maxLength": 2048,
+          "description": "URL remote workers use to reach the worker listener, for example `http://ws.tail1234.ts.net:7422` over Tailscale. Required before a remote submission; targets may override it.",
+          "type": "string"
+        },
+        "heartbeat_sec": {
+          "minimum": 1,
+          "maximum": 3600,
+          "description": "Worker heartbeat. Default 30.",
+          "type": "integer"
+        },
+        "disconnected_after_sec": {
+          "minimum": 1,
+          "description": "No heartbeat for this long marks a worker disconnected. Default 3 heartbeats.",
+          "type": "integer"
+        },
+        "export_slack_min": {
+          "minimum": 0,
+          "maximum": 10080,
+          "description": "Slack added to an exported (Colab) attempt's time limit for its `expected_back_by`: time for a person to open and set up the runtime. Default 30.",
+          "type": "integer"
+        },
+        "upload_token_ttl_sec": {
+          "minimum": 1,
+          "description": "Lifetime of a remote worker's upload token; refreshed through the handshake. Default 1 day.",
+          "type": "integer"
+        },
+        "launch_token_days": {
+          "minimum": 1,
+          "maximum": 365,
+          "description": "Lifetime of a remote worker's launch token, from submission. A disconnection longer than this needs `remote import`. Default 30.",
+          "type": "integer"
+        },
+        "provider_poll_sec": {
+          "minimum": 1,
+          "description": "How often provider status is checked. Default 60.",
+          "type": "integer"
+        },
+        "max_backoff_sec": {
+          "minimum": 1,
+          "maximum": 3600,
+          "description": "Worker retry backoff cap. Default 60.",
+          "type": "integer"
+        },
+        "min_free_disk_bytes": {
+          "minimum": 0,
+          "description": "Worker disk-pressure threshold. Default 1 GiB.",
+          "type": "integer"
+        },
+        "artifact_store": {
+          "title": "ArtifactStoreSettings",
+          "description": "Optional S3-compatible store for remote workers' large artifacts (spec §16 storage table; ADR 0023 decision 24). Workers get presigned PUT URLs only; the keys stay on the coordinator. MLflow remains the artifact store of record.",
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "endpoint",
+            "bucket",
+            "access_key_id_env",
+            "secret_access_key_env"
+          ],
+          "properties": {
+            "endpoint": {
+              "pattern": "^https?://[^ ]+$",
+              "maxLength": 2048,
+              "description": "S3-compatible endpoint reachable from the workers, for example `https://<account>.r2.cloudflarestorage.com` or a MinIO URL.",
+              "type": "string"
+            },
+            "bucket": {
+              "minLength": 3,
+              "maxLength": 63,
+              "pattern": "^[a-z0-9][a-z0-9.-]+$",
+              "type": "string"
+            },
+            "region": {
+              "maxLength": 64,
+              "description": "Default `auto`.",
+              "type": "string"
+            },
+            "prefix": {
+              "maxLength": 200,
+              "pattern": "^[A-Za-z0-9._/-]*$",
+              "description": "Key prefix. Default `ablationkit/`.",
+              "type": "string"
+            },
+            "access_key_id_env": {
+              "pattern": "^[A-Z_][A-Z0-9_]*$",
+              "description": "Coordinator environment variable holding the access key ID (never stored).",
+              "type": "string"
+            },
+            "secret_access_key_env": {
+              "pattern": "^[A-Z_][A-Z0-9_]*$",
+              "type": "string"
+            },
+            "virtual_hosted_style": {
+              "description": "Default path-style.",
+              "type": "boolean"
+            },
+            "min_bytes": {
+              "minimum": 0,
+              "description": "Artifacts at least this large go through the store. Default 64 MiB.",
+              "type": "integer"
+            },
+            "slots": {
+              "minimum": 1,
+              "maximum": 64,
+              "description": "Presigned upload slots per attempt (one large artifact each). Default 8; more large artifacts use the coordinator's resumable uploads.",
+              "type": "integer"
+            }
+          }
+        }
+      }
+    }
+  }
+}

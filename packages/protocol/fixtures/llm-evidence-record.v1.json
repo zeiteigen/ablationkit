@@ -1,0 +1,148 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "evidence_id": "lx-0123456789abcdef",
+      "project_id": "rag-lab",
+      "kind": "playground",
+      "title": "Terse vs friendly system prompt",
+      "note": "v2 refuses less",
+      "targets": [
+        {
+          "kind": "prompt",
+          "label": "v1-llama",
+          "prompt": {
+            "name": "faq-answer",
+            "version": 3,
+            "alias": "champion",
+            "template_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "format": "chat"
+          },
+          "provider_id": "local-ollama",
+          "model": "llama3.2:3b",
+          "params": {
+            "temperature": "0.2",
+            "max_tokens": 256,
+            "seed": 7
+          }
+        }
+      ],
+      "golden_set": {
+        "golden_set_id": "gs-0123456789ab",
+        "version": 2,
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "inputs_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "examples": 14,
+      "trace_ids": ["tr-342e08a884a66a81b4d0ac98dbdd89db"],
+      "mlflow_run_id": "0123456789abcdef0123456789abcdef",
+      "experiment_id": "3",
+      "artifact_path": "ablationkit/llm/playground.json",
+      "artifact_bytes": 18234,
+      "stored": ["inputs", "outputs", "usage", "timings", "variants"],
+      "created_by": {
+        "kind": "human",
+        "id": "tok-abc"
+      },
+      "created_at": "2026-11-04T10:00:00.000Z"
+    },
+    {
+      "schema_version": 1,
+      "evidence_id": "lx-0123456789abcdef",
+      "project_id": "rag-lab",
+      "kind": "playground",
+      "title": "Terse vs friendly system prompt",
+      "note": "v2 refuses less",
+      "targets": [
+        {
+          "kind": "prompt",
+          "label": "v1-llama",
+          "prompt": {
+            "name": "faq-answer",
+            "version": 3,
+            "alias": "champion",
+            "template_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "format": "chat"
+          },
+          "provider_id": "local-ollama",
+          "model": "llama3.2:3b",
+          "params": {
+            "temperature": "0.2",
+            "max_tokens": 256,
+            "seed": 7
+          }
+        }
+      ],
+      "golden_set": {
+        "golden_set_id": "gs-0123456789ab",
+        "version": 2,
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "inputs_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "examples": 14,
+      "trace_ids": ["tr-342e08a884a66a81b4d0ac98dbdd89db"],
+      "mlflow_run_id": "0123456789abcdef0123456789abcdef",
+      "experiment_id": "3",
+      "artifact_path": "ablationkit/llm/playground.json",
+      "artifact_bytes": 18234,
+      "stored": ["inputs", "outputs", "usage", "timings", "variants"],
+      "created_by": {
+        "kind": "human",
+        "id": "tok-abc"
+      },
+      "created_at": "2026-11-04T10:00:00.000Z",
+      "deleted_at": "2026-11-05T10:00:00.000Z"
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "trace IDs are MLflow trace IDs",
+      "value": {
+        "schema_version": 1,
+        "evidence_id": "lx-0123456789abcdef",
+        "project_id": "rag-lab",
+        "kind": "playground",
+        "title": "Terse vs friendly system prompt",
+        "note": "v2 refuses less",
+        "targets": [
+          {
+            "kind": "prompt",
+            "label": "v1-llama",
+            "prompt": {
+              "name": "faq-answer",
+              "version": 3,
+              "alias": "champion",
+              "template_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "format": "chat"
+            },
+            "provider_id": "local-ollama",
+            "model": "llama3.2:3b",
+            "params": {
+              "temperature": "0.2",
+              "max_tokens": 256,
+              "seed": 7
+            }
+          }
+        ],
+        "golden_set": {
+          "golden_set_id": "gs-0123456789ab",
+          "version": 2,
+          "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "inputs_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "examples": 14,
+        "trace_ids": ["tr-xyz"],
+        "mlflow_run_id": "0123456789abcdef0123456789abcdef",
+        "experiment_id": "3",
+        "artifact_path": "ablationkit/llm/playground.json",
+        "artifact_bytes": 18234,
+        "stored": ["inputs", "outputs", "usage", "timings", "variants"],
+        "created_by": {
+          "kind": "human",
+          "id": "tok-abc"
+        },
+        "created_at": "2026-11-04T10:00:00.000Z"
+      }
+    }
+  ]
+}

@@ -1,0 +1,1452 @@
+/*
+ * The vault's pages (ADR 0049): Standing, Notebooks, the tree, the sheet beside the page, find.
+ * Every class is `v-` and scoped under `.vault`; colours come from the theme's tokens (theme.css),
+ * mixed where a shade between two tokens is wanted, so the pages follow the theme.
+ */
+/* biome-ignore-all lint/style/noDescendingSpecificity: ordered by page (ledger, note, notebook, shelf, tree, sheet); the selectors it compares never match the same element */
+.vault {
+  --v-gut: 36px;
+  --v-key-w: 196px;
+  --v-sheet-w: min(500px, 46vw);
+  --v-read: color-mix(in srgb, var(--fg) 86%, var(--bg));
+  --v-soft: color-mix(in srgb, var(--fg) 94%, var(--bg));
+  --v-dim: color-mix(in srgb, var(--fg) 82%, var(--bg));
+  --v-rule: color-mix(in srgb, var(--fg) 30%, var(--bg));
+  --v-mark: color-mix(in srgb, var(--fg) 44%, var(--bg));
+  --v-pop: color-mix(in srgb, var(--bg) 95%, var(--fg));
+  --v-sheet-bg: color-mix(in srgb, var(--bg) 97%, var(--fg));
+  --v-new: color-mix(in srgb, var(--ink) 62%, var(--fg));
+  min-height: 100%;
+  font-size: 15px;
+  line-height: 1.55;
+}
+.vault button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  display: inline;
+  white-space: normal;
+}
+.vault a,
+.vault a:hover {
+  color: inherit;
+  text-decoration: none;
+}
+.vault kbd {
+  font-family: var(--sans);
+  font-size: 11px;
+  line-height: 1;
+  color: var(--muted);
+  border: 1px solid var(--line-strong);
+  border-bottom-width: 2px;
+  border-radius: 3px;
+  padding: 2px 5px;
+  margin: 0 1px;
+  background: var(--panel);
+}
+.vault code {
+  font-size: 0.86em;
+}
+.vault .v-faint {
+  color: var(--faint);
+}
+.vault .v-ink {
+  color: var(--ink);
+}
+.vault .v-mono {
+  font-family: var(--mono);
+  font-size: 0.9em;
+}
+.vault .tone-ok {
+  color: var(--ok);
+}
+.vault .tone-err {
+  color: var(--err);
+}
+.vault .tone-warn {
+  color: var(--warn);
+}
+.vault .tone-info,
+.vault .tone-neutral {
+  color: var(--v-dim);
+}
+.vault .v-hand {
+  font-family: var(--hand);
+  font-weight: 400;
+}
+.vault .v-eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.vault .v-sep {
+  color: var(--line-strong);
+}
+
+/* ------------------------------------------------------------------ the trail */
+/* Its bar, path and crumbs are the app's (.trail in styles.css); what is the vault's own is here. */
+.vault .v-trail a,
+.vault .v-trail button {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.vault .v-trail a:hover,
+.vault .v-trail button:hover {
+  color: var(--fg);
+}
+.vault .v-trail .crumb:last-child > button,
+.vault .v-trail [aria-current="page"] {
+  color: var(--fg);
+}
+.vault .v-trail .v-nt {
+  font-size: 10px;
+  margin-right: 2px;
+}
+.vault .v-trail .v-find-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 18px;
+  padding: 3px 6px 3px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  color: var(--faint);
+  background: var(--bg);
+}
+.vault .v-trail .v-keys-btn {
+  color: var(--faint);
+}
+
+/* ------------------------------------------------------------------ pages */
+.vault .v-page-w {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 34px 44px 180px;
+}
+.vault .v-page-w.wide {
+  max-width: 1120px;
+}
+.vault .v-ph h1.v-hand {
+  font-size: 42px;
+  line-height: 1.1;
+  margin: 2px 0 18px;
+}
+.vault .v-ph-s {
+  color: var(--muted);
+  max-width: 64ch;
+  margin: -6px 0 0;
+}
+.vault .v-ph-s a,
+.vault .v-lfoot a,
+.vault .v-empty a,
+.vault .v-empty-vault a {
+  color: var(--fg);
+  text-decoration: underline;
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 3px;
+}
+
+/* ------------------------------------------------------------------ links in text */
+.vault a.v-wl {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--v-rule);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+.vault a.v-wl:hover {
+  color: var(--fg);
+  text-decoration-color: var(--fg);
+}
+.vault a.v-wl-concept,
+.vault a.v-wl-method,
+.vault a.v-wl-term {
+  text-decoration-style: dotted;
+  text-decoration-color: var(--v-mark);
+}
+
+/* ------------------------------------------------------------------ prose */
+.vault .v-prose {
+  margin-top: 10px;
+  font-size: 15.5px;
+  line-height: 1.66;
+  max-width: 66ch;
+}
+.vault .v-prose p {
+  margin: 0 0 0.75em;
+}
+.vault .v-prose .md-math {
+  font-size: 1.04em;
+  padding: 2px 0;
+}
+.vault .v-prose .md-table {
+  font-size: 13.5px;
+  border: 0;
+  background: none;
+}
+.vault .v-prose .md-table th {
+  background: none;
+  border-bottom: 1px solid var(--line-strong);
+}
+.vault .v-prose .md-h2,
+.vault .v-prose .md-h1 {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin: 40px 0 14px;
+}
+.vault .v-prose code {
+  font-size: 0.86em;
+}
+.vault .v-prose.v-lead {
+  font-size: 16.5px;
+  color: var(--v-soft);
+}
+
+/* ------------------------------------------------------------------ the ledger */
+.vault .v-bl p {
+  font-size: 18.5px;
+  line-height: 1.62;
+  margin: 0;
+  max-width: 66ch;
+  color: var(--fg);
+}
+.vault .v-since {
+  margin: 28px 0 0;
+  padding: 14px 0 16px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  font-size: 14.5px;
+  color: var(--muted);
+}
+.vault .v-since p {
+  margin: 6px 0 0;
+  max-width: 70ch;
+}
+.vault .v-since-s {
+  color: var(--v-soft);
+}
+.vault .v-go {
+  color: var(--fg);
+  white-space: nowrap;
+  border-bottom: 1px solid var(--line-strong);
+  margin-left: 4px;
+}
+.vault .v-go:hover {
+  border-bottom-color: var(--fg);
+}
+.vault .v-grp {
+  margin-top: 40px;
+}
+.vault .v-gh {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  margin: 0;
+  padding: 0 0 9px var(--v-gut);
+  border-bottom: 1px solid var(--line-strong);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.vault .v-gh .v-gs {
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--faint);
+}
+.vault .v-empty {
+  color: var(--muted);
+  font-size: 14.5px;
+  margin: 0;
+  padding: 12px 0 4px var(--v-gut);
+  max-width: calc(var(--v-gut) + 64ch);
+}
+
+.vault .v-lline {
+  position: relative;
+  padding: 14px 0 15px;
+  border-bottom: 1px solid var(--line);
+}
+.vault .v-lline.d-title {
+  padding: 9px 0 10px;
+}
+.vault .v-lrow.v-nh {
+  display: grid;
+  gap: 0;
+  grid-template-columns: var(--v-gut) minmax(0, 1fr) var(--v-key-w);
+  align-items: start;
+}
+.vault .v-lnum {
+  font-size: 12.5px;
+  color: var(--faint);
+  padding-top: 3px;
+  font-variant-numeric: tabular-nums;
+}
+.vault .v-lline .v-ntitle {
+  display: block;
+  font-size: 16.5px;
+  line-height: 1.45;
+  font-weight: 600;
+  color: var(--fg);
+}
+.vault .v-lline.d-title .v-ntitle {
+  font-size: 15px;
+}
+.vault .v-lline.v-read .v-lrow .v-ntitle {
+  font-weight: 400;
+  color: var(--v-read);
+}
+.vault .v-lline .v-lrow .v-gist {
+  margin: 4px 0 0;
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--muted);
+  max-width: 64ch;
+}
+.vault .v-lmeta {
+  margin-top: 6px;
+  font-size: 12.5px;
+  color: var(--faint);
+  line-height: 1.5;
+}
+.vault .v-lmeta .v-qs,
+.vault .v-lmeta .v-on {
+  font-size: 12.5px;
+  color: var(--muted);
+  border-bottom: 1px dotted var(--line-strong);
+}
+.vault .v-lmeta .v-nw {
+  color: var(--v-new);
+}
+.vault .v-lline.d-title .v-lmeta {
+  display: inline;
+  margin: 0;
+}
+.vault .v-lline.d-title .v-lmain {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0 12px;
+}
+.vault .v-lline.d-title .v-lmain .v-ntitle {
+  display: inline;
+}
+.vault .v-lkey {
+  text-align: right;
+  padding-left: 18px;
+}
+.vault .v-lkey b {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.45;
+}
+.vault .v-lkey small {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--faint);
+}
+.vault .v-lkey .v-dots {
+  margin-top: 8px;
+  justify-content: flex-end;
+}
+.vault .v-lline.d-title .v-lkey b,
+.vault .v-lline.d-title .v-lkey small {
+  display: none;
+}
+.vault .v-lline.d-title .v-lkey .v-dots {
+  margin-top: 4px;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.vault .v-lline.d-title:hover .v-lkey .v-dots,
+.vault .v-lline.d-title.v-focus .v-lkey .v-dots,
+.vault .v-lline.d-title .v-lkey .v-dots:focus-within {
+  opacity: 1;
+}
+.vault .v-lline > .v-nb {
+  padding-left: var(--v-gut);
+  max-width: calc(var(--v-gut) + 66ch);
+}
+.vault .v-lline > .v-nb > .v-prose:first-child {
+  margin-top: 12px;
+}
+/* New since you last read, and not yet read: one ink dot in the gutter. */
+.vault .v-note.v-fresh::before,
+.vault .v-tr.v-fresh::before,
+.vault .v-shelf-i.v-fresh::before {
+  content: "";
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ink);
+}
+.vault .v-lline.v-fresh::before {
+  left: -14px;
+  top: 23px;
+}
+/* Decisions and questions say "new" in words, quietly. */
+.vault .g-dec .v-lline.v-fresh::before,
+.vault .g-q .v-lline.v-fresh::before {
+  display: none;
+}
+.vault .v-lline.v-focus::after {
+  content: "";
+  position: absolute;
+  left: -26px;
+  top: 15px;
+  height: 22px;
+  width: 2px;
+  background: var(--v-mark);
+}
+.vault .v-lline.d-title.v-focus::after {
+  top: 9px;
+}
+.vault .v-more-q {
+  margin: 10px 0 0 var(--v-gut);
+  font-size: 13.5px;
+  color: var(--muted);
+  border-bottom: 1px dotted var(--line-strong);
+}
+.vault .v-more-q:hover {
+  color: var(--fg);
+}
+.vault .v-lfoot {
+  margin-top: 48px;
+  padding: 16px 0 0 var(--v-gut);
+  border-top: 1px solid var(--line);
+  font-size: 13.5px;
+  color: var(--faint);
+}
+.vault .v-reset {
+  display: block;
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--faint);
+}
+.vault .v-reset:hover {
+  color: var(--fg);
+}
+
+/* What a line holds once unfolded. */
+.vault .v-wc,
+.vault .v-kline {
+  margin: 12px 0 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--muted);
+  max-width: 64ch;
+}
+.vault .v-wc-h,
+.vault .v-rests-h,
+.vault .v-tbl-h,
+.vault .v-prov-h {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin-right: 6px;
+}
+.vault .v-kline b {
+  font-weight: 600;
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+  margin-right: 4px;
+}
+.vault .v-moves {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 18px;
+  margin-top: 16px;
+  padding-top: 11px;
+  border-top: 1px dashed var(--line-strong);
+  font-size: 13px;
+  color: var(--faint);
+}
+.vault .v-mv-ctx {
+  color: var(--fg);
+}
+.vault .v-mv-ctx b {
+  font-weight: 600;
+}
+.vault .v-mv-ctx .v-arr {
+  color: var(--ink);
+}
+.vault .v-mv-ctx:hover b {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.vault .v-mv-also a,
+.vault .v-prov a {
+  color: var(--muted);
+}
+.vault .v-mv-also a:hover,
+.vault .v-prov a:hover {
+  color: var(--fg);
+}
+.vault .v-mv-terms a.v-wl {
+  color: var(--muted);
+}
+
+/* ------------------------------------------------------------------ a note, anywhere */
+.vault .v-note {
+  position: relative;
+}
+.vault .v-note:not(.v-lline) {
+  margin: 20px 0;
+  padding-left: 18px;
+  border-left: 1px solid var(--line-strong);
+}
+.vault .v-note.lv-3,
+.vault .v-note.lv-4 {
+  padding-left: 14px;
+}
+.vault .v-note:not(.v-lline).v-fresh::before {
+  left: -22px;
+  top: 8px;
+}
+.vault .v-nh {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+}
+.vault .v-nt {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--faint);
+  white-space: nowrap;
+}
+.vault .v-nt .v-st {
+  margin-left: 4px;
+  letter-spacing: 0.06em;
+}
+.vault .v-note:not(.v-lline) > .v-nh .v-ntitle {
+  flex: 1 1 260px;
+  font-size: 15.5px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--fg);
+}
+.vault .v-note.v-read:not(.v-lline) > .v-nh .v-ntitle {
+  font-weight: 400;
+  color: var(--v-read);
+}
+.vault .v-nh-r {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+  opacity: 0.6;
+  transition: opacity 0.12s;
+}
+.vault .v-note:hover > .v-nh .v-nh-r,
+.vault .v-note.v-focus > .v-nh .v-nh-r,
+.vault .v-nh-r:focus-within {
+  opacity: 1;
+}
+.vault .v-open-s,
+.vault .v-also {
+  font-size: 12px;
+  color: var(--faint);
+}
+.vault .v-open-s {
+  visibility: hidden;
+}
+.vault .v-note:hover > .v-nh .v-open-s,
+.vault .v-note.v-focus > .v-nh .v-open-s,
+.vault .v-open-s:focus-visible {
+  visibility: visible;
+}
+.vault .v-note.d-title > .v-nh .v-also {
+  visibility: hidden;
+}
+.vault .v-note.d-title:hover > .v-nh .v-also,
+.vault .v-note.d-title.v-focus > .v-nh .v-also {
+  visibility: visible;
+}
+.vault .v-open-s:hover,
+.vault .v-also:hover {
+  color: var(--fg);
+}
+.vault .v-also {
+  border-bottom: 1px dotted var(--line-strong);
+}
+.vault .v-note.v-focus:not(.v-lline) {
+  border-left-color: var(--v-mark);
+}
+.vault .v-note > .v-nb > .v-gist {
+  margin: 4px 0 0;
+  font-size: 15.5px;
+  line-height: 1.6;
+  color: var(--v-soft);
+  max-width: 66ch;
+}
+/* A figure (ADR 0053): drawn in its sandboxed frame, its gist the caption below it. */
+.vault .v-figure {
+  margin: 10px 0 2px;
+  max-width: 100%;
+}
+.vault .v-figure iframe {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: var(--bg);
+}
+.vault .v-note.t-figure > .v-nb > .v-gist {
+  font-size: 14px;
+  color: var(--muted);
+}
+/* The depth control: three dots, filled to where you are. */
+.vault .v-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+}
+.vault .v-dots button {
+  width: 14px;
+  height: 14px;
+  display: inline-grid;
+  place-items: center;
+}
+.vault .v-dots button::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  border: 1px solid var(--v-mark);
+}
+.vault .v-dots button.on::before {
+  background: var(--muted);
+  border-color: var(--muted);
+}
+.vault .v-dots button:hover::before {
+  border-color: var(--fg);
+}
+.vault .v-dots button.none {
+  display: none;
+}
+.vault .v-places {
+  margin: 8px 0 4px;
+  padding: 8px 12px;
+  background: var(--sunk);
+  border-radius: var(--radius);
+  font-size: 13px;
+}
+.vault .v-places a,
+.vault .v-tp-places a,
+.vault .v-sh-place {
+  display: block;
+  color: var(--muted);
+  padding: 2px 0;
+}
+.vault .v-places a:hover,
+.vault .v-tp-places a:hover,
+.vault .v-sh-place:hover {
+  color: var(--fg);
+}
+.vault .v-places b {
+  font-weight: 400;
+  color: var(--v-soft);
+}
+
+/* Evidence: the runs, their numbers, the difference to the baseline. */
+.vault table.v-ev {
+  width: 100%;
+  max-width: 580px;
+  border-collapse: collapse;
+  margin: 14px 0 4px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.vault .v-ev th {
+  position: static;
+  background: none;
+  padding: 4px 12px 5px 0;
+  border-bottom: 1px solid var(--line-strong);
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--faint);
+}
+.vault .v-ev td {
+  padding: 5px 12px 5px 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  vertical-align: top;
+}
+.vault .v-ev tr:last-child td {
+  border-bottom: 1px solid var(--line);
+}
+.vault .v-ev .num {
+  text-align: right;
+  white-space: nowrap;
+}
+.vault .v-ev th:last-child,
+.vault .v-ev td:last-child {
+  padding-right: 0;
+}
+.vault .v-ev .v-ev-run a,
+.vault .v-ev .v-ev-run > span {
+  color: var(--v-soft);
+  border-bottom: 0;
+}
+.vault .v-ev .v-ev-role {
+  color: var(--faint);
+  font-size: 12px;
+}
+.vault .v-ev td.v-ev-d {
+  color: var(--fg);
+}
+.vault .v-ev tr.role-baseline td {
+  color: var(--faint);
+}
+.vault .v-ev tr.role-baseline .v-ev-run a {
+  color: var(--muted);
+}
+.vault .v-ev-note {
+  font-size: 12px;
+  color: var(--faint);
+}
+.vault .v-ev-off {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--faint);
+}
+.vault .v-tbl-h {
+  display: block;
+  margin-top: 16px;
+}
+.vault .v-tbl-h a {
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--muted);
+  border-bottom: 1px dotted var(--line-strong);
+  margin-left: 6px;
+}
+.vault .v-rests {
+  margin-top: 16px;
+}
+.vault .v-rests > .v-note {
+  margin: 8px 0;
+}
+.vault .v-rests > .v-note.d-title {
+  margin: 4px 0;
+}
+.vault .v-prov {
+  margin-top: 14px;
+  font-size: 12px;
+  line-height: 1.65;
+  color: var(--faint);
+  max-width: 66ch;
+}
+.vault .v-prov code {
+  font-size: 11.5px;
+  color: var(--faint);
+  background: none;
+  border: 0;
+  padding: 0;
+}
+.vault .v-flash > .v-nh,
+.vault .v-flash.v-lline {
+  animation: v-flash 1.6s ease-out;
+}
+@keyframes v-flash {
+  0% {
+    background: color-mix(in srgb, var(--ink) 22%, transparent);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+/* ------------------------------------------------------------------ a notebook, compiled */
+.vault .v-nbpage {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 700px);
+  justify-content: center;
+  gap: 56px;
+  padding: 34px 40px 200px;
+}
+.vault .v-rail {
+  position: sticky;
+  top: 62px;
+  align-self: start;
+  max-height: calc(100vh - 64px - 30px - 86px);
+  overflow-y: auto;
+  font-size: 12.5px;
+  scrollbar-width: thin;
+}
+.vault .v-rail-h {
+  font-weight: 600;
+  color: var(--muted);
+  margin: 6px 0 10px;
+  line-height: 1.35;
+}
+.vault .v-rail-sec {
+  margin: 16px 0 5px;
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.vault .v-rail-i {
+  display: block;
+  padding: 3px 0 3px 10px;
+  border-left: 1px solid var(--line-strong);
+  color: var(--v-dim);
+  line-height: 1.35;
+}
+.vault .v-rail-i.v-read {
+  color: var(--faint);
+}
+.vault .v-rail-i.cur {
+  color: var(--fg);
+  border-left-color: var(--ink);
+}
+.vault .v-rail-i:hover {
+  color: var(--fg);
+}
+.vault .v-nbcol h1.v-hand {
+  font-size: 40px;
+  line-height: 1.12;
+  margin: 8px 0 12px;
+}
+.vault .v-nb-gist {
+  margin: 0 0 8px;
+  font-size: 18px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+.vault .v-nb-meta {
+  margin: 0 0 22px;
+  font-size: 12.5px;
+  color: var(--faint);
+}
+.vault .v-nb-meta a {
+  color: var(--muted);
+  border-bottom: 1px dotted var(--line-strong);
+}
+.vault .v-nb-open {
+  padding-bottom: 6px;
+}
+.vault .v-note.v-chapter {
+  margin: 46px 0 26px;
+  padding-left: 0;
+  border-left: 0;
+}
+.vault .v-note.v-chapter > .v-nh {
+  padding-top: 14px;
+  border-top: 1px solid var(--line-strong);
+}
+.vault .v-note.v-chapter > .v-nh .v-ntitle {
+  font-size: 21px;
+  line-height: 1.3;
+}
+.vault .v-note.v-chapter > .v-nb > .v-gist {
+  color: var(--muted);
+  font-size: 16px;
+}
+.vault .v-note.v-chapter .v-note.v-chapter > .v-nh .v-ntitle {
+  font-size: 18px;
+}
+.vault .v-ch-more {
+  margin-top: 12px;
+  padding: 5px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  font-size: 13.5px;
+  color: var(--fg);
+}
+.vault .v-ch-more:hover {
+  border-color: var(--v-mark);
+}
+.vault .v-nb-next {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  margin-top: 56px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  font-size: 14px;
+}
+.vault .v-nb-next a {
+  color: var(--fg);
+}
+@media (max-width: 1250px) {
+  .vault .v-nbpage {
+    grid-template-columns: minmax(0, 700px);
+  }
+  .vault .v-rail {
+    display: none;
+  }
+}
+
+/* A note as a page, and the sheet: the note without its frame, larger. */
+.vault .v-note.v-pagenote:not(.v-lline),
+.vault .v-sh-body > .v-note:not(.v-lline) {
+  margin: 0;
+  padding-left: 0;
+  border-left: 0;
+}
+/* A note's title is a sentence (a claim, a finding) or a name: the reading face, large. */
+.vault .v-note.v-pagenote:not(.v-lline) > .v-nh .v-ntitle {
+  font-size: 25px;
+  font-weight: 600;
+  line-height: 1.3;
+  flex-basis: 100%;
+  order: 3;
+  margin-top: 6px;
+  max-width: 34ch;
+}
+.vault .v-note.v-pagenote > .v-nh .v-nh-r {
+  order: 2;
+}
+.vault .v-note.v-pagenote > .v-nb > .v-gist {
+  font-size: 18px;
+  color: var(--muted);
+  margin-top: 10px;
+}
+.vault .v-note.v-pagenote.v-read:not(.v-lline) > .v-nh .v-ntitle {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------------ the shelf */
+.vault .v-sh-sec {
+  margin-top: 36px;
+}
+.vault .v-shelf-i {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 18px;
+  padding: 13px 0 14px var(--v-gut);
+  border-bottom: 1px solid var(--line);
+  color: var(--fg);
+}
+.vault .v-shelf-i:hover .v-si-t {
+  text-decoration: underline;
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 3px;
+}
+.vault .v-si-t {
+  font-size: 16.5px;
+  font-weight: 600;
+}
+.vault .v-shelf-i.v-read .v-si-t {
+  font-weight: 400;
+  color: var(--v-read);
+}
+.vault .v-si-m {
+  font-size: 12.5px;
+  color: var(--faint);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.vault .v-si-g {
+  grid-column: 1 / -1;
+  font-size: 14px;
+  color: var(--muted);
+  max-width: 66ch;
+}
+.vault .v-chapters .v-shelf-i {
+  padding-left: calc(var(--v-gut) + 22px);
+}
+.vault .v-chapters .v-si-t {
+  font-size: 15px;
+}
+.vault .v-ses-d {
+  display: inline-block;
+  min-width: 56px;
+  color: var(--faint);
+  font-weight: 400;
+  font-size: 13px;
+}
+.vault .v-shelf-i.v-fresh::before {
+  left: 14px;
+  top: 21px;
+}
+
+/* ------------------------------------------------------------------ the tree */
+.vault .v-tree-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 440px);
+  gap: 40px;
+  margin-top: 22px;
+  align-items: start;
+}
+.vault .v-tree-list {
+  font-size: 14px;
+  border-top: 1px solid var(--line);
+}
+.vault .v-tr {
+  position: relative;
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: baseline;
+  padding: 4px 8px 4px calc(8px + var(--d) * 20px);
+  border-radius: 3px;
+  cursor: pointer;
+  color: var(--fg);
+  outline: none;
+}
+.vault .v-tr:hover {
+  background: var(--sunk);
+}
+.vault .v-tr.sel {
+  background: var(--accent-soft);
+  box-shadow: inset 2px 0 var(--ink);
+}
+.vault .v-tr .v-tt {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+.vault .v-tr.v-read .v-tt {
+  font-weight: 400;
+  color: var(--v-read);
+}
+.vault .v-tr .v-tw {
+  color: var(--faint);
+  font-size: 11px;
+}
+.vault .v-tr .v-tm {
+  font-size: 11.5px;
+  color: var(--faint);
+  white-space: nowrap;
+}
+.vault .v-tr.v-fresh::before {
+  left: calc(var(--d) * 20px - 4px);
+  top: 13px;
+}
+.vault .v-tr-ses {
+  margin-top: 10px;
+}
+.vault .v-tree-prev {
+  position: sticky;
+  top: 64px;
+  max-height: calc(100vh - 64px - 30px - 90px);
+  overflow-y: auto;
+  padding: 2px 4px 40px 0;
+}
+.vault .v-tree-prev > .v-note {
+  border-left: 0;
+  padding-left: 0;
+  margin-top: 6px;
+}
+.vault .v-tree-prev > .v-note > .v-nh .v-ntitle {
+  font-size: 18px;
+}
+.vault .v-tp-acts {
+  display: flex;
+  gap: 18px;
+  margin: 18px 0;
+  font-size: 13.5px;
+}
+.vault .v-tp-acts .v-go {
+  margin-left: 0;
+}
+.vault .v-tp-places {
+  font-size: 13px;
+}
+
+/* ------------------------------------------------------------------ prior work (ADR 0052) */
+/* A note's citations, at its full text, before its provenance. */
+.vault .v-cites {
+  margin-top: 16px;
+  max-width: 66ch;
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+.vault .v-cites ul,
+.vault .v-work-uses {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+}
+.vault .v-cites li,
+.vault .v-work-uses li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 8px;
+  padding: 2px 0;
+}
+.vault .v-cites a,
+.vault .v-work-uses a {
+  color: var(--fg);
+  text-decoration: underline;
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 3px;
+}
+.vault .v-cite-t {
+  color: var(--muted);
+}
+.vault .v-cite-n {
+  flex-basis: 100%;
+  padding-left: 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+/* The part a work plays: a word, set apart; what it rests on in ink. */
+.vault .v-role {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+  min-width: 9ch;
+}
+.vault .v-role.r-method,
+.vault .v-role.r-solution,
+.vault .v-role.r-baseline {
+  color: var(--ink);
+}
+.vault .v-role.r-contradicts {
+  color: var(--fg);
+}
+
+/* The library page. */
+.vault .v-work {
+  padding: 14px 0 16px var(--v-gut);
+  border-bottom: 1px solid var(--line);
+  max-width: calc(var(--v-gut) + 70ch);
+}
+.vault .v-work.v-flash {
+  animation: v-flash 1.6s ease-out;
+}
+.vault .v-work-h {
+  font-size: 16px;
+  line-height: 1.4;
+}
+.vault .v-work-c {
+  font-weight: 600;
+}
+.vault a.v-work-t {
+  text-decoration: underline;
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 3px;
+}
+.vault a.v-work-t:hover {
+  text-decoration-color: var(--fg);
+}
+.vault .v-work-m {
+  margin-top: 2px;
+  font-size: 12.5px;
+  color: var(--faint);
+}
+.vault .v-work-take {
+  margin: 8px 0 0;
+  max-width: 66ch;
+}
+.vault .v-work-uses {
+  margin-top: 8px;
+  font-size: 13.5px;
+}
+.vault .v-work-more {
+  margin-top: 8px;
+  font-size: 13.5px;
+  color: var(--muted);
+}
+.vault .v-work-more summary {
+  cursor: pointer;
+  color: var(--faint);
+  font-size: 12.5px;
+}
+.vault .v-work-sum {
+  display: block;
+  margin-top: 4px;
+  max-width: 66ch;
+}
+.vault .v-work-for {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.vault .v-work-exp,
+.vault .v-nb-works {
+  margin: 14px 0 0;
+  font-size: 13.5px;
+  color: var(--muted);
+}
+.vault .v-work-exp a,
+.vault .v-nb-works a {
+  color: var(--fg);
+  text-decoration: underline;
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 3px;
+}
+.vault .v-nb-works {
+  margin-top: 40px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+/* ------------------------------------------------------------------ the sheet beside the page */
+.vault .v-sheet {
+  position: fixed;
+  top: 64px;
+  right: 0;
+  bottom: 30px;
+  z-index: 20;
+  width: var(--v-sheet-w);
+  overflow-y: auto;
+  padding: 0 30px 80px;
+  background: var(--v-sheet-bg);
+  border-left: 1px solid var(--line-strong);
+  box-shadow: -28px 0 48px rgb(0 0 0 / 0.35);
+}
+@media (min-width: 1280px) {
+  body.v-sheet-open .main {
+    padding-right: min(500px, 46vw);
+  }
+}
+.vault .v-sh-top {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 40px;
+  margin: 0 -30px 20px;
+  padding: 0 30px;
+  background: var(--v-sheet-bg);
+  border-bottom: 1px solid var(--line);
+  font-size: 12.5px;
+}
+.vault .v-sh-x,
+.vault .v-sh-back {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.vault .v-sh-x:hover,
+.vault .v-sh-back:hover {
+  color: var(--fg);
+}
+.vault .v-sh-body > .v-note > .v-nh .v-ntitle {
+  font-size: 20px;
+  line-height: 1.35;
+}
+.vault .v-sh-places,
+.vault .v-sh-ment {
+  margin-top: 26px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+}
+.vault .v-sh-ment a.v-wl {
+  display: block;
+  padding: 2px 0;
+  color: var(--muted);
+  text-decoration: none;
+}
+.vault .v-sh-ment a.v-wl:hover {
+  color: var(--fg);
+}
+
+/* ------------------------------------------------------------------ find, the hover, keys */
+.vault .v-find,
+.vault .v-keys {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 12vh;
+  background: rgb(0 0 0 / 0.55);
+}
+.vault .v-find-box,
+.vault .v-keys-box {
+  width: min(660px, 92vw);
+  overflow: hidden;
+  background: var(--v-pop);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  box-shadow: 0 24px 60px rgb(0 0 0 / 0.5);
+}
+.vault .v-find-box input {
+  width: 100%;
+  padding: 16px 18px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  color: var(--fg);
+  font-size: 16.5px;
+  outline: none;
+}
+.vault .v-find-box input::placeholder {
+  color: var(--faint);
+}
+.vault .v-find-list {
+  max-height: 58vh;
+  overflow-y: auto;
+  padding: 6px 0;
+}
+.vault .v-fl-h {
+  padding: 6px 18px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.vault .v-fr {
+  padding: 8px 18px;
+  cursor: pointer;
+}
+.vault .v-fr.sel {
+  background: var(--accent-soft);
+  box-shadow: inset 2px 0 var(--ink);
+}
+.vault .v-fr-1 {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.vault .v-fr-t {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+.vault .v-fr.v-read .v-fr-t {
+  font-weight: 400;
+}
+.vault .v-fr-w {
+  font-size: 12px;
+  color: var(--faint);
+  white-space: nowrap;
+}
+.vault .v-fr-g {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  color: var(--muted);
+}
+.vault .v-find-foot {
+  padding: 8px 18px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--faint);
+}
+.vault .v-peek {
+  position: fixed;
+  z-index: 40;
+  padding: 11px 14px 10px;
+  background: var(--v-pop);
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  box-shadow: 0 14px 34px rgb(0 0 0 / 0.45);
+  font-size: 13.5px;
+  line-height: 1.5;
+  pointer-events: none;
+}
+.vault .v-pk-t {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.vault .v-pk-t .v-nt {
+  margin-right: 4px;
+}
+.vault .v-pk-g {
+  color: var(--v-soft);
+}
+.vault .v-pk-h {
+  margin-top: 6px;
+  font-size: 11.5px;
+  color: var(--faint);
+}
+.vault .v-keys-box {
+  padding: 20px 24px;
+}
+.vault .v-keys-box h3 {
+  margin: 0 0 12px;
+  font-size: 15px;
+}
+.vault .v-keys-box dl {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: 8px 14px;
+  margin: 0 0 12px;
+  font-size: 14px;
+}
+.vault .v-keys-row {
+  display: contents;
+}
+.vault .v-keys-box dt {
+  white-space: nowrap;
+}
+.vault .v-keys-box dd {
+  margin: 0;
+  color: var(--muted);
+}
+.vault .v-keys-box p {
+  font-size: 13px;
+  margin: 0;
+}
+
+/* ------------------------------------------------------------------ an empty vault */
+.vault .v-empty-vault p {
+  max-width: 66ch;
+  font-size: 15.5px;
+  line-height: 1.66;
+  color: var(--v-soft);
+  margin: 0 0 14px;
+}
+.vault .v-empty-vault p.v-intro {
+  font-size: 17px;
+  color: var(--fg);
+}
+
+@media (max-width: 1180px) {
+  .vault {
+    --v-key-w: 170px;
+  }
+  .vault .v-page-w {
+    padding-left: 32px;
+    padding-right: 32px;
+  }
+}
+@media (max-width: 760px) {
+  .vault {
+    --v-gut: 22px;
+    --v-key-w: 110px;
+  }
+  .vault .v-trail .v-keys-btn {
+    display: none;
+  }
+  .vault .v-tree-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .vault .v-sheet {
+    --v-sheet-w: 100vw;
+  }
+}

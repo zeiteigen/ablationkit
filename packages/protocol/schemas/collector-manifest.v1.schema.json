@@ -1,0 +1,192 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ablationkit:schema:collector-manifest.v1",
+  "title": "CollectorManifest",
+  "description": "Everything the collector needs to run and report one attempt.",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schema_version",
+    "project_id",
+    "job_id",
+    "attempt_id",
+    "worker_url",
+    "token_file",
+    "project_path",
+    "argv",
+    "cwd",
+    "env",
+    "limits",
+    "mode",
+    "unit",
+    "artifact_paths",
+    "spool_max_bytes",
+    "deliver_deadline_sec"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "type": "number"
+    },
+    "project_id": {
+      "title": "ProjectId",
+      "description": "Stable project identifier (lowercase slug). Never a path; paths live in the local registry.",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,62}$",
+      "type": "string"
+    },
+    "job_id": {
+      "title": "JobId",
+      "description": "AblationKit job identifier.",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "attempt_id": {
+      "title": "AttemptId",
+      "description": "Identifier of one attempt of a job.",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "worker_url": {
+      "pattern": "^https?://.*$",
+      "maxLength": 2048,
+      "type": "string"
+    },
+    "token_file": {
+      "pattern": "^/.*$",
+      "maxLength": 4096,
+      "type": "string"
+    },
+    "project_path": {
+      "pattern": "^/.*$",
+      "maxLength": 4096,
+      "type": "string"
+    },
+    "argv": {
+      "minItems": 1,
+      "maxItems": 1100,
+      "type": "array",
+      "items": {
+        "maxLength": 8192,
+        "type": "string"
+      }
+    },
+    "cwd": {
+      "pattern": "^/.*$",
+      "maxLength": 4096,
+      "type": "string"
+    },
+    "env": {
+      "type": "object",
+      "patternProperties": {
+        "^(.*)$": {
+          "type": "string"
+        }
+      }
+    },
+    "limits": {
+      "title": "JobLimits",
+      "description": "CPU, memory, time and task limits for one attempt.",
+      "additionalProperties": false,
+      "type": "object",
+      "properties": {
+        "memory_max_bytes": {
+          "minimum": 16777216,
+          "description": "`MemoryMax` (with `MemorySwapMax=0`).",
+          "type": "integer"
+        },
+        "cpu_quota_percent": {
+          "minimum": 1,
+          "maximum": 100000,
+          "description": "`CPUQuota`; 100 is one core.",
+          "type": "integer"
+        },
+        "runtime_max_sec": {
+          "minimum": 1,
+          "maximum": 31536000,
+          "description": "`RuntimeMaxSec`.",
+          "type": "integer"
+        },
+        "tasks_max": {
+          "minimum": 1,
+          "maximum": 1000000,
+          "type": "integer"
+        }
+      }
+    },
+    "mode": {
+      "anyOf": [
+        {
+          "const": "systemd",
+          "type": "string"
+        },
+        {
+          "const": "direct",
+          "type": "string"
+        }
+      ]
+    },
+    "unit": {
+      "pattern": "^[A-Za-z0-9:_.-]{1,200}$",
+      "type": "string"
+    },
+    "artifact_paths": {
+      "type": "array",
+      "items": {
+        "minLength": 1,
+        "maxLength": 1024,
+        "type": "string"
+      }
+    },
+    "metrics_file": {
+      "pattern": "^/.*$",
+      "maxLength": 4096,
+      "type": "string"
+    },
+    "metrics_format": {
+      "title": "MetricsFormat",
+      "description": "How the metrics-file adapter reads each line: nested objects are always flattened with `/`; these name the step and time keys, which are never metrics.",
+      "additionalProperties": false,
+      "type": "object",
+      "properties": {
+        "step_keys": {
+          "minItems": 1,
+          "maxItems": 8,
+          "description": "Keys that hold the step, the first holding a non-negative integer wins; nested keys by their flattened name (`validation/global_step`). Default `[\"step\"]`; without one, the line number.",
+          "type": "array",
+          "items": {
+            "minLength": 1,
+            "maxLength": 250,
+            "type": "string"
+          }
+        },
+        "timestamp_key": {
+          "minLength": 1,
+          "maxLength": 250,
+          "description": "Key that holds the time: milliseconds, or seconds when below 1e11. Default `timestamp`; without one, the read time.",
+          "type": "string"
+        }
+      }
+    },
+    "input_paths": {
+      "type": "array",
+      "items": {
+        "minLength": 1,
+        "maxLength": 1024,
+        "type": "string"
+      }
+    },
+    "spool_max_bytes": {
+      "minimum": 1048576,
+      "type": "integer"
+    },
+    "deliver_deadline_sec": {
+      "minimum": 1,
+      "type": "integer",
+      "description": "How long after exit the collector keeps retrying delivery before leaving the spool for reconciliation."
+    },
+    "drain_only": {
+      "type": "boolean",
+      "description": "Deliver an existing spool without starting the command."
+    }
+  }
+}

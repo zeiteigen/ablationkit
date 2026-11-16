@@ -1,0 +1,289 @@
+{
+  "valid": [
+    {
+      "schema_version": 2,
+      "project_id": "custom-architecture-lab",
+      "revision": 4,
+      "created_at": "2026-11-03T10:00:00Z",
+      "created_by": "human:tok-1",
+      "summary": "let agents run locally and on the SLURM cluster",
+      "jobs": {
+        "run_local": {
+          "decision": "allow"
+        },
+        "submit_remote": {
+          "decision": "allow",
+          "allowed_targets": ["slurm", "lab-a100"]
+        }
+      },
+      "deployments": {
+        "preview_local": {
+          "decision": "allow",
+          "exposure": "loopback",
+          "max_runtime_minutes": 60
+        },
+        "remote_research": {
+          "decision": "deny",
+          "allowed_targets": ["runpod"]
+        },
+        "persistent": {
+          "decision": "deny"
+        },
+        "public": {
+          "decision": "deny"
+        }
+      },
+      "compute": {
+        "limit_hours": 12
+      }
+    },
+    {
+      "schema_version": 2,
+      "project_id": "custom-architecture-lab",
+      "revision": 0,
+      "created_at": "1970-01-01T00:00:00Z",
+      "created_by": "system:default",
+      "jobs": {
+        "run_local": {
+          "decision": "allow"
+        },
+        "submit_remote": {
+          "decision": "deny",
+          "allowed_targets": []
+        }
+      },
+      "deployments": {
+        "preview_local": {
+          "decision": "allow"
+        },
+        "remote_research": {
+          "decision": "deny"
+        },
+        "persistent": {
+          "decision": "deny"
+        },
+        "public": {
+          "decision": "deny"
+        }
+      },
+      "compute": {
+        "limit_hours": 10
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "ask is no longer a decision",
+      "value": {
+        "schema_version": 2,
+        "project_id": "custom-architecture-lab",
+        "revision": 0,
+        "created_at": "1970-01-01T00:00:00Z",
+        "created_by": "system:default",
+        "jobs": {
+          "run_local": {
+            "decision": "ask"
+          },
+          "submit_remote": {
+            "decision": "deny",
+            "allowed_targets": []
+          }
+        },
+        "deployments": {
+          "preview_local": {
+            "decision": "allow"
+          },
+          "remote_research": {
+            "decision": "deny"
+          },
+          "persistent": {
+            "decision": "deny"
+          },
+          "public": {
+            "decision": "deny"
+          }
+        },
+        "compute": {
+          "limit_hours": 10
+        }
+      }
+    },
+    {
+      "reason": "version 1 is migrated on read, never stored as current",
+      "value": {
+        "schema_version": 1,
+        "project_id": "custom-architecture-lab",
+        "revision": 0,
+        "created_at": "1970-01-01T00:00:00Z",
+        "created_by": "system:default",
+        "jobs": {
+          "run_local": {
+            "decision": "allow"
+          },
+          "submit_remote": {
+            "decision": "deny",
+            "allowed_targets": []
+          }
+        },
+        "deployments": {
+          "preview_local": {
+            "decision": "allow"
+          },
+          "remote_research": {
+            "decision": "deny"
+          },
+          "persistent": {
+            "decision": "deny"
+          },
+          "public": {
+            "decision": "deny"
+          }
+        },
+        "compute": {
+          "limit_hours": 10
+        }
+      }
+    },
+    {
+      "reason": "negative compute limit",
+      "value": {
+        "schema_version": 2,
+        "project_id": "custom-architecture-lab",
+        "revision": 0,
+        "created_at": "1970-01-01T00:00:00Z",
+        "created_by": "system:default",
+        "jobs": {
+          "run_local": {
+            "decision": "allow"
+          },
+          "submit_remote": {
+            "decision": "deny",
+            "allowed_targets": []
+          }
+        },
+        "deployments": {
+          "preview_local": {
+            "decision": "allow"
+          },
+          "remote_research": {
+            "decision": "deny"
+          },
+          "persistent": {
+            "decision": "deny"
+          },
+          "public": {
+            "decision": "deny"
+          }
+        },
+        "compute": {
+          "limit_hours": -1
+        }
+      }
+    },
+    {
+      "reason": "submit_remote needs allowed_targets",
+      "value": {
+        "schema_version": 2,
+        "project_id": "custom-architecture-lab",
+        "revision": 0,
+        "created_at": "1970-01-01T00:00:00Z",
+        "created_by": "system:default",
+        "jobs": {
+          "run_local": {
+            "decision": "allow"
+          },
+          "submit_remote": {
+            "decision": "deny"
+          }
+        },
+        "deployments": {
+          "preview_local": {
+            "decision": "allow"
+          },
+          "remote_research": {
+            "decision": "deny"
+          },
+          "persistent": {
+            "decision": "deny"
+          },
+          "public": {
+            "decision": "deny"
+          }
+        },
+        "compute": {
+          "limit_hours": 10
+        }
+      }
+    },
+    {
+      "reason": "Git gates are gone",
+      "value": {
+        "schema_version": 2,
+        "project_id": "custom-architecture-lab",
+        "revision": 0,
+        "created_at": "1970-01-01T00:00:00Z",
+        "created_by": "system:default",
+        "jobs": {
+          "run_local": {
+            "decision": "allow"
+          },
+          "submit_remote": {
+            "decision": "deny",
+            "allowed_targets": []
+          }
+        },
+        "deployments": {
+          "preview_local": {
+            "decision": "allow"
+          },
+          "remote_research": {
+            "decision": "deny"
+          },
+          "persistent": {
+            "decision": "deny"
+          },
+          "public": {
+            "decision": "deny"
+          }
+        },
+        "compute": {
+          "limit_hours": 10
+        },
+        "git": {}
+      }
+    },
+    {
+      "reason": "compute is required",
+      "value": {
+        "schema_version": 2,
+        "project_id": "custom-architecture-lab",
+        "revision": 0,
+        "created_at": "1970-01-01T00:00:00Z",
+        "created_by": "system:default",
+        "jobs": {
+          "run_local": {
+            "decision": "allow"
+          },
+          "submit_remote": {
+            "decision": "deny",
+            "allowed_targets": []
+          }
+        },
+        "deployments": {
+          "preview_local": {
+            "decision": "allow"
+          },
+          "remote_research": {
+            "decision": "deny"
+          },
+          "persistent": {
+            "decision": "deny"
+          },
+          "public": {
+            "decision": "deny"
+          }
+        }
+      }
+    }
+  ]
+}

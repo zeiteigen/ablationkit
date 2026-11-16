@@ -1,0 +1,85 @@
+{
+  "valid": [
+    {
+      "schema_version": 1
+    },
+    {
+      "schema_version": 1,
+      "human": {
+        "host": "127.0.0.1",
+        "port": 7420
+      },
+      "agent": {
+        "host": "127.0.0.1",
+        "port": 0
+      },
+      "worker": {
+        "host": "100.64.0.5",
+        "port": 7422
+      },
+      "trusted_origins": [
+        {
+          "origin": "http://localhost:7420"
+        },
+        {
+          "origin": "https://ws.tail1234.ts.net"
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "mlflow": {
+        "enabled": false,
+        "port": 7423,
+        "outbox_max_ops": 1000,
+        "outbox_max_bytes": 1048576
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "port out of range",
+      "value": {
+        "schema_version": 1,
+        "human": {
+          "host": "127.0.0.1",
+          "port": 70000
+        }
+      }
+    },
+    {
+      "reason": "origin with path",
+      "value": {
+        "schema_version": 1,
+        "trusted_origins": [
+          {
+            "origin": "http://localhost:7420/x"
+          }
+        ]
+      }
+    },
+    {
+      "reason": "empty origin list",
+      "value": {
+        "schema_version": 1,
+        "trusted_origins": []
+      }
+    },
+    {
+      "reason": "null human",
+      "value": {
+        "schema_version": 1,
+        "human": null
+      }
+    },
+    {
+      "reason": "mlflow host is not configurable",
+      "value": {
+        "schema_version": 1,
+        "mlflow": {
+          "host": "0.0.0.0"
+        }
+      }
+    }
+  ]
+}

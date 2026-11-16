@@ -1,0 +1,190 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ablationkit:schema:tracking-run-mapping.v1",
+  "title": "TrackingRunMapping",
+  "description": "Persisted mapping of one AblationKit attempt (or manual run) to its MLflow run, with sync state. Execution status lives with the job, not here.",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schema_version",
+    "ref",
+    "kind",
+    "project_id",
+    "experiment_name",
+    "sync_state",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "type": "number"
+    },
+    "ref": {
+      "title": "TrackingRunRef",
+      "description": "AblationKit's key for one tracked run: the attempt ID for job attempts, `mr-<id>` for runs created by hand.",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "kind": {
+      "description": "`attempt`: one execution attempt of a job. `manual`: created from the UI/CLI. `import`: a run that happened outside AblationKit, imported from its files (ADR 0043).",
+      "anyOf": [
+        {
+          "const": "attempt",
+          "type": "string"
+        },
+        {
+          "const": "manual",
+          "type": "string"
+        },
+        {
+          "const": "import",
+          "type": "string"
+        }
+      ]
+    },
+    "project_id": {
+      "title": "ProjectId",
+      "description": "Stable project identifier (lowercase slug). Never a path; paths live in the local registry.",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,62}$",
+      "type": "string"
+    },
+    "experiment_name": {
+      "title": "MlflowExperimentName",
+      "description": "Target experiment, `ak/<project-id>`.",
+      "minLength": 1,
+      "maxLength": 500,
+      "type": "string"
+    },
+    "experiment_id": {
+      "title": "MlflowExperimentId",
+      "description": "Set once MLflow acknowledges the experiment.",
+      "pattern": "^[A-Za-z0-9_-]{1,64}$",
+      "type": "string"
+    },
+    "mlflow_run_id": {
+      "title": "MlflowRunId",
+      "description": "Set once MLflow acknowledges the run. Never invented.",
+      "pattern": "^[A-Za-z0-9_-]{1,64}$",
+      "type": "string"
+    },
+    "job_id": {
+      "title": "JobId",
+      "description": "AblationKit job identifier.",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "attempt_id": {
+      "title": "AttemptId",
+      "description": "Identifier of one attempt of a job.",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "study_id": {
+      "title": "StudyId",
+      "description": "Study identifier (a planned comparison: baseline plus variants).",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "variant_id": {
+      "title": "VariantId",
+      "description": "Variant identifier (one configuration or code change under test).",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "task_id": {
+      "title": "TaskId",
+      "description": "AblationKit task identifier (UI- or agent-first task).",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "run_name": {
+      "minLength": 1,
+      "maxLength": 250,
+      "type": "string"
+    },
+    "sync_state": {
+      "title": "TrackingSyncState",
+      "description": "Whether MLflow has acknowledged every queued write: `tracking_pending` (queued or retrying), `synced`, or `sync_failed` (a write was rejected; retryable).",
+      "anyOf": [
+        {
+          "const": "tracking_pending",
+          "type": "string"
+        },
+        {
+          "const": "synced",
+          "type": "string"
+        },
+        {
+          "const": "sync_failed",
+          "type": "string"
+        }
+      ]
+    },
+    "last_error": {
+      "minLength": 1,
+      "maxLength": 2000,
+      "type": "string",
+      "description": "Last rejected or failed write, for display."
+    },
+    "created_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "updated_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "synced_at": {
+      "title": "Timestamp",
+      "description": "When the last queued write was acknowledged.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "logged_model_id": {
+      "minLength": 1,
+      "maxLength": 200,
+      "type": "string"
+    },
+    "registered_model_name": {
+      "minLength": 1,
+      "maxLength": 500,
+      "type": "string"
+    },
+    "registered_model_version": {
+      "minLength": 1,
+      "maxLength": 50,
+      "type": "string"
+    },
+    "evaluation_id": {
+      "minLength": 1,
+      "maxLength": 200,
+      "type": "string"
+    },
+    "trace_id": {
+      "minLength": 1,
+      "maxLength": 200,
+      "type": "string"
+    },
+    "deployment_id": {
+      "minLength": 1,
+      "maxLength": 200,
+      "type": "string"
+    },
+    "mlproject_entrypoint": {
+      "minLength": 1,
+      "maxLength": 200,
+      "type": "string"
+    },
+    "import_source": {
+      "minLength": 1,
+      "maxLength": 500,
+      "type": "string",
+      "description": "`import` runs: where the run's files were (a path in the checkout); one import per source."
+    }
+  }
+}

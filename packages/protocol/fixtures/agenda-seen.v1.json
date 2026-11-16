@@ -1,0 +1,20 @@
+{
+  "valid": [
+    { "schema_version": 1, "project_id": "custom-architecture-lab", "sessions": {} },
+    {
+      "schema_version": 1,
+      "project_id": "custom-architecture-lab",
+      "sessions": { "tok-1": { "revision": 3, "at": "2026-11-13T10:00:00Z" } }
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "a mark without a revision",
+      "value": {
+        "schema_version": 1,
+        "project_id": "custom-architecture-lab",
+        "sessions": { "tok-1": { "at": "2026-11-13T10:00:00Z" } }
+      }
+    }
+  ]
+}

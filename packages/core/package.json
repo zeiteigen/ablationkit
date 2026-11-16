@@ -1,0 +1,16 @@
+{
+  "name": "@ablationkit/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./http": "./src/http.ts"
+  },
+  "dependencies": {
+    "@ablationkit/protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "@sinclair/typebox": "0.34.52"
+  }
+}

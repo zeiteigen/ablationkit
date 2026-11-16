@@ -1,0 +1,45 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "project_id": "demo",
+      "job_id": "j-0123456789ab",
+      "attempt_id": "j-0123456789ab-a1",
+      "worker_url": "http://127.0.0.1:7422",
+      "token_file": "/home/r/.ablationkit/spool/j-0123456789ab-a1/token",
+      "project_path": "/home/r/proj",
+      "argv": ["uv", "run", "--frozen", "--project", "/home/r/proj", "--", "python", "train.py"],
+      "cwd": "/home/r/proj",
+      "env": { "PATH": "/usr/bin" },
+      "limits": { "memory_max_bytes": 1073741824 },
+      "mode": "systemd",
+      "unit": "ak-job-j-0123456789ab-a1",
+      "artifact_paths": [],
+      "spool_max_bytes": 268435456,
+      "deliver_deadline_sec": 86400
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "relative cwd",
+      "value": {
+        "schema_version": 1,
+        "project_id": "demo",
+        "job_id": "j",
+        "attempt_id": "a",
+        "worker_url": "http://127.0.0.1:7422",
+        "token_file": "/t",
+        "project_path": "/p",
+        "argv": ["x"],
+        "cwd": "p",
+        "env": {},
+        "limits": {},
+        "mode": "direct",
+        "unit": "u",
+        "artifact_paths": [],
+        "spool_max_bytes": 1048576,
+        "deliver_deadline_sec": 1
+      }
+    }
+  ]
+}

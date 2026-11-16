@@ -1,0 +1,40 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "project_id": "custom-architecture-lab",
+      "items": {}
+    },
+    {
+      "schema_version": 1,
+      "project_id": "custom-architecture-lab",
+      "items": {
+        "report:rep-20261102-a1b2c3": {
+          "digest": "0123456789abcdef",
+          "reviewed_at": "2026-11-02T10:00:00Z",
+          "by": { "kind": "human", "id": "s-1" },
+          "note": "Rerun with a second seed before relying on the 0.01 difference."
+        },
+        "task:task-20261102-abcdef": {
+          "digest": "fedcba9876543210",
+          "reviewed_at": "2026-11-02T10:05:00Z",
+          "by": { "kind": "human" }
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "missing items",
+      "value": { "schema_version": 1, "project_id": "custom-architecture-lab" }
+    },
+    {
+      "reason": "mark without a time",
+      "value": {
+        "schema_version": 1,
+        "project_id": "custom-architecture-lab",
+        "items": { "note:note-1": { "digest": "0123456789abcdef", "by": { "kind": "human" } } }
+      }
+    }
+  ]
+}

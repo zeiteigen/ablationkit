@@ -1,0 +1,541 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ablationkit:schema:extension-manifest.v1",
+  "title": "ExtensionManifest",
+  "description": "A Level 1 extension: contributions, host API range, Python limits and requested capabilities (spec §8.2).",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "version",
+    "host_api",
+    "contributes",
+    "capabilities"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "type": "number"
+    },
+    "id": {
+      "title": "ExtensionId",
+      "description": "Extension ID: lowercase letters, digits and dashes, starting with a letter.",
+      "pattern": "^[a-z][a-z0-9-]{1,62}$",
+      "type": "string"
+    },
+    "version": {
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
+      "maxLength": 64,
+      "type": "string"
+    },
+    "name": {
+      "maxLength": 120,
+      "type": "string"
+    },
+    "description": {
+      "maxLength": 2000,
+      "type": "string"
+    },
+    "host_api": {
+      "maxLength": 100,
+      "description": "Supported host API range: `^2.0.0` for backends; non-backend extensions may also target API 1.",
+      "type": "string"
+    },
+    "contributes": {
+      "minItems": 0,
+      "maxItems": 32,
+      "type": "array",
+      "items": {
+        "title": "ExtensionContribution",
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "point",
+          "title"
+        ],
+        "properties": {
+          "id": {
+            "pattern": "^[a-z][a-z0-9-]{0,40}$",
+            "description": "Unique within the extension.",
+            "type": "string"
+          },
+          "point": {
+            "title": "ContributionPoint",
+            "description": "Where a contribution mounts. UI points (`project.panel`, `run.tab`, `comparison.view`, `report.block`, `model.demo`) take a `.tsx`/`.ts` entry rendered in a sandboxed iframe. Python points (`project.analysis`, `run.evaluator`) take `path.py:function`. `project.action` names an allowlisted `operation`.",
+            "anyOf": [
+              {
+                "const": "project.panel",
+                "type": "string"
+              },
+              {
+                "const": "run.tab",
+                "type": "string"
+              },
+              {
+                "const": "comparison.view",
+                "type": "string"
+              },
+              {
+                "const": "report.block",
+                "type": "string"
+              },
+              {
+                "const": "model.demo",
+                "type": "string"
+              },
+              {
+                "const": "project.action",
+                "type": "string"
+              },
+              {
+                "const": "project.analysis",
+                "type": "string"
+              },
+              {
+                "const": "run.evaluator",
+                "type": "string"
+              }
+            ]
+          },
+          "title": {
+            "minLength": 1,
+            "maxLength": 80,
+            "type": "string"
+          },
+          "entry": {
+            "maxLength": 300,
+            "description": "Relative path inside the extension: `ui/src/View.tsx`, or `python/analysis.py:analyze` for Python points.",
+            "type": "string"
+          },
+          "operation": {
+            "maxLength": 80,
+            "description": "`project.action` only: the allowlisted coordinator operation (`extension.python.run`, `report.generate`, `research.note.create`).",
+            "type": "string"
+          },
+          "target": {
+            "pattern": "^[a-z][a-z0-9-]{0,40}$",
+            "description": "`extension.python.run` actions, and UI contributions that run Python: the ID of this extension's own Python contribution.",
+            "type": "string"
+          },
+          "params": {
+            "description": "Fixed parameters for a `project.action` operation.",
+            "type": "object",
+            "patternProperties": {
+              "^(.*)$": {
+                "anyOf": [
+                  {
+                    "maxLength": 1000,
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "boolean"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "backend": {
+      "title": "ExtensionBackend",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "entry",
+        "services",
+        "operations",
+        "pages",
+        "ingest",
+        "job_sdks"
+      ],
+      "properties": {
+        "entry": {
+          "maxLength": 300,
+          "type": "string"
+        },
+        "workers": {
+          "maxItems": 16,
+          "type": "array",
+          "items": {
+            "maxLength": 300,
+            "type": "string"
+          }
+        },
+        "service_agents": {
+          "maxItems": 64,
+          "type": "array",
+          "items": {
+            "maxLength": 100,
+            "type": "string"
+          }
+        },
+        "uses_services": {
+          "maxItems": 64,
+          "type": "array",
+          "items": {
+            "maxLength": 200,
+            "type": "string"
+          }
+        },
+        "ingest_services": {
+          "type": "object",
+          "patternProperties": {
+            "^(.*)$": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          }
+        },
+        "services": {
+          "maxItems": 64,
+          "type": "array",
+          "items": {
+            "pattern": "^[a-z][a-z0-9_.-]{1,100}$",
+            "type": "string"
+          }
+        },
+        "operations": {
+          "maxItems": 128,
+          "type": "array",
+          "items": {
+            "title": "ExtensionBackendOperation",
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "id",
+              "method",
+              "path",
+              "agent"
+            ],
+            "properties": {
+              "id": {
+                "pattern": "^[a-z][a-z0-9_.-]{1,100}$",
+                "type": "string"
+              },
+              "input_schema": {
+                "type": "object",
+                "patternProperties": {
+                  "^(.*)$": {}
+                }
+              },
+              "output_schema": {
+                "type": "object",
+                "patternProperties": {
+                  "^(.*)$": {}
+                }
+              },
+              "method": {
+                "anyOf": [
+                  {
+                    "const": "GET",
+                    "type": "string"
+                  },
+                  {
+                    "const": "POST",
+                    "type": "string"
+                  },
+                  {
+                    "const": "PUT",
+                    "type": "string"
+                  },
+                  {
+                    "const": "PATCH",
+                    "type": "string"
+                  },
+                  {
+                    "const": "DELETE",
+                    "type": "string"
+                  }
+                ]
+              },
+              "path": {
+                "maxLength": 300,
+                "type": "string"
+              },
+              "agent": {
+                "type": "boolean"
+              },
+              "widens_data_controls": {
+                "description": "Human-only: the backend may widen its data controls only while serving this operation.",
+                "const": true,
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "pages": {
+          "maxItems": 16,
+          "type": "array",
+          "items": {
+            "title": "ExtensionBackendPage",
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "id",
+              "title",
+              "path",
+              "entry"
+            ],
+            "properties": {
+              "api_path": {
+                "maxLength": 200,
+                "type": "string"
+              },
+              "profiles": {
+                "maxItems": 16,
+                "type": "array",
+                "items": {
+                  "maxLength": 80,
+                  "type": "string"
+                }
+              },
+              "id": {
+                "maxLength": 60,
+                "type": "string"
+              },
+              "title": {
+                "maxLength": 80,
+                "type": "string"
+              },
+              "path": {
+                "maxLength": 200,
+                "type": "string"
+              },
+              "entry": {
+                "maxLength": 300,
+                "type": "string"
+              }
+            }
+          }
+        },
+        "ingest": {
+          "maxItems": 32,
+          "type": "array",
+          "items": {
+            "maxLength": 100,
+            "type": "string"
+          }
+        },
+        "job_sdks": {
+          "maxItems": 16,
+          "type": "array",
+          "items": {
+            "maxLength": 300,
+            "type": "string"
+          }
+        },
+        "agent_skills": {
+          "maxItems": 32,
+          "type": "array",
+          "items": {
+            "maxLength": 300,
+            "type": "string"
+          }
+        }
+      }
+    },
+    "python": {
+      "title": "ExtensionPythonSettings",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "requires_python",
+        "max_runtime_seconds",
+        "max_memory_mb",
+        "gpu",
+        "network"
+      ],
+      "properties": {
+        "requires_python": {
+          "maxLength": 60,
+          "type": "string"
+        },
+        "environment": {
+          "description": "`extension` (default): the extension's own `pyproject.toml` and lockfile. `project` (ADR 0046): the project's own environment, built from the checkout's committed `uv.lock` at its current commit with the project's package installed, so the contribution can import the project's code; `project` and `lockfile` are then left out, and it runs on this machine only.",
+          "anyOf": [
+            {
+              "const": "extension",
+              "type": "string"
+            },
+            {
+              "const": "project",
+              "type": "string"
+            }
+          ]
+        },
+        "project": {
+          "maxLength": 200,
+          "description": "Directory holding `pyproject.toml` and the lockfile, relative to the extension (environment `extension`).",
+          "type": "string"
+        },
+        "lockfile": {
+          "maxLength": 200,
+          "description": "`uv.lock`, relative to the extension (environment `extension`).",
+          "type": "string"
+        },
+        "max_runtime_seconds": {
+          "minimum": 1,
+          "maximum": 3600,
+          "type": "integer"
+        },
+        "max_memory_mb": {
+          "minimum": 64,
+          "maximum": 65536,
+          "type": "integer"
+        },
+        "cpu_percent": {
+          "minimum": 1,
+          "maximum": 6400,
+          "type": "integer"
+        },
+        "gpu": {
+          "type": "boolean"
+        },
+        "warm": {
+          "description": "Keep one Python process per build between runs (ADR 0047): imports and module state persist, runs are served one at a time, the time limit applies to each run, and the process exits after 10 idle minutes.",
+          "type": "boolean"
+        },
+        "network": {
+          "description": "`none` (default): the runner starts the process in its own empty network namespace when the host allows it. `egress` needs the `network.egress` capability.",
+          "anyOf": [
+            {
+              "const": "none",
+              "type": "string"
+            },
+            {
+              "const": "egress",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    "capabilities": {
+      "maxItems": 32,
+      "type": "array",
+      "items": {
+        "pattern": "^[a-z][a-z0-9_.]{1,80}$",
+        "type": "string"
+      }
+    },
+    "capability_config": {
+      "title": "CapabilityConfig",
+      "description": "Bounds for capabilities that need them: allowlists, quotas and sizes.",
+      "additionalProperties": false,
+      "type": "object",
+      "properties": {
+        "inference": {
+          "title": "InferenceCapabilityConfig",
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "models",
+            "max_requests_per_hour",
+            "max_request_bytes"
+          ],
+          "properties": {
+            "models": {
+              "minItems": 1,
+              "maxItems": 20,
+              "type": "array",
+              "items": {
+                "maxLength": 300,
+                "description": "A logged model `m-…`, or a registered model `name@alias` / `name/version`. An alias is pinned to its version at each call.",
+                "type": "string"
+              }
+            },
+            "max_requests_per_hour": {
+              "minimum": 1,
+              "maximum": 10000,
+              "type": "integer"
+            },
+            "max_request_bytes": {
+              "minimum": 64,
+              "maximum": 8388608,
+              "type": "integer"
+            },
+            "max_rows": {
+              "minimum": 1,
+              "maximum": 1000,
+              "type": "integer"
+            }
+          }
+        },
+        "llm": {
+          "title": "LlmCapabilityConfig",
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "targets",
+            "max_calls_per_hour",
+            "max_input_chars"
+          ],
+          "properties": {
+            "targets": {
+              "minItems": 1,
+              "maxItems": 10,
+              "type": "array",
+              "items": {
+                "title": "LlmAllowEntry",
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "provider_id",
+                  "model"
+                ],
+                "properties": {
+                  "provider_id": {
+                    "pattern": "^[a-z][a-z0-9-]{0,40}$",
+                    "type": "string"
+                  },
+                  "model": {
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "max_calls_per_hour": {
+              "minimum": 1,
+              "maximum": 10000,
+              "type": "integer"
+            },
+            "max_input_chars": {
+              "minimum": 1,
+              "maximum": 200000,
+              "type": "integer"
+            },
+            "max_cost_usd": {
+              "pattern": "^-?[0-9]+([.][0-9]+)?([eE][-+]?[0-9]+)?$",
+              "maxLength": 40,
+              "description": "Optional ceiling on estimated cost per hour.",
+              "type": "string"
+            }
+          }
+        },
+        "artifacts": {
+          "title": "ArtifactCapabilityConfig",
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "max_output_bytes"
+          ],
+          "properties": {
+            "max_output_bytes": {
+              "minimum": 1024,
+              "maximum": 1073741824,
+              "type": "integer"
+            }
+          }
+        }
+      }
+    }
+  }
+}

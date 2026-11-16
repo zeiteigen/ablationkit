@@ -1,0 +1,43 @@
+# Dependencies and environments
+node_modules/
+.venv/
+__pycache__/
+*.py[cod]
+
+# Build and test output
+dist/
+build/
+out/
+coverage/
+.turbo/
+*.tsbuildinfo
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+playwright-report/
+test-results/
+# makepkg (scripts/packaging/aur)
+scripts/packaging/aur/*.tar.gz
+scripts/packaging/aur/src/
+scripts/packaging/aur/pkg/
+*.pkg.tar.zst
+
+# Local runtime state (coordinator data lives outside the repo; guard against strays)
+.ablationkit-local/
+mlruns/
+mlflow.db
+*.log
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Editors and OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Claude Code worktrees
+/.claude/worktrees/

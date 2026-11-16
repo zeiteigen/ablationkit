@@ -1,0 +1,5 @@
+python: "3.12"
+dependencies:
+  - mlflow==3.17.2
+  - scikit-learn==1.9.1
+  - pandas

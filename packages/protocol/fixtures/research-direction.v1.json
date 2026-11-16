@@ -1,0 +1,150 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "direction_id": "dir-20261113-a1b2c3",
+      "project_id": "custom-architecture-lab",
+      "target": { "kind": "note", "id": "rope-helps-at-small-scale" },
+      "kind": "doubt",
+      "text": "Why one seed? I do not believe this until there are three.",
+      "status": "open",
+      "round": 1,
+      "thread": [],
+      "deliveries": [],
+      "created_at": "2026-11-13T10:00:00Z",
+      "created_by": { "kind": "human", "id": "s-1" },
+      "updated_at": "2026-11-13T10:00:00Z",
+      "revision": 1
+    },
+    {
+      "schema_version": 1,
+      "direction_id": "dir-20261113-d4e5f6",
+      "project_id": "custom-architecture-lab",
+      "target": { "kind": "project" },
+      "kind": "rule",
+      "text": "Three seeds before anything is **established**.",
+      "status": "acknowledged",
+      "round": 1,
+      "thread": [
+        {
+          "act": "ack",
+          "at": "2026-11-13T10:05:00Z",
+          "by": { "kind": "agent", "id": "0123456789abcdef" },
+          "text": "Will run three seeds before moving a claim to established."
+        }
+      ],
+      "deliveries": [{ "session": "0123456789abcdef", "at": "2026-11-13T10:04:00Z", "round": 1 }],
+      "created_at": "2026-11-13T10:00:00Z",
+      "created_by": { "kind": "human", "id": "s-1" },
+      "updated_at": "2026-11-13T10:05:00Z",
+      "revision": 2
+    },
+    {
+      "schema_version": 1,
+      "direction_id": "dir-20261113-0a0b0c",
+      "project_id": "custom-architecture-lab",
+      "target": { "kind": "run", "id": "sym64k-base" },
+      "kind": "ask",
+      "text": "Why did this one diverge at step 4k?",
+      "status": "closed",
+      "round": 2,
+      "thread": [
+        {
+          "act": "answer",
+          "at": "2026-11-13T11:00:00Z",
+          "by": { "kind": "agent", "id": "0123456789abcdef" },
+          "text": "The warmup was 10 steps; rerun with 500.",
+          "refs": [
+            { "kind": "job", "id": "job-20261113-abcdef" },
+            { "kind": "note", "id": "divergence-at-high-lr" }
+          ]
+        },
+        {
+          "act": "reopen",
+          "at": "2026-11-13T11:10:00Z",
+          "by": { "kind": "human", "id": "s-1" },
+          "text": "And the second seed?"
+        },
+        {
+          "act": "answer",
+          "at": "2026-11-13T12:00:00Z",
+          "by": { "kind": "agent", "id": "fedcba9876543210" },
+          "text": "Same with seed 2.",
+          "refs": [{ "kind": "run", "id": "sym64k-warmup-s2" }]
+        },
+        {
+          "act": "close",
+          "at": "2026-11-13T12:30:00Z",
+          "by": { "kind": "human", "id": "s-1" }
+        }
+      ],
+      "deliveries": [
+        { "session": "0123456789abcdef", "at": "2026-11-13T10:50:00Z", "round": 1 },
+        { "session": "fedcba9876543210", "at": "2026-11-13T11:30:00Z", "round": 2 }
+      ],
+      "created_at": "2026-11-13T10:40:00Z",
+      "created_by": { "kind": "human", "id": "s-1" },
+      "updated_at": "2026-11-13T12:30:00Z",
+      "revision": 5
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "unknown kind",
+      "value": {
+        "schema_version": 1,
+        "direction_id": "dir-20261113-a1b2c3",
+        "project_id": "custom-architecture-lab",
+        "target": { "kind": "project" },
+        "kind": "approve",
+        "text": "Go ahead.",
+        "status": "open",
+        "round": 1,
+        "thread": [],
+        "deliveries": [],
+        "created_at": "2026-11-13T10:00:00Z",
+        "created_by": { "kind": "human" },
+        "updated_at": "2026-11-13T10:00:00Z",
+        "revision": 1
+      }
+    },
+    {
+      "reason": "empty text",
+      "value": {
+        "schema_version": 1,
+        "direction_id": "dir-20261113-a1b2c3",
+        "project_id": "custom-architecture-lab",
+        "target": { "kind": "project" },
+        "kind": "do",
+        "text": "",
+        "status": "open",
+        "round": 1,
+        "thread": [],
+        "deliveries": [],
+        "created_at": "2026-11-13T10:00:00Z",
+        "created_by": { "kind": "human" },
+        "updated_at": "2026-11-13T10:00:00Z",
+        "revision": 1
+      }
+    },
+    {
+      "reason": "malformed ID",
+      "value": {
+        "schema_version": 1,
+        "direction_id": "direction-1",
+        "project_id": "custom-architecture-lab",
+        "target": { "kind": "project" },
+        "kind": "do",
+        "text": "Run the 1B model next.",
+        "status": "open",
+        "round": 1,
+        "thread": [],
+        "deliveries": [],
+        "created_at": "2026-11-13T10:00:00Z",
+        "created_by": { "kind": "human" },
+        "updated_at": "2026-11-13T10:00:00Z",
+        "revision": 1
+      }
+    }
+  ]
+}

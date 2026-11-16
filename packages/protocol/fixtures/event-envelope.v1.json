@@ -1,0 +1,257 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "event_id": "evt-01",
+      "project_id": "custom-architecture-lab",
+      "producer_id": "sdk.host-a",
+      "producer_seq": 0,
+      "ts": "2026-11-02T10:00:00Z",
+      "type": "run.started",
+      "payload": {}
+    },
+    {
+      "schema_version": 1,
+      "event_id": "evt-02",
+      "project_id": "custom-architecture-lab",
+      "producer_id": "sdk.host-a",
+      "producer_seq": 9007199254740991,
+      "ts": "2026-11-02T10:00:00.123456789Z",
+      "type": "console.line",
+      "payload": {
+        "stream": "stdout",
+        "text": "épöch 1 🚀 loss=0.25",
+        "nested": {
+          "x": null,
+          "list": [1, 2.5, "s", true]
+        }
+      },
+      "ablationkit_job_id": "job-7",
+      "attempt_id": "job-7:a1"
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "missing required field",
+      "value": {
+        "schema_version": 1,
+        "event_id": "evt-01",
+        "project_id": "custom-architecture-lab",
+        "producer_id": "sdk.host-a",
+        "ts": "2026-11-02T10:00:00Z",
+        "type": "run.started",
+        "payload": {}
+      }
+    },
+    {
+      "reason": "unknown field",
+      "value": {
+        "schema_version": 1,
+        "event_id": "evt-01",
+        "project_id": "custom-architecture-lab",
+        "producer_id": "sdk.host-a",
+        "producer_seq": 0,
+        "ts": "2026-11-02T10:00:00Z",
+        "type": "run.started",
+        "payload": {},
+        "extra": "x"
+      }
+    },
+    {
+      "reason": "explicit null for optional field",
+      "value": {
+        "schema_version": 1,
+        "event_id": "evt-01",
+        "project_id": "custom-architecture-lab",
+        "producer_id": "sdk.host-a",
+        "producer_seq": 0,
+        "ts": "2026-11-02T10:00:00Z",
+        "type": "run.started",
+        "payload": {},
+        "attempt_id": null
+      }
+    },
+    {
+      "reason": "future schema_version",
+      "value": {
+        "schema_version": 2,
+        "event_id": "evt-01",
+        "project_id": "custom-architecture-lab",
+        "producer_id": "sdk.host-a",
+        "producer_seq": 0,
+        "ts": "2026-11-02T10:00:00Z",
+        "type": "run.started",
+        "payload": {}
+      }
+    },
+    {
+      "reason": "boolean is not schema_version 1",
+      "value": {
+        "schema_version": true,
+        "event_id": "evt-01",
+        "project_id": "custom-architecture-lab",
+        "producer_id": "sdk.host-a",
+        "producer_seq": 0,
+        "ts": "2026-11-02T10:00:00Z",
+        "type": "run.started",
+        "payload": {}
+      }
+    },
+    {
+      "reason": "string is not an integer",
+      "value": {
+        "schema_version": 1,
+        "event_id": "evt-01",
+        "project_id": "custom-architecture-lab",
+        "producer_id": "sdk.host-a",
+        "producer_seq": "1",
+        "ts": "2026-11-02T10:00:00Z",
+        "type": "run.started",
+        "payload": {}
+      }
+    },
+    {
+      "reason": "float is not an integer",
+      "value": {
+        "schema_version": 1,
+        "event_id": "evt-01",
+        "project_id": "custom-architecture-lab",
+        "producer_id": "sdk.host-a",
+        "producer_seq": 1.5,
+        "ts": "2026-11-02T10:00:00Z",
+        "type": "run.started",
+        "payload": {}
+      }
+    },
+    {
+      "reason": "negative sequence",
+      "value": {
+        "schema_version": 1,
+        "event_id": "evt-01",
+        "project_id": "custom-architecture-lab",
+        "producer_id": "sdk.host-a",
+        "producer_seq": -1,
+        "ts": "2026-11-02T10:00:00Z",
+        "type": "run.started",
+        "payload": {}
+      }
+    },
+    {
+      "reason": "sequence beyond 2^53-1",
+      "value": {
+        "schema_version": 1,
+        "event_id": "evt-01",
+        "project_id": "custom-architecture-lab",
+        "producer_id": "sdk.host-a",
+        "producer_seq": 9007199254740992,
+        "ts": "2026-11-02T10:00:00Z",
+        "type": "run.started",
+        "payload": {}
+      }
+    },
+    {
+      "reason": "timestamp without Z",
+      "value": {
+        "schema_version": 1,
+        "event_id": "evt-01",
+        "project_id": "custom-architecture-lab",
+        "producer_id": "sdk.host-a",
+        "producer_seq": 0,
+        "ts": "2026-11-02T10:00:00",
+        "type": "run.started",
+        "payload": {}
+      }
+    },
+    {
+      "reason": "timestamp with offset",
+      "value": {
+        "schema_version": 1,
+        "event_id": "evt-01",
+        "project_id": "custom-architecture-lab",
+        "producer_id": "sdk.host-a",
+        "producer_seq": 0,
+        "ts": "2026-11-02T10:00:00+01:00",
+        "type": "run.started",
+        "payload": {}
+      }
+    },
+    {
+      "reason": "event type not dotted",
+      "value": {
+        "schema_version": 1,
+        "event_id": "evt-01",
+        "project_id": "custom-architecture-lab",
+        "producer_id": "sdk.host-a",
+        "producer_seq": 0,
+        "ts": "2026-11-02T10:00:00Z",
+        "type": "started",
+        "payload": {}
+      }
+    },
+    {
+      "reason": "event type uppercase",
+      "value": {
+        "schema_version": 1,
+        "event_id": "evt-01",
+        "project_id": "custom-architecture-lab",
+        "producer_id": "sdk.host-a",
+        "producer_seq": 0,
+        "ts": "2026-11-02T10:00:00Z",
+        "type": "Run.started",
+        "payload": {}
+      }
+    },
+    {
+      "reason": "trailing newline must not satisfy an anchored pattern",
+      "value": {
+        "schema_version": 1,
+        "event_id": "evt-01",
+        "project_id": "lab\n",
+        "producer_id": "sdk.host-a",
+        "producer_seq": 0,
+        "ts": "2026-11-02T10:00:00Z",
+        "type": "run.started",
+        "payload": {}
+      }
+    },
+    {
+      "reason": "non-ASCII digit in id",
+      "value": {
+        "schema_version": 1,
+        "event_id": "evt-٣",
+        "project_id": "custom-architecture-lab",
+        "producer_id": "sdk.host-a",
+        "producer_seq": 0,
+        "ts": "2026-11-02T10:00:00Z",
+        "type": "run.started",
+        "payload": {}
+      }
+    },
+    {
+      "reason": "payload must be an object",
+      "value": {
+        "schema_version": 1,
+        "event_id": "evt-01",
+        "project_id": "custom-architecture-lab",
+        "producer_id": "sdk.host-a",
+        "producer_seq": 0,
+        "ts": "2026-11-02T10:00:00Z",
+        "type": "run.started",
+        "payload": [1]
+      }
+    },
+    {
+      "reason": "payload must not be null",
+      "value": {
+        "schema_version": 1,
+        "event_id": "evt-01",
+        "project_id": "custom-architecture-lab",
+        "producer_id": "sdk.host-a",
+        "producer_seq": 0,
+        "ts": "2026-11-02T10:00:00Z",
+        "type": "run.started",
+        "payload": null
+      }
+    }
+  ]
+}

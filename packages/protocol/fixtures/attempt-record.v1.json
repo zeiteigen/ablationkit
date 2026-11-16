@@ -1,0 +1,146 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "attempt_id": "j-0123456789ab-a1",
+      "job_id": "j-0123456789ab",
+      "project_id": "demo",
+      "number": 1,
+      "state": "starting",
+      "created_at": "2026-11-02T18:00:00Z",
+      "supervisor": {
+        "mode": "direct",
+        "enforcement": "advisory",
+        "reason": "no systemd user manager"
+      },
+      "collector": {},
+      "token_id": "0123456789abcdef",
+      "artifacts": []
+    },
+    {
+      "schema_version": 1,
+      "attempt_id": "j-0123456789ab-a1",
+      "job_id": "j-0123456789ab",
+      "project_id": "demo",
+      "number": 1,
+      "state": "oom_killed",
+      "created_at": "2026-11-02T18:00:00Z",
+      "started_at": "2026-11-02T18:00:01Z",
+      "ended_at": "2026-11-02T18:00:09Z",
+      "supervisor": {
+        "mode": "systemd",
+        "enforcement": "enforced",
+        "unit": "ak-job-j-0123456789ab-a1.scope",
+        "collector_unit": "ak-col-j-0123456789ab-a1.service"
+      },
+      "collector": {
+        "pid": 4242,
+        "last_seen_at": "2026-11-02T18:00:09Z",
+        "spool_bytes": 1024,
+        "pending_events": 0,
+        "pending_artifacts": 0,
+        "dropped_events": 0
+      },
+      "token_id": "0123456789abcdef",
+      "pid": 4243,
+      "signal": "SIGKILL",
+      "unit_result": "oom-kill",
+      "snapshot": {
+        "hostname": "ws",
+        "command": ["uv", "run", "python", "train.py"],
+        "cwd": "/home/r/proj",
+        "source_commit": "0123abcd",
+        "source_dirty": false,
+        "python": "3.12.4",
+        "sdk_version": "0.1.0",
+        "collector_version": "0.1.0"
+      },
+      "artifacts": [
+        {
+          "path": "checkpoints/model.pt",
+          "size": 10,
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+          "uploaded_at": "2026-11-02T18:00:08Z"
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "attempt_id": "j-0123456789ab-a2",
+      "job_id": "j-0123456789ab",
+      "project_id": "demo",
+      "number": 2,
+      "state": "running",
+      "created_at": "2026-11-02T18:00:00Z",
+      "supervisor": {
+        "mode": "remote",
+        "enforcement": "advisory",
+        "reason": "SLURM enforces --time; memory and CPU depend on the cluster's cgroup configuration"
+      },
+      "collector": {},
+      "token_id": "0123456789abcdef",
+      "artifacts": [],
+      "remote": {
+        "target_id": "hpc",
+        "target_kind": "slurm",
+        "bundle_id": "b-0123456789ab",
+        "bundle_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "source_commit": "cccccccccccccccccccccccccccccccccccccccc",
+        "staging": "submitted",
+        "submitted_at": "2026-11-05T10:00:00.000Z",
+        "provider_job_id": "81234",
+        "provider_state": "RUNNING",
+        "provider_checked_at": "2026-11-05T10:00:00.000Z",
+        "worker_id": "w-0123456789abcdef",
+        "worker_host": "gpu-node-07",
+        "first_contact_at": "2026-11-05T10:00:00.000Z",
+        "last_contact_at": "2026-11-05T10:00:00.000Z",
+        "connectivity": "disconnected",
+        "sync": "awaiting_sync",
+        "spool_acked_seq": 411,
+        "launch_token_id": "0123456789abcdef",
+        "launch_expires_at": "2026-11-05T10:00:00.000Z"
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "number zero",
+      "value": {
+        "schema_version": 1,
+        "attempt_id": "a",
+        "job_id": "j",
+        "project_id": "demo",
+        "number": 0,
+        "state": "starting",
+        "created_at": "2026-11-02T18:00:00Z",
+        "supervisor": {
+          "mode": "direct",
+          "enforcement": "advisory"
+        },
+        "collector": {},
+        "token_id": "0123456789abcdef",
+        "artifacts": []
+      }
+    },
+    {
+      "reason": "unknown enforcement level",
+      "value": {
+        "schema_version": 1,
+        "attempt_id": "a",
+        "job_id": "j",
+        "project_id": "demo",
+        "number": 1,
+        "state": "starting",
+        "created_at": "2026-11-02T18:00:00Z",
+        "supervisor": {
+          "mode": "direct",
+          "enforcement": "guaranteed"
+        },
+        "collector": {},
+        "token_id": "0123456789abcdef",
+        "artifacts": []
+      }
+    }
+  ]
+}

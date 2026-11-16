@@ -1,0 +1,471 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ablationkit:schema:vault-note.v1",
+  "title": "VaultNote",
+  "description": "An atomic note of a project's vault (ADR 0049). `created` and `updated` are when the thing became known and when what the note says last changed; `edition` marks a notebook that reports one working session; `task_id` is the task it was written under.",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schema_version",
+    "note_id",
+    "project_id",
+    "type",
+    "title",
+    "gist",
+    "sources",
+    "created",
+    "updated",
+    "created_at",
+    "updated_at",
+    "created_by",
+    "updated_by",
+    "revision"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "type": "number"
+    },
+    "note_id": {
+      "title": "VaultNoteId",
+      "description": "A note's identifier, unique within a project: kebab-case words that say what the note is (`macro-tokenizer`, not `note-12`). It is what `[[id]]` links and `![[id]]` embeds name, so it does not change.",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,95}$",
+      "type": "string"
+    },
+    "project_id": {
+      "title": "ProjectId",
+      "description": "Stable project identifier (lowercase slug). Never a path; paths live in the local registry.",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,62}$",
+      "type": "string"
+    },
+    "type": {
+      "title": "VaultNoteType",
+      "description": "What a note is. concept: a fundamental, independent of any experiment. method: how this project builds or does something. experiment: one study and its protocol. finding: what was observed, with its numbers and limits. claim: what is believed, with a standing. decision: a choice made and why. question: something not known yet. log: process worth keeping that is not knowledge. figure: a chart, table or visualisation drawn from the project's runs by code the note carries (ADR 0053). notebook: a compilation of embedded notes with connecting prose.",
+      "anyOf": [
+        {
+          "const": "concept",
+          "type": "string"
+        },
+        {
+          "const": "method",
+          "type": "string"
+        },
+        {
+          "const": "experiment",
+          "type": "string"
+        },
+        {
+          "const": "finding",
+          "type": "string"
+        },
+        {
+          "const": "claim",
+          "type": "string"
+        },
+        {
+          "const": "decision",
+          "type": "string"
+        },
+        {
+          "const": "question",
+          "type": "string"
+        },
+        {
+          "const": "log",
+          "type": "string"
+        },
+        {
+          "const": "figure",
+          "type": "string"
+        },
+        {
+          "const": "notebook",
+          "type": "string"
+        }
+      ]
+    },
+    "title": {
+      "minLength": 1,
+      "maxLength": 80,
+      "description": "A claim, finding or decision is titled with a sentence that states it; a concept or method with its name; a question with the question.",
+      "type": "string"
+    },
+    "gist": {
+      "minLength": 1,
+      "maxLength": 180,
+      "description": "One sentence that says the thing itself (not a description of the note). The first of the three depths.",
+      "type": "string"
+    },
+    "summary": {
+      "maxLength": 20000,
+      "description": "Two to four sentences that continue from the gist without restating it. For a notebook: its opening paragraph, what it establishes and how it proceeds. Markdown with LaTeX, `[[id]]` links.",
+      "type": "string"
+    },
+    "full": {
+      "maxLength": 400000,
+      "description": "The rest, continuing from the summary without restating it. `![[id]]` alone on a line embeds another note at that point. For a notebook: the composition, connecting prose and embeds, optionally under `##` headings.",
+      "type": "string"
+    },
+    "standing": {
+      "title": "VaultStanding",
+      "description": "Where a claim, decision or question stands. claim: established, leaning, open or ruled_out. decision: in_force, proposed or superseded. question: open or answered. Other types carry none.",
+      "anyOf": [
+        {
+          "const": "established",
+          "type": "string"
+        },
+        {
+          "const": "leaning",
+          "type": "string"
+        },
+        {
+          "const": "open",
+          "type": "string"
+        },
+        {
+          "const": "ruled_out",
+          "type": "string"
+        },
+        {
+          "const": "in_force",
+          "type": "string"
+        },
+        {
+          "const": "proposed",
+          "type": "string"
+        },
+        {
+          "const": "superseded",
+          "type": "string"
+        },
+        {
+          "const": "answered",
+          "type": "string"
+        }
+      ]
+    },
+    "key": {
+      "title": "VaultKey",
+      "description": "The one number or comparison that carries the note, and what it is.",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "text",
+        "label"
+      ],
+      "properties": {
+        "text": {
+          "minLength": 1,
+          "maxLength": 80,
+          "type": "string"
+        },
+        "label": {
+          "minLength": 1,
+          "maxLength": 200,
+          "type": "string"
+        }
+      }
+    },
+    "support": {
+      "maxLength": 300,
+      "description": "Claims: how much evidence, plainly (runs, seeds, scale).",
+      "type": "string"
+    },
+    "would_change": {
+      "maxLength": 600,
+      "description": "Claims: what result would move the standing.",
+      "type": "string"
+    },
+    "evidence": {
+      "maxItems": 200,
+      "type": "array",
+      "items": {
+        "title": "VaultEvidence",
+        "description": "One run a note rests on.",
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "run",
+          "role"
+        ],
+        "properties": {
+          "run": {
+            "minLength": 1,
+            "maxLength": 250,
+            "description": "A run of the project, by run name (or MLflow run ID). Its values are read from the run when the note is shown: a note never stores a metric value here.",
+            "type": "string"
+          },
+          "role": {
+            "description": "What the run is to the note.",
+            "anyOf": [
+              {
+                "const": "baseline",
+                "type": "string"
+              },
+              {
+                "const": "for",
+                "type": "string"
+              },
+              {
+                "const": "against",
+                "type": "string"
+              },
+              {
+                "const": "context",
+                "type": "string"
+              }
+            ]
+          },
+          "metric": {
+            "minLength": 1,
+            "maxLength": 250,
+            "description": "The metric key that matters.",
+            "type": "string"
+          },
+          "vs": {
+            "minLength": 1,
+            "maxLength": 250,
+            "description": "The baseline run this row is compared with, when a note has more than one baseline.",
+            "type": "string"
+          },
+          "note": {
+            "maxLength": 600,
+            "type": "string"
+          }
+        }
+      }
+    },
+    "figure": {
+      "title": "VaultFigure",
+      "description": "Figures: the code that draws the figure (ADR 0053). The gist says in words what it shows; the runs it draws from are its `evidence`.",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "script"
+      ],
+      "properties": {
+        "script": {
+          "minLength": 1,
+          "maxLength": 200000,
+          "description": "JavaScript, run as the body of an async function in a sandboxed frame with no network: `el` is the element to draw into, `ak` reads the project's runs (`ak.runs.list({filter, limit})`, `ak.runs.get(id)`, `ak.runs.history(id, key)`, `ak.artifacts.list(id, path)`, `ak.artifacts.preview(id, path)`) and gives the theme (`ak.theme`), and `Plot` and `d3` are Observable Plot and d3. Read every number from the runs: never write one in.",
+          "type": "string"
+        }
+      }
+    },
+    "study": {
+      "maxLength": 128,
+      "description": "Experiments: the study record whose variants this note describes.",
+      "type": "string"
+    },
+    "aliases": {
+      "maxItems": 20,
+      "description": "Concepts and methods: other words the term goes by (an abbreviation, a plural), so a mention in another note's prose finds this note.",
+      "type": "array",
+      "items": {
+        "minLength": 1,
+        "maxLength": 80,
+        "type": "string"
+      }
+    },
+    "bears_on": {
+      "maxItems": 50,
+      "description": "Questions: the claims an answer would move.",
+      "type": "array",
+      "items": {
+        "title": "VaultNoteId",
+        "description": "A note's identifier, unique within a project: kebab-case words that say what the note is (`macro-tokenizer`, not `note-12`). It is what `[[id]]` links and `![[id]]` embeds name, so it does not change.",
+        "pattern": "^[a-z0-9][a-z0-9-]{0,95}$",
+        "type": "string"
+      }
+    },
+    "cites": {
+      "maxItems": 100,
+      "description": "The prior work the note rests on, from the project's library, each with its role. Shown with the note; exported as citations.",
+      "type": "array",
+      "items": {
+        "title": "VaultCite",
+        "description": "One work of the library a note cites, with the role it plays there.",
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "work",
+          "role"
+        ],
+        "properties": {
+          "work": {
+            "title": "VaultWorkId",
+            "description": "A work's identifier in the project's library, also its citation key: kebab-case, the first author's family name, the year and a word of the title (`vaswani-2017-attention`), or the project and owner for code (`karpathy-nanogpt`). It does not change.",
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "type": "string"
+          },
+          "role": {
+            "title": "VaultCiteRole",
+            "description": "The part a work plays in a note. background: explains something the note rests on. method: the note's method is taken or adapted from it. solution: it showed how to get past a problem the note records (a fix, a setting, a workaround). baseline: its method or reported result is what the note compares against. supports: it reports what the note says. contradicts: it reports otherwise. inspiration: it suggested what to try, not how. tool: its code, data or model is used.",
+            "anyOf": [
+              {
+                "const": "background",
+                "type": "string"
+              },
+              {
+                "const": "method",
+                "type": "string"
+              },
+              {
+                "const": "solution",
+                "type": "string"
+              },
+              {
+                "const": "baseline",
+                "type": "string"
+              },
+              {
+                "const": "supports",
+                "type": "string"
+              },
+              {
+                "const": "contradicts",
+                "type": "string"
+              },
+              {
+                "const": "inspiration",
+                "type": "string"
+              },
+              {
+                "const": "tool",
+                "type": "string"
+              }
+            ]
+          },
+          "where": {
+            "minLength": 1,
+            "maxLength": 120,
+            "description": "Where in the work: a section, equation, table, figure, page or file.",
+            "type": "string"
+          },
+          "note": {
+            "maxLength": 600,
+            "description": "What exactly was taken from it, or how the note departs from it.",
+            "type": "string"
+          }
+        }
+      }
+    },
+    "sources": {
+      "maxItems": 200,
+      "description": "Where the note was distilled from, as `kind:id` (`task:…`, `run:…`, `study:…`, a research record kind) or `repo:<path>` for a file in the project's repository. Provenance, shown last.",
+      "type": "array",
+      "items": {
+        "pattern": "^[a-z_]{1,32}:.{1,1024}$",
+        "type": "string"
+      }
+    },
+    "task_id": {
+      "title": "TaskId",
+      "description": "AblationKit task identifier (UI- or agent-first task).",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "edition": {
+      "title": "VaultDate",
+      "description": "A calendar date, `YYYY-MM-DD`.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "type": "string"
+    },
+    "created": {
+      "title": "VaultDate",
+      "description": "A calendar date, `YYYY-MM-DD`.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "type": "string"
+    },
+    "updated": {
+      "title": "VaultDate",
+      "description": "A calendar date, `YYYY-MM-DD`.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "type": "string"
+    },
+    "created_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "updated_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "created_by": {
+      "title": "ResearchActor",
+      "description": "Who made a change: a human session, an agent token or the system. Work under a task links the task (`task:ID`).",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "anyOf": [
+            {
+              "const": "human",
+              "type": "string"
+            },
+            {
+              "const": "agent",
+              "type": "string"
+            },
+            {
+              "const": "system",
+              "type": "string"
+            }
+          ]
+        },
+        "id": {
+          "maxLength": 200,
+          "type": "string"
+        }
+      }
+    },
+    "updated_by": {
+      "title": "ResearchActor",
+      "description": "Who made a change: a human session, an agent token or the system. Work under a task links the task (`task:ID`).",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "anyOf": [
+            {
+              "const": "human",
+              "type": "string"
+            },
+            {
+              "const": "agent",
+              "type": "string"
+            },
+            {
+              "const": "system",
+              "type": "string"
+            }
+          ]
+        },
+        "id": {
+          "maxLength": 200,
+          "type": "string"
+        }
+      }
+    },
+    "revision": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "archived_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    }
+  }
+}

@@ -1,0 +1,266 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ablationkit:schema:run-bundle-manifest.v1",
+  "title": "RunBundleManifest",
+  "description": "A self-sufficient run bundle: pinned source, the worker, the SDK and everything the worker needs to run and report one attempt without the coordinator.",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schema_version",
+    "bundle_id",
+    "project_id",
+    "job_id",
+    "attempt_id",
+    "target_id",
+    "target_kind",
+    "created_at",
+    "worker_url",
+    "argv",
+    "environment",
+    "cwd",
+    "env",
+    "limits",
+    "artifact_paths",
+    "source_commit",
+    "files",
+    "heartbeat_sec",
+    "max_backoff_sec",
+    "spool_max_bytes",
+    "min_free_disk_bytes",
+    "deliver_deadline_sec"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "type": "number"
+    },
+    "bundle_id": {
+      "pattern": "^b-[a-f0-9]{12}$",
+      "type": "string"
+    },
+    "project_id": {
+      "title": "ProjectId",
+      "description": "Stable project identifier (lowercase slug). Never a path; paths live in the local registry.",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,62}$",
+      "type": "string"
+    },
+    "job_id": {
+      "title": "JobId",
+      "description": "AblationKit job identifier.",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "attempt_id": {
+      "title": "AttemptId",
+      "description": "Identifier of one attempt of a job.",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "target_id": {
+      "title": "TargetId",
+      "description": "Compute target identifier (lowercase slug). `local` is reserved for this machine.",
+      "pattern": "^[a-z][a-z0-9-]{0,39}$",
+      "type": "string"
+    },
+    "target_kind": {
+      "title": "TargetKind",
+      "description": "`ssh`: a worker host reached over SSH (usually on the tailnet). `slurm`: a cluster login node reached over SSH; jobs go through `sbatch`. `runpod`: pods through the Runpod REST API. `colab`: notebook export only (no unattended execution).",
+      "anyOf": [
+        {
+          "const": "ssh",
+          "type": "string"
+        },
+        {
+          "const": "slurm",
+          "type": "string"
+        },
+        {
+          "const": "runpod",
+          "type": "string"
+        },
+        {
+          "const": "colab",
+          "type": "string"
+        }
+      ]
+    },
+    "created_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "worker_url": {
+      "pattern": "^https?://[^ ]+$",
+      "maxLength": 2048,
+      "type": "string"
+    },
+    "argv": {
+      "minItems": 1,
+      "maxItems": 1100,
+      "type": "array",
+      "items": {
+        "maxLength": 8192,
+        "type": "string"
+      }
+    },
+    "environment": {
+      "anyOf": [
+        {
+          "const": "uv",
+          "type": "string"
+        },
+        {
+          "const": "none",
+          "type": "string"
+        }
+      ]
+    },
+    "cwd": {
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^[^/].*$",
+      "description": "Working directory inside `source/`; `.` for its root.",
+      "type": "string"
+    },
+    "env": {
+      "type": "object",
+      "patternProperties": {
+        "^(.*)$": {
+          "maxLength": 32768,
+          "type": "string"
+        }
+      }
+    },
+    "limits": {
+      "title": "JobLimits",
+      "description": "CPU, memory, time and task limits for one attempt.",
+      "additionalProperties": false,
+      "type": "object",
+      "properties": {
+        "memory_max_bytes": {
+          "minimum": 16777216,
+          "description": "`MemoryMax` (with `MemorySwapMax=0`).",
+          "type": "integer"
+        },
+        "cpu_quota_percent": {
+          "minimum": 1,
+          "maximum": 100000,
+          "description": "`CPUQuota`; 100 is one core.",
+          "type": "integer"
+        },
+        "runtime_max_sec": {
+          "minimum": 1,
+          "maximum": 31536000,
+          "description": "`RuntimeMaxSec`.",
+          "type": "integer"
+        },
+        "tasks_max": {
+          "minimum": 1,
+          "maximum": 1000000,
+          "type": "integer"
+        }
+      }
+    },
+    "artifact_paths": {
+      "maxItems": 64,
+      "type": "array",
+      "items": {
+        "minLength": 1,
+        "maxLength": 1024,
+        "type": "string"
+      }
+    },
+    "metrics_file": {
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^[^/].*$",
+      "description": "Relative to `source/`.",
+      "type": "string"
+    },
+    "metrics_format": {
+      "title": "MetricsFormat",
+      "description": "How the metrics-file adapter reads each line: nested objects are always flattened with `/`; these name the step and time keys, which are never metrics.",
+      "additionalProperties": false,
+      "type": "object",
+      "properties": {
+        "step_keys": {
+          "minItems": 1,
+          "maxItems": 8,
+          "description": "Keys that hold the step, the first holding a non-negative integer wins; nested keys by their flattened name (`validation/global_step`). Default `[\"step\"]`; without one, the line number.",
+          "type": "array",
+          "items": {
+            "minLength": 1,
+            "maxLength": 250,
+            "type": "string"
+          }
+        },
+        "timestamp_key": {
+          "minLength": 1,
+          "maxLength": 250,
+          "description": "Key that holds the time: milliseconds, or seconds when below 1e11. Default `timestamp`; without one, the read time.",
+          "type": "string"
+        }
+      }
+    },
+    "source_commit": {
+      "pattern": "^[a-f0-9]{40,64}$",
+      "type": "string"
+    },
+    "files": {
+      "maxItems": 200000,
+      "description": "Every file in the bundle except this manifest.",
+      "type": "array",
+      "items": {
+        "title": "BundleFile",
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "path",
+          "sha256",
+          "size"
+        ],
+        "properties": {
+          "path": {
+            "minLength": 1,
+            "maxLength": 1024,
+            "pattern": "^[^/].*$",
+            "description": "Path relative to the bundle root; code rejects `..`.",
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          },
+          "size": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      }
+    },
+    "heartbeat_sec": {
+      "minimum": 1,
+      "maximum": 3600,
+      "type": "integer"
+    },
+    "max_backoff_sec": {
+      "minimum": 1,
+      "maximum": 3600,
+      "type": "integer"
+    },
+    "spool_max_bytes": {
+      "minimum": 1048576,
+      "type": "integer"
+    },
+    "min_free_disk_bytes": {
+      "minimum": 0,
+      "type": "integer",
+      "description": "Below this much free space the worker stops staging artifacts and drops noncritical events (disk pressure)."
+    },
+    "deliver_deadline_sec": {
+      "minimum": 0,
+      "type": "integer"
+    }
+  }
+}

@@ -1,0 +1,200 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ablationkit:schema:extension-state.v1",
+  "title": "ExtensionState",
+  "description": "One extension in one project: whether it is enabled, its active build and approvals.",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schema_version",
+    "project_id",
+    "extension_id",
+    "enabled",
+    "approvals",
+    "updated_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "type": "number"
+    },
+    "project_id": {
+      "title": "ProjectId",
+      "description": "Stable project identifier (lowercase slug). Never a path; paths live in the local registry.",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,62}$",
+      "type": "string"
+    },
+    "extension_id": {
+      "title": "ExtensionId",
+      "description": "Extension ID: lowercase letters, digits and dashes, starting with a letter.",
+      "pattern": "^[a-z][a-z0-9-]{1,62}$",
+      "type": "string"
+    },
+    "enabled": {
+      "description": "Mounted and runnable in this project. Only the researcher enables it.",
+      "type": "boolean"
+    },
+    "active_build": {
+      "title": "ExtensionBuildId",
+      "description": "Content-derived build ID, `eb-<16 hex>`: the same source, lockfile and capabilities give the same build.",
+      "pattern": "^eb-[a-f0-9]{16}$",
+      "type": "string"
+    },
+    "approvals": {
+      "maxItems": 200,
+      "description": "Every approval for this project, oldest first. Rollback re-activates one.",
+      "type": "array",
+      "items": {
+        "title": "ExtensionApproval",
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "build_id",
+          "version",
+          "source_sha256",
+          "capability_sha256",
+          "capabilities",
+          "trusted_code",
+          "approved_by",
+          "approved_at"
+        ],
+        "properties": {
+          "build_id": {
+            "title": "ExtensionBuildId",
+            "description": "Content-derived build ID, `eb-<16 hex>`: the same source, lockfile and capabilities give the same build.",
+            "pattern": "^eb-[a-f0-9]{16}$",
+            "type": "string"
+          },
+          "version": {
+            "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
+            "maxLength": 64,
+            "type": "string"
+          },
+          "source_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          },
+          "lockfile_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          },
+          "capability_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          },
+          "bundle_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          },
+          "environment_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          },
+          "capabilities": {
+            "maxItems": 32,
+            "type": "array",
+            "items": {
+              "maxLength": 81,
+              "type": "string"
+            }
+          },
+          "trusted_code": {
+            "description": "Approved Python runs as trusted code under the researcher's user (§7.11): acknowledged by the researcher, or, for an automatic approval, the coordinator's setting.",
+            "const": true,
+            "type": "boolean"
+          },
+          "automatic": {
+            "description": "Enabled as it was built, without a separate approval (ADR 0045); `approved_by` is who built it.",
+            "type": "boolean"
+          },
+          "approved_by": {
+            "title": "ExtensionActor",
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "anyOf": [
+                  {
+                    "const": "human",
+                    "type": "string"
+                  },
+                  {
+                    "const": "agent",
+                    "type": "string"
+                  },
+                  {
+                    "const": "system",
+                    "type": "string"
+                  }
+                ]
+              },
+              "id": {
+                "maxLength": 200,
+                "type": "string"
+              }
+            }
+          },
+          "approved_at": {
+            "title": "Timestamp",
+            "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+            "type": "string"
+          },
+          "note": {
+            "maxLength": 2000,
+            "type": "string"
+          }
+        }
+      }
+    },
+    "disabled_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "disabled_by": {
+      "title": "ExtensionActor",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "anyOf": [
+            {
+              "const": "human",
+              "type": "string"
+            },
+            {
+              "const": "agent",
+              "type": "string"
+            },
+            {
+              "const": "system",
+              "type": "string"
+            }
+          ]
+        },
+        "id": {
+          "maxLength": 200,
+          "type": "string"
+        }
+      }
+    },
+    "disabled_reason": {
+      "maxLength": 500,
+      "type": "string"
+    },
+    "updated_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    }
+  }
+}

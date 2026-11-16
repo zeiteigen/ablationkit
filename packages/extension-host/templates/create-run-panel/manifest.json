@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "id": "__ID__",
+  "version": "0.1.0",
+  "name": "__NAME__",
+  "description": "A run inspector tab and a project panel that read runs through the bridge.",
+  "host_api": "^1.0.0",
+  "contributes": [
+    {
+      "id": "tab",
+      "point": "run.tab",
+      "title": "__NAME__",
+      "entry": "ui/src/RunTab.tsx"
+    },
+    {
+      "id": "panel",
+      "point": "project.panel",
+      "title": "__NAME__",
+      "entry": "ui/src/Panel.tsx"
+    }
+  ],
+  "capabilities": ["project.runs.read"]
+}

@@ -1,0 +1,50 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "project_id": "custom-architecture-lab",
+      "shelf": [],
+      "ledger": { "order": [] },
+      "updated_at": "2026-11-02T10:00:00Z",
+      "updated_by": { "kind": "system" },
+      "revision": 1
+    },
+    {
+      "schema_version": 1,
+      "project_id": "custom-architecture-lab",
+      "shelf": ["how-it-works", "why-the-64k-model-trailed"],
+      "ledger": {
+        "bottom_line": "The 64k model trails the 8k model by 0.04 BPB; two fixes account for half of it.",
+        "order": ["final-layernorm-missing"]
+      },
+      "updated_at": "2026-11-04T09:00:00Z",
+      "updated_by": { "kind": "agent", "id": "0123456789abcdef" },
+      "revision": 4
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "no ledger",
+      "value": {
+        "schema_version": 1,
+        "project_id": "custom-architecture-lab",
+        "shelf": [],
+        "updated_at": "2026-11-02T10:00:00Z",
+        "updated_by": { "kind": "system" },
+        "revision": 1
+      }
+    },
+    {
+      "reason": "a shelf entry that is not a note id",
+      "value": {
+        "schema_version": 1,
+        "project_id": "custom-architecture-lab",
+        "shelf": ["How it works"],
+        "ledger": { "order": [] },
+        "updated_at": "2026-11-02T10:00:00Z",
+        "updated_by": { "kind": "system" },
+        "revision": 1
+      }
+    }
+  ]
+}

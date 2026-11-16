@@ -1,0 +1,103 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "project_id": "p-1",
+      "extension_id": "model-explorer",
+      "enabled": true,
+      "active_build": "eb-0123456789abcdef",
+      "approvals": [
+        {
+          "build_id": "eb-0123456789abcdef",
+          "version": "0.2.0",
+          "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "lockfile_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "capability_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "bundle_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "environment_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "capabilities": ["project.runs.read"],
+          "trusted_code": true,
+          "approved_by": {
+            "kind": "human",
+            "id": "tok-abc"
+          },
+          "approved_at": "2026-11-04T10:00:00.000Z"
+        }
+      ],
+      "updated_at": "2026-11-04T10:00:00.000Z"
+    },
+    {
+      "schema_version": 1,
+      "project_id": "p-1",
+      "extension_id": "model-explorer",
+      "enabled": false,
+      "approvals": [],
+      "disabled_at": "2026-11-04T11:00:00.000Z",
+      "disabled_by": {
+        "kind": "human"
+      },
+      "disabled_reason": "noisy",
+      "updated_at": "2026-11-04T11:00:00.000Z"
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "approvals must acknowledge trusted code",
+      "value": {
+        "schema_version": 1,
+        "project_id": "p-1",
+        "extension_id": "model-explorer",
+        "enabled": true,
+        "active_build": "eb-0123456789abcdef",
+        "approvals": [
+          {
+            "build_id": "eb-0123456789abcdef",
+            "version": "0.2.0",
+            "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "lockfile_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "capability_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "bundle_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "environment_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "capabilities": ["project.runs.read"],
+            "trusted_code": false,
+            "approved_by": {
+              "kind": "human",
+              "id": "tok-abc"
+            },
+            "approved_at": "2026-11-04T10:00:00.000Z"
+          }
+        ],
+        "updated_at": "2026-11-04T10:00:00.000Z"
+      }
+    },
+    {
+      "reason": "build IDs are content-derived",
+      "value": {
+        "schema_version": 1,
+        "project_id": "p-1",
+        "extension_id": "model-explorer",
+        "enabled": true,
+        "active_build": "eb-1",
+        "approvals": [
+          {
+            "build_id": "eb-0123456789abcdef",
+            "version": "0.2.0",
+            "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "lockfile_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "capability_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "bundle_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "environment_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "capabilities": ["project.runs.read"],
+            "trusted_code": true,
+            "approved_by": {
+              "kind": "human",
+              "id": "tok-abc"
+            },
+            "approved_at": "2026-11-04T10:00:00.000Z"
+          }
+        ],
+        "updated_at": "2026-11-04T10:00:00.000Z"
+      }
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "id": "__ID__",
+  "version": "0.1.0",
+  "name": "__NAME__",
+  "description": "A run tab that runs the extension's own Python analysis on the run and shows its typed result.",
+  "host_api": "^1.0.0",
+  "contributes": [
+    {
+      "id": "tab",
+      "point": "run.tab",
+      "title": "__NAME__",
+      "entry": "ui/src/Tab.tsx",
+      "target": "analyze"
+    },
+    {
+      "id": "analyze",
+      "point": "run.evaluator",
+      "title": "Analyze this run",
+      "entry": "python/analysis.py:analyze"
+    }
+  ],
+  "python": {
+    "requires_python": ">=3.10",
+    "project": "python",
+    "lockfile": "python/uv.lock",
+    "max_runtime_seconds": 120,
+    "max_memory_mb": 512,
+    "gpu": false,
+    "network": "none"
+  },
+  "capabilities": ["project.analysis.execute", "project.runs.read"]
+}

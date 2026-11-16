@@ -1,0 +1,19 @@
+name: sklearn-lifecycle
+python_env: python_env.yaml
+
+entry_points:
+  main:
+    parameters:
+      C: {type: float, default: 1.0}
+      data: {type: path, default: data/iris.csv}
+    command: "python train.py --task classify --C {C} --data {data}"
+  regress:
+    parameters:
+      alpha: {type: float, default: 0.1}
+      data: {type: path, default: data/regression.csv}
+    command: "python train.py --task regress --alpha {alpha} --data {data}"
+  text:
+    parameters:
+      C: {type: float, default: 1.0}
+      data: {type: path, default: data/reviews.csv}
+    command: "python train_text.py --C {C} --data {data}"

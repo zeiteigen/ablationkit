@@ -1,0 +1,174 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ablationkit:schema:token-store.v1",
+  "title": "TokenStore",
+  "description": "All minted tokens, including revoked and expired ones until pruned.",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schema_version",
+    "tokens"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "type": "number"
+    },
+    "tokens": {
+      "type": "array",
+      "items": {
+        "title": "TokenRecord",
+        "description": "One minted bearer token (hash only).",
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "token_id",
+          "kind",
+          "token_hash",
+          "created_at",
+          "scope"
+        ],
+        "properties": {
+          "token_id": {
+            "title": "TokenId",
+            "description": "Public identifier of a token, embedded in the token string.",
+            "pattern": "^[a-f0-9]{16}$",
+            "type": "string"
+          },
+          "kind": {
+            "title": "TokenKind",
+            "description": "session: human API; agent: agent API; worker: worker upload API.",
+            "anyOf": [
+              {
+                "const": "session",
+                "type": "string"
+              },
+              {
+                "const": "agent",
+                "type": "string"
+              },
+              {
+                "const": "worker",
+                "type": "string"
+              }
+            ]
+          },
+          "token_hash": {
+            "description": "SHA-256 of the secret, hex.",
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Timestamp",
+            "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+            "type": "string"
+          },
+          "expires_at": {
+            "title": "Timestamp",
+            "description": "Absent for worker tokens until the job is terminal.",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+            "type": "string"
+          },
+          "revoked_at": {
+            "title": "Timestamp",
+            "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+            "type": "string"
+          },
+          "revoked_reason": {
+            "maxLength": 512,
+            "type": "string"
+          },
+          "label": {
+            "description": "Human-readable note.",
+            "maxLength": 200,
+            "type": "string"
+          },
+          "scope": {
+            "title": "TokenScope",
+            "description": "What a token is bound to. Agent: a project (ADR 0039); worker: project, job and attempt.",
+            "additionalProperties": false,
+            "type": "object",
+            "properties": {
+              "project_id": {
+                "title": "ProjectId",
+                "description": "Stable project identifier (lowercase slug). Never a path; paths live in the local registry.",
+                "pattern": "^[a-z0-9][a-z0-9-]{0,62}$",
+                "type": "string"
+              },
+              "job_id": {
+                "title": "JobId",
+                "description": "AblationKit job identifier.",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+                "type": "string"
+              },
+              "attempt_id": {
+                "title": "AttemptId",
+                "description": "Identifier of one attempt of a job.",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+                "type": "string"
+              }
+            }
+          },
+          "purpose": {
+            "description": "Worker tokens only. `launch`: held by a remote worker for the whole job; it can only perform the handshake, which issues short-lived `upload` tokens (ADR 0023). Absent means `upload`.",
+            "anyOf": [
+              {
+                "const": "upload",
+                "type": "string"
+              },
+              {
+                "const": "launch",
+                "type": "string"
+              }
+            ]
+          },
+          "agent_session": {
+            "title": "AgentSessionInfo",
+            "description": "Agent tokens minted for an agent session (ADR 0040). Absent on agent tokens minted before it.",
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "harness",
+              "label",
+              "cwd",
+              "last_used_at",
+              "idle_timeout_sec"
+            ],
+            "properties": {
+              "harness": {
+                "description": "The agent harness, as `ablationkit mcp` reports it (e.g. claude-code, codex).",
+                "minLength": 1,
+                "maxLength": 64,
+                "type": "string"
+              },
+              "label": {
+                "description": "The session's label.",
+                "minLength": 1,
+                "maxLength": 200,
+                "type": "string"
+              },
+              "cwd": {
+                "description": "The directory `ablationkit mcp` started in.",
+                "maxLength": 4096,
+                "type": "string"
+              },
+              "last_used_at": {
+                "title": "Timestamp",
+                "description": "Updated at most once a minute while the agent calls the API.",
+                "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+                "type": "string"
+              },
+              "idle_timeout_sec": {
+                "description": "The session ends after this long without a request.",
+                "minimum": 60,
+                "type": "integer"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

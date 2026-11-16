@@ -1,0 +1,50 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "mode": "managed"
+    },
+    {
+      "schema_version": 1,
+      "mode": "managed",
+      "home": "/home/r/.ablationkit",
+      "launch": "child"
+    },
+    {
+      "schema_version": 1,
+      "mode": "remote",
+      "remote_url": "https://ws.tail1234.ts.net"
+    },
+    {
+      "schema_version": 1,
+      "mode": "remote",
+      "remote_url": "http://localhost:7420"
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "plain http off loopback",
+      "value": {
+        "schema_version": 1,
+        "mode": "remote",
+        "remote_url": "http://100.64.0.2:7420"
+      }
+    },
+    {
+      "reason": "a path in the URL",
+      "value": {
+        "schema_version": 1,
+        "mode": "remote",
+        "remote_url": "https://ws.tail1234.ts.net/login?code=x"
+      }
+    },
+    {
+      "reason": "unknown launch",
+      "value": {
+        "schema_version": 1,
+        "mode": "managed",
+        "launch": "detached"
+      }
+    }
+  ]
+}

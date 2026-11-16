@@ -1,0 +1,33 @@
+{
+  "valid": [
+    { "schema_version": 1, "project_id": "custom-architecture-lab", "runs": {} },
+    {
+      "schema_version": 1,
+      "project_id": "custom-architecture-lab",
+      "runs": {
+        "0f3c9a1b2d4e5f60718293a4b5c6d7e8": {
+          "reason": "Diverged at step 900: the learning rate was ten times the sweep's.",
+          "run_name": "wide-lr-hi",
+          "at": "2026-11-04T10:05:00Z",
+          "by": { "kind": "agent", "id": "tok-1" }
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "missing runs",
+      "value": { "schema_version": 1, "project_id": "custom-architecture-lab" }
+    },
+    {
+      "reason": "a mark without a reason",
+      "value": {
+        "schema_version": 1,
+        "project_id": "custom-architecture-lab",
+        "runs": {
+          "0f3c9a1b": { "reason": "", "at": "2026-11-04T10:05:00Z", "by": { "kind": "agent" } }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,142 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ablationkit:schema:audit-record.v1",
+  "title": "AuditRecord",
+  "description": "An append-only audit journal entry. Never contains secrets.",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "seq",
+    "schema_version",
+    "ts",
+    "actor",
+    "listener",
+    "action",
+    "outcome"
+  ],
+  "properties": {
+    "seq": {
+      "title": "SequenceNumber",
+      "description": "Journal sequence number.",
+      "minimum": 0,
+      "maximum": 9007199254740991,
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": 1,
+      "type": "number"
+    },
+    "ts": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "actor": {
+      "title": "AuditActor",
+      "description": "The principal behind an audited action.",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "description": "Who acted: a human session, an agent or worker token, or the coordinator itself.",
+          "anyOf": [
+            {
+              "const": "human",
+              "type": "string"
+            },
+            {
+              "const": "agent",
+              "type": "string"
+            },
+            {
+              "const": "worker",
+              "type": "string"
+            },
+            {
+              "const": "system",
+              "type": "string"
+            }
+          ]
+        },
+        "id": {
+          "description": "Session or token ID (never the secret).",
+          "pattern": "^[A-Za-z0-9._:-]{1,128}$",
+          "type": "string"
+        }
+      }
+    },
+    "listener": {
+      "description": "Where the request arrived.",
+      "anyOf": [
+        {
+          "const": "human",
+          "type": "string"
+        },
+        {
+          "const": "agent",
+          "type": "string"
+        },
+        {
+          "const": "worker",
+          "type": "string"
+        },
+        {
+          "const": "login",
+          "type": "string"
+        },
+        {
+          "const": "internal",
+          "type": "string"
+        }
+      ]
+    },
+    "action": {
+      "description": "Dotted action name, for example `project.register` or `policy.revise`.",
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$",
+      "type": "string"
+    },
+    "outcome": {
+      "anyOf": [
+        {
+          "const": "allowed",
+          "type": "string"
+        },
+        {
+          "const": "denied",
+          "type": "string"
+        },
+        {
+          "const": "error",
+          "type": "string"
+        }
+      ]
+    },
+    "project_id": {
+      "title": "ProjectId",
+      "description": "Stable project identifier (lowercase slug). Never a path; paths live in the local registry.",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,62}$",
+      "type": "string"
+    },
+    "target": {
+      "description": "What was acted on (an ID or route).",
+      "maxLength": 1024,
+      "type": "string"
+    },
+    "reason": {
+      "description": "Why it was denied or failed.",
+      "maxLength": 1024,
+      "type": "string"
+    },
+    "details": {
+      "description": "Extra non-secret context.",
+      "type": "object",
+      "patternProperties": {
+        "^(.*)$": {}
+      }
+    }
+  }
+}

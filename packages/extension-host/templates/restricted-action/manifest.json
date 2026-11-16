@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__ID__",
+  "version": "0.1.0",
+  "name": "__NAME__",
+  "description": "A project action that runs one allowlisted coordinator operation (here: create a note). Actions cannot run shell commands or call internal or MLflow APIs.",
+  "host_api": "^1.0.0",
+  "contributes": [
+    {
+      "id": "note",
+      "point": "project.action",
+      "title": "__NAME__",
+      "operation": "research.note.create",
+      "params": {
+        "title": "Checkpoint",
+        "body": "Created by the __ID__ extension."
+      }
+    }
+  ],
+  "capabilities": ["project.research.write"]
+}

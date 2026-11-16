@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ablationkit:schema:desktop-config.v1",
+  "title": "DesktopConfig",
+  "description": "Which coordinator the desktop app opens.",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schema_version",
+    "mode"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "type": "number"
+    },
+    "mode": {
+      "description": "`managed`: the coordinator of a runtime directory on this machine, started if needed. `remote`: a coordinator elsewhere, reached over the tailnet (HTTPS) or loopback.",
+      "anyOf": [
+        {
+          "const": "managed",
+          "type": "string"
+        },
+        {
+          "const": "remote",
+          "type": "string"
+        }
+      ]
+    },
+    "home": {
+      "minLength": 1,
+      "maxLength": 4096,
+      "description": "Managed: the runtime directory (default ABLATIONKIT_HOME or ~/.ablationkit).",
+      "type": "string"
+    },
+    "launch": {
+      "description": "Managed: start it as the systemd user service (it keeps running after the app quits), or as a child of the app (stopped when the app quits). Default service.",
+      "anyOf": [
+        {
+          "const": "service",
+          "type": "string"
+        },
+        {
+          "const": "child",
+          "type": "string"
+        }
+      ]
+    },
+    "remote_url": {
+      "pattern": "^(https://[^/?#]+|http://(localhost|127\\.0\\.0\\.1|\\[::1\\])(:[0-9]{1,5})?)/?$",
+      "description": "Remote: the coordinator's origin. HTTPS (for example `tailscale serve`), or plain http only on loopback.",
+      "type": "string"
+    }
+  }
+}

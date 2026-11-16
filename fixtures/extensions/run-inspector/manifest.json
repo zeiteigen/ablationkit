@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "id": "run-inspector",
+  "version": "0.1.0",
+  "name": "Run inspector",
+  "description": "Shows a run's parameters and latest metrics, a project panel with recent runs, and a quick-note action.",
+  "host_api": "^1.0.0",
+  "contributes": [
+    { "id": "tab", "point": "run.tab", "title": "Inspector", "entry": "ui/src/RunTab.tsx" },
+    {
+      "id": "panel",
+      "point": "project.panel",
+      "title": "Recent runs",
+      "entry": "ui/src/Panel.tsx"
+    },
+    {
+      "id": "note",
+      "point": "project.action",
+      "title": "Add a checkpoint note",
+      "operation": "research.note.create",
+      "params": { "title": "Checkpoint", "body": "Created by the run-inspector extension." }
+    }
+  ],
+  "capabilities": ["project.runs.read", "project.research.write"]
+}

@@ -1,0 +1,34 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "attempt_id": "j-0123456789ab-a1",
+      "producers": {},
+      "accepted": 0,
+      "duplicates": 0,
+      "rejected": 0
+    },
+    {
+      "schema_version": 1,
+      "attempt_id": "j-0123456789ab-a1",
+      "producers": { "collector": 120, "sdk-4243-ab12": 57 },
+      "accepted": 177,
+      "duplicates": 12,
+      "rejected": 1,
+      "last_rejection": "metric.batch: metric key \"bad key!\" is invalid"
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "negative high-water mark",
+      "value": {
+        "schema_version": 1,
+        "attempt_id": "a",
+        "producers": { "collector": -1 },
+        "accepted": 0,
+        "duplicates": 0,
+        "rejected": 0
+      }
+    }
+  ]
+}

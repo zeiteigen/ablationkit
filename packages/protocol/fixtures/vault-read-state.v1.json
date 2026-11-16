@@ -1,0 +1,30 @@
+{
+  "valid": [
+    { "schema_version": 1, "project_id": "custom-architecture-lab", "notes": {} },
+    {
+      "schema_version": 1,
+      "project_id": "custom-architecture-lab",
+      "notes": {
+        "bits-per-byte": { "digest": "0123456789abcdef", "read_at": "2026-11-02T10:00:00Z" },
+        "final-layernorm-missing": {
+          "digest": "fedcba9876543210",
+          "read_at": "2026-11-04T10:05:00Z"
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "missing notes",
+      "value": { "schema_version": 1, "project_id": "custom-architecture-lab" }
+    },
+    {
+      "reason": "a mark without a time",
+      "value": {
+        "schema_version": 1,
+        "project_id": "custom-architecture-lab",
+        "notes": { "bits-per-byte": { "digest": "0123456789abcdef" } }
+      }
+    }
+  ]
+}

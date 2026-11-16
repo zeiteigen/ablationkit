@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ablationkit:schema:research-export-state.v1",
+  "title": "ResearchExportState",
+  "description": "Per-project export and import bookkeeping, stored in the coordinator state directory.",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schema_version",
+    "project_id",
+    "drift",
+    "files"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "type": "number"
+    },
+    "project_id": {
+      "title": "ProjectId",
+      "description": "Stable project identifier (lowercase slug). Never a path; paths live in the local registry.",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,62}$",
+      "type": "string"
+    },
+    "imported_at": {
+      "title": "Timestamp",
+      "description": "When the one-time import from the checkout's export ran.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "imported_records": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "import_note": {
+      "maxLength": 2000,
+      "type": "string"
+    },
+    "last_export_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "last_export_error": {
+      "maxLength": 2000,
+      "type": "string"
+    },
+    "last_export_redactions": {
+      "minimum": 0,
+      "description": "Fields the last export replaced because they looked like secrets.",
+      "type": "integer"
+    },
+    "drift": {
+      "maxItems": 200,
+      "type": "array",
+      "items": {
+        "title": "ExportDrift",
+        "description": "An export file that was edited by hand. The edit was saved here and the file rewritten from the canonical records.",
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "path",
+          "saved_to",
+          "detected_at"
+        ],
+        "properties": {
+          "path": {
+            "maxLength": 1024,
+            "type": "string"
+          },
+          "saved_to": {
+            "maxLength": 4096,
+            "type": "string"
+          },
+          "detected_at": {
+            "title": "Timestamp",
+            "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+            "type": "string"
+          }
+        }
+      }
+    },
+    "files": {
+      "description": "SHA-256 of every file the last export wrote, by path relative to `.ablationkit/`. Used to detect hand edits and to remove only files AblationKit wrote.",
+      "type": "object",
+      "patternProperties": {
+        "^(.*)$": {
+          "pattern": "^[a-f0-9]{64}$",
+          "type": "string"
+        }
+      }
+    }
+  }
+}

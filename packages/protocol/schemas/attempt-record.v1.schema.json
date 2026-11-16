@@ -1,0 +1,591 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ablationkit:schema:attempt-record.v1",
+  "title": "AttemptRecord",
+  "description": "One execution attempt: compute status, supervision and provenance. Its MLflow run is keyed by attempt_id.",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schema_version",
+    "attempt_id",
+    "job_id",
+    "project_id",
+    "number",
+    "state",
+    "created_at",
+    "supervisor",
+    "collector",
+    "token_id",
+    "artifacts"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "type": "number"
+    },
+    "attempt_id": {
+      "title": "AttemptId",
+      "description": "Identifier of one attempt of a job.",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "job_id": {
+      "title": "JobId",
+      "description": "AblationKit job identifier.",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "project_id": {
+      "title": "ProjectId",
+      "description": "Stable project identifier (lowercase slug). Never a path; paths live in the local registry.",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,62}$",
+      "type": "string"
+    },
+    "number": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "state": {
+      "title": "AttemptState",
+      "description": "Compute status of one attempt. `unknown`: the collector vanished without reporting an exit; nothing is rerun automatically.",
+      "anyOf": [
+        {
+          "const": "starting",
+          "type": "string"
+        },
+        {
+          "const": "running",
+          "type": "string"
+        },
+        {
+          "const": "succeeded",
+          "type": "string"
+        },
+        {
+          "const": "failed",
+          "type": "string"
+        },
+        {
+          "const": "cancelled",
+          "type": "string"
+        },
+        {
+          "const": "timed_out",
+          "type": "string"
+        },
+        {
+          "const": "oom_killed",
+          "type": "string"
+        },
+        {
+          "const": "unknown",
+          "type": "string"
+        }
+      ]
+    },
+    "created_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "started_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "ended_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "cancel_requested_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "supervisor": {
+      "title": "SupervisorInfo",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "mode",
+        "enforcement"
+      ],
+      "properties": {
+        "mode": {
+          "description": "`systemd`: a user scope per attempt. `direct`: a plain process group (no systemd user manager). `remote`: the target's own supervisor (`remote.target_kind`).",
+          "anyOf": [
+            {
+              "const": "systemd",
+              "type": "string"
+            },
+            {
+              "const": "direct",
+              "type": "string"
+            },
+            {
+              "const": "remote",
+              "type": "string"
+            }
+          ]
+        },
+        "enforcement": {
+          "description": "Whether CPU/memory/task limits are enforced by the kernel (spec §7.11). Never claim enforced for direct mode.",
+          "anyOf": [
+            {
+              "const": "enforced",
+              "type": "string"
+            },
+            {
+              "const": "advisory",
+              "type": "string"
+            }
+          ]
+        },
+        "reason": {
+          "maxLength": 2000,
+          "type": "string"
+        },
+        "unit": {
+          "maxLength": 256,
+          "description": "systemd scope of the job.",
+          "type": "string"
+        },
+        "collector_unit": {
+          "maxLength": 256,
+          "type": "string"
+        }
+      }
+    },
+    "collector": {
+      "title": "CollectorHealth",
+      "description": "Last health report from the attempt's collector.",
+      "additionalProperties": false,
+      "type": "object",
+      "properties": {
+        "pid": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "last_seen_at": {
+          "title": "Timestamp",
+          "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+          "type": "string"
+        },
+        "spool_bytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "pending_events": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "pending_artifacts": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "dropped_events": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "last_error": {
+          "maxLength": 2000,
+          "type": "string"
+        }
+      }
+    },
+    "token_id": {
+      "pattern": "^[a-f0-9]{16}$",
+      "type": "string",
+      "description": "Worker token for this attempt."
+    },
+    "pid": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "exit_code": {
+      "type": "integer"
+    },
+    "signal": {
+      "maxLength": 32,
+      "type": "string"
+    },
+    "unit_result": {
+      "maxLength": 64,
+      "description": "systemd `Result` of the scope.",
+      "type": "string"
+    },
+    "error": {
+      "maxLength": 2000,
+      "type": "string"
+    },
+    "snapshot": {
+      "title": "AttemptSnapshot",
+      "description": "Provenance captured when the attempt started (spec §6).",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "hostname",
+        "command",
+        "cwd",
+        "collector_version"
+      ],
+      "properties": {
+        "hostname": {
+          "maxLength": 253,
+          "type": "string"
+        },
+        "command": {
+          "maxItems": 1100,
+          "type": "array",
+          "items": {
+            "maxLength": 8192,
+            "type": "string"
+          }
+        },
+        "cwd": {
+          "maxLength": 4096,
+          "type": "string"
+        },
+        "source_commit": {
+          "pattern": "^[a-f0-9]{7,64}$",
+          "type": "string"
+        },
+        "source_dirty": {
+          "type": "boolean"
+        },
+        "python": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "sdk_version": {
+          "maxLength": 100,
+          "type": "string"
+        },
+        "collector_version": {
+          "maxLength": 100,
+          "type": "string"
+        }
+      }
+    },
+    "artifacts": {
+      "maxItems": 10000,
+      "type": "array",
+      "items": {
+        "title": "UploadedArtifact",
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "path",
+          "size",
+          "sha256",
+          "uploaded_at"
+        ],
+        "properties": {
+          "path": {
+            "minLength": 1,
+            "maxLength": 1024,
+            "pattern": "^[^/].*$",
+            "description": "Path inside the run's artifact root.",
+            "type": "string"
+          },
+          "size": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          },
+          "uploaded_at": {
+            "title": "Timestamp",
+            "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+            "type": "string"
+          }
+        }
+      }
+    },
+    "remote": {
+      "title": "RemoteAttemptInfo",
+      "description": "Remote execution, connectivity and sync status of one attempt.",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "target_id",
+        "target_kind",
+        "bundle_id",
+        "source_commit",
+        "staging",
+        "connectivity",
+        "sync",
+        "spool_acked_seq",
+        "launch_token_id",
+        "launch_expires_at"
+      ],
+      "properties": {
+        "target_id": {
+          "title": "TargetId",
+          "description": "Compute target identifier (lowercase slug). `local` is reserved for this machine.",
+          "pattern": "^[a-z][a-z0-9-]{0,39}$",
+          "type": "string"
+        },
+        "target_kind": {
+          "title": "TargetKind",
+          "description": "`ssh`: a worker host reached over SSH (usually on the tailnet). `slurm`: a cluster login node reached over SSH; jobs go through `sbatch`. `runpod`: pods through the Runpod REST API. `colab`: notebook export only (no unattended execution).",
+          "anyOf": [
+            {
+              "const": "ssh",
+              "type": "string"
+            },
+            {
+              "const": "slurm",
+              "type": "string"
+            },
+            {
+              "const": "runpod",
+              "type": "string"
+            },
+            {
+              "const": "colab",
+              "type": "string"
+            }
+          ]
+        },
+        "bundle_id": {
+          "pattern": "^b-[a-f0-9]{12}$",
+          "type": "string"
+        },
+        "bundle_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "source_commit": {
+          "pattern": "^[a-f0-9]{40,64}$",
+          "type": "string"
+        },
+        "staging": {
+          "title": "RemoteStaging",
+          "description": "`submitted`: the provider confirmed the job; from here the provider's scheduler owns process lifetime (spec §5.7). `exported`: a notebook was written for an interactive runtime (Colab); nothing runs unattended, and results arrive by `remote import` (or live, if the notebook was exported with credentials).",
+          "anyOf": [
+            {
+              "const": "bundling",
+              "type": "string"
+            },
+            {
+              "const": "staging",
+              "type": "string"
+            },
+            {
+              "const": "submitted",
+              "type": "string"
+            },
+            {
+              "const": "exported",
+              "type": "string"
+            },
+            {
+              "const": "failed",
+              "type": "string"
+            }
+          ]
+        },
+        "staging_error": {
+          "maxLength": 2000,
+          "type": "string"
+        },
+        "submitted_at": {
+          "title": "Timestamp",
+          "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+          "type": "string"
+        },
+        "provider_job_id": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "provider_state": {
+          "maxLength": 100,
+          "description": "Raw provider status, for example `COMPLETED`.",
+          "type": "string"
+        },
+        "provider_checked_at": {
+          "title": "Timestamp",
+          "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+          "type": "string"
+        },
+        "worker_id": {
+          "pattern": "^w-[a-f0-9]{8,32}$",
+          "type": "string"
+        },
+        "worker_host": {
+          "maxLength": 253,
+          "type": "string"
+        },
+        "first_contact_at": {
+          "title": "Timestamp",
+          "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+          "type": "string"
+        },
+        "last_contact_at": {
+          "title": "Timestamp",
+          "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+          "type": "string"
+        },
+        "connectivity": {
+          "title": "RemoteConnectivity",
+          "description": "`pending`: the worker has not called in yet. `disconnected`: no heartbeat within `remote.disconnected_after_sec`; live monitoring and cancellation are not guaranteed.",
+          "anyOf": [
+            {
+              "const": "pending",
+              "type": "string"
+            },
+            {
+              "const": "connected",
+              "type": "string"
+            },
+            {
+              "const": "disconnected",
+              "type": "string"
+            }
+          ]
+        },
+        "sync": {
+          "title": "RemoteSyncStatus",
+          "description": "Worker-to-coordinator sync, shown separately from compute status (spec §5.3). `synced`: the worker reported its exit and an empty spool.",
+          "anyOf": [
+            {
+              "const": "awaiting_sync",
+              "type": "string"
+            },
+            {
+              "const": "syncing",
+              "type": "string"
+            },
+            {
+              "const": "synced",
+              "type": "string"
+            },
+            {
+              "const": "sync_failed",
+              "type": "string"
+            }
+          ]
+        },
+        "sync_error": {
+          "maxLength": 2000,
+          "type": "string"
+        },
+        "spool_acked_seq": {
+          "minimum": -1,
+          "type": "integer",
+          "description": "Highest worker spool seq the coordinator has applied; returned in the handshake so the worker replays only what is unacknowledged."
+        },
+        "worker_spool": {
+          "title": "WorkerSpoolReport",
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "next_seq": {
+              "title": "SequenceNumber",
+              "description": "Non-negative sequence number.",
+              "minimum": 0,
+              "maximum": 9007199254740991,
+              "type": "integer"
+            },
+            "pending_events": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "pending_artifacts": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "bytes": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "dropped_events": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "disk_free_bytes": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "disk_pressure": {
+              "type": "boolean"
+            }
+          }
+        },
+        "reconcile_required": {
+          "maxLength": 2000,
+          "description": "Why the outcome is ambiguous (a second worker, a lost process, a provider that ended the job). Nothing is rerun; a human decides.",
+          "type": "string"
+        },
+        "drains": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "launch_token_id": {
+          "pattern": "^[a-f0-9]{16}$",
+          "type": "string"
+        },
+        "launch_expires_at": {
+          "title": "Timestamp",
+          "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+          "type": "string"
+        },
+        "estimated_cents": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "store_slots": {
+          "minimum": 1,
+          "maximum": 64,
+          "description": "Presigned S3 upload slots issued to the worker (settings `remote.artifact_store`). Slot `n` is the object `<prefix><project>/<attempt>/s<nn>`.",
+          "type": "integer"
+        },
+        "store_cleaned_at": {
+          "title": "Timestamp",
+          "description": "When the attempt's leftover store objects were deleted after sync.",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+          "type": "string"
+        },
+        "imported_at": {
+          "title": "Timestamp",
+          "description": "When a spool archive was last imported (`remote import`): the worker reported offline, never live.",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+          "type": "string"
+        },
+        "expected_back_by": {
+          "title": "Timestamp",
+          "description": "An exported attempt (Colab): when its results should be back, the export time plus the job's time limit plus `remote.export_slack_min`. Absent without a time limit. Passing it makes the attempt overdue; nothing fails it automatically.",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+          "type": "string"
+        },
+        "overdue_at": {
+          "title": "Timestamp",
+          "description": "When the coordinator saw an exported attempt still unreported after `expected_back_by`. Import its archive, or mark it lost.",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+          "type": "string"
+        },
+        "marked_lost_at": {
+          "title": "Timestamp",
+          "description": "When a researcher marked an exported attempt lost (`remote resolve JOB --lost`): it ended `unknown`, releasing its parallel slot. A late import still lands and settles it.",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+          "type": "string"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,77 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "projects": []
+    },
+    {
+      "schema_version": 1,
+      "projects": [
+        {
+          "project_id": "vision-lab",
+          "name": "Vision lab",
+          "path": "/home/r/vision",
+          "registered_at": "2026-11-02T10:00:00Z",
+          "updated_at": "2026-11-02T10:00:00Z",
+          "previous_paths": []
+        },
+        {
+          "project_id": "nlp",
+          "name": "Vision lab",
+          "path": "/srv/nlp",
+          "registered_at": "2026-11-02T10:00:00Z",
+          "updated_at": "2026-11-02T10:00:00Z",
+          "previous_paths": ["/old/nlp"]
+        }
+      ]
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "relative path",
+      "value": {
+        "schema_version": 1,
+        "projects": [
+          {
+            "project_id": "vision-lab",
+            "name": "Vision lab",
+            "path": "vision",
+            "registered_at": "2026-11-02T10:00:00Z",
+            "updated_at": "2026-11-02T10:00:00Z",
+            "previous_paths": []
+          }
+        ]
+      }
+    },
+    {
+      "reason": "missing previous_paths",
+      "value": {
+        "schema_version": 1,
+        "projects": [
+          {
+            "project_id": "vision-lab",
+            "name": "Vision lab",
+            "path": "/home/r/vision",
+            "registered_at": "2026-11-02T10:00:00Z",
+            "updated_at": "2026-11-02T10:00:00Z"
+          }
+        ]
+      }
+    },
+    {
+      "reason": "unknown field",
+      "value": {
+        "schema_version": 1,
+        "projects": [],
+        "extra": 1
+      }
+    },
+    {
+      "reason": "schema_version 2",
+      "value": {
+        "schema_version": 2,
+        "projects": []
+      }
+    }
+  ]
+}

@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ablationkit:schema:project-manifest.v1",
+  "title": "ProjectManifest",
+  "description": "Repository-owned project manifest stored at `.ablationkit/project.json`.",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schema_version",
+    "project_id",
+    "name"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "type": "number"
+    },
+    "project_id": {
+      "title": "ProjectId",
+      "description": "Stable project identifier (lowercase slug). Never a path; paths live in the local registry.",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,62}$",
+      "type": "string"
+    },
+    "name": {
+      "description": "Human-readable project name.",
+      "minLength": 1,
+      "maxLength": 200,
+      "type": "string"
+    },
+    "description": {
+      "description": "Optional one-paragraph summary.",
+      "type": "string"
+    },
+    "task_profiles": {
+      "description": "Task profiles; they choose what the UI shows by default, never what exists (spec §2.2).",
+      "maxItems": 6,
+      "type": "array",
+      "items": {
+        "title": "TaskProfile",
+        "description": "A project task profile: selects default tabs, schemas and starter views.",
+        "anyOf": [
+          {
+            "const": "llm",
+            "type": "string"
+          },
+          {
+            "const": "rag",
+            "type": "string"
+          },
+          {
+            "const": "agent",
+            "type": "string"
+          },
+          {
+            "const": "computer_vision",
+            "type": "string"
+          },
+          {
+            "const": "tabular",
+            "type": "string"
+          },
+          {
+            "const": "other",
+            "type": "string"
+          }
+        ]
+      }
+    }
+  }
+}

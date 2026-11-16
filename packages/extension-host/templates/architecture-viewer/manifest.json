@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "id": "__ID__",
+  "version": "0.1.0",
+  "name": "__NAME__",
+  "description": "A run tab that renders a model architecture from a JSON artifact the run logged (for example model_architecture.json: {name, children: [...]}).",
+  "host_api": "^1.0.0",
+  "contributes": [
+    {
+      "id": "arch",
+      "point": "run.tab",
+      "title": "Architecture",
+      "entry": "ui/src/Architecture.tsx"
+    }
+  ],
+  "capabilities": ["project.runs.read", "project.artifacts.preview"]
+}

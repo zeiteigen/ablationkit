@@ -1,0 +1,45 @@
+.llm-lab {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.llm-lab .card,
+.llm-lab .row > *,
+.llm-lab .stack > * {
+  min-width: 0;
+}
+
+.llm-lab :is(h2, h3, .mono, code) {
+  overflow-wrap: anywhere;
+}
+
+.llm-lab .kv {
+  grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
+}
+
+.llm-lab .table-wrap {
+  max-width: 100%;
+  min-width: 0;
+  overscroll-behavior-x: contain;
+}
+
+.llm-lab .table-wrap table {
+  width: max-content;
+  min-width: 100%;
+}
+
+@media (max-width: 520px) {
+  .llm-lab .card {
+    padding: 14px;
+  }
+
+  .llm-lab .kv {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+
+  .llm-lab .kv dd + dt {
+    margin-top: 6px;
+  }
+}

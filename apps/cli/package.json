@@ -1,0 +1,21 @@
+{
+  "name": "@ablationkit/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "ablationkit": "./src/main.ts"
+  },
+  "dependencies": {
+    "@ablationkit/core": "workspace:*",
+    "@ablationkit/extension-host": "workspace:*",
+    "@ablationkit/protocol": "workspace:*",
+    "@ablationkit/server": "workspace:*",
+    "@ablationkit/compute-targets": "workspace:*",
+    "@ablationkit/builtin-llm": "workspace:*",
+    "@ablationkit/vault": "workspace:*"
+  },
+  "devDependencies": {
+    "@ablationkit/tracking-mlflow": "workspace:*"
+  }
+}

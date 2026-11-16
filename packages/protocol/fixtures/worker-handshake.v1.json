@@ -1,0 +1,51 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "worker_id": "w-0123456789abcdef",
+      "hostname": "gpu-node-07",
+      "worker_version": "0.1.0",
+      "bundle_id": "b-0123456789ab",
+      "provider_job_id": "81234",
+      "phase": "exited",
+      "last_acked_seq": 411,
+      "spool": {
+        "next_seq": 440,
+        "pending_events": 28,
+        "pending_artifacts": 1,
+        "bytes": 81920,
+        "dropped_events": 0,
+        "disk_free_bytes": 5368709120,
+        "disk_pressure": false
+      },
+      "drained": false,
+      "refresh": true
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "unknown phase",
+      "value": {
+        "schema_version": 1,
+        "worker_id": "w-0123456789abcdef",
+        "hostname": "gpu-node-07",
+        "worker_version": "0.1.0",
+        "bundle_id": "b-0123456789ab",
+        "provider_job_id": "81234",
+        "phase": "rerun",
+        "last_acked_seq": 411,
+        "spool": {
+          "next_seq": 440,
+          "pending_events": 28,
+          "pending_artifacts": 1,
+          "bytes": 81920,
+          "dropped_events": 0,
+          "disk_free_bytes": 5368709120,
+          "disk_pressure": false
+        },
+        "drained": false,
+        "refresh": true
+      }
+    }
+  ]
+}

@@ -1,0 +1,210 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "note_id": "bits-per-byte",
+      "project_id": "custom-architecture-lab",
+      "type": "concept",
+      "title": "Bits per byte",
+      "gist": "Bits per byte is the model's loss per byte of text, so models with different tokenizers can be compared.",
+      "summary": "It divides the summed cross-entropy in bits by the number of UTF-8 bytes the tokens decode to.",
+      "aliases": ["BPB"],
+      "sources": ["repo:README.md"],
+      "created": "2026-11-02",
+      "updated": "2026-11-02",
+      "created_at": "2026-11-02T10:00:00Z",
+      "updated_at": "2026-11-02T10:00:00Z",
+      "created_by": {
+        "kind": "agent",
+        "id": "0123456789abcdef"
+      },
+      "updated_by": {
+        "kind": "agent",
+        "id": "0123456789abcdef"
+      },
+      "revision": 1
+    },
+    {
+      "schema_version": 1,
+      "note_id": "final-layernorm-missing",
+      "project_id": "custom-architecture-lab",
+      "type": "claim",
+      "title": "Without a final LayerNorm the 64k model is penalised more",
+      "gist": "Feeding the last block straight into the output head costs the 64k model 0.019 BPB and the 8k model nothing.",
+      "summary": "The difference appears in one seed. See [[bits-per-byte]].",
+      "full": "The two runs differ only in the final normalisation.\n\n![[finalnorm-effect]]",
+      "standing": "leaning",
+      "key": {
+        "text": "1.5180 → 1.4990",
+        "label": "64k BPB once the LayerNorm is added"
+      },
+      "support": "4 runs · one seed each",
+      "would_change": "A second seed in which the difference disappears.",
+      "evidence": [
+        {
+          "run": "gap-sym-emb002",
+          "role": "baseline",
+          "metric": "validation/bits_per_byte"
+        },
+        {
+          "run": "gap-sym-emb002-finalnorm",
+          "role": "for",
+          "metric": "validation/bits_per_byte",
+          "vs": "gap-sym-emb002",
+          "note": "one seed"
+        }
+      ],
+      "cites": [
+        {
+          "work": "xiong-2020-layernorm",
+          "role": "method",
+          "where": "§3, Figure 1",
+          "note": "the final LayerNorm of the Pre-LN design"
+        }
+      ],
+      "sources": ["task:task-20261103-abc123", "run:0123456789abcdef0123456789abcdef"],
+      "task_id": "task-20261103-abc123",
+      "created": "2026-11-03",
+      "updated": "2026-11-04",
+      "created_at": "2026-11-03T10:00:00Z",
+      "updated_at": "2026-11-04T09:00:00Z",
+      "created_by": {
+        "kind": "agent",
+        "id": "0123456789abcdef"
+      },
+      "updated_by": {
+        "kind": "human",
+        "id": "s-1"
+      },
+      "revision": 3
+    },
+    {
+      "schema_version": 1,
+      "note_id": "edition-2026-11-03",
+      "project_id": "custom-architecture-lab",
+      "type": "notebook",
+      "title": "3 November: the final LayerNorm",
+      "gist": "Adding a final LayerNorm closes a fifth of the gap for the 64k model.",
+      "full": "![[final-layernorm-missing]]",
+      "sources": [],
+      "edition": "2026-11-03",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "created_at": "2026-11-03T12:00:00Z",
+      "updated_at": "2026-11-03T12:00:00Z",
+      "created_by": {
+        "kind": "agent"
+      },
+      "updated_by": {
+        "kind": "agent"
+      },
+      "revision": 1,
+      "archived_at": "2026-11-05T12:00:00Z"
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "an id that is not kebab-case",
+      "value": {
+        "schema_version": 1,
+        "note_id": "Bits_Per_Byte",
+        "project_id": "custom-architecture-lab",
+        "type": "concept",
+        "title": "Bits per byte",
+        "gist": "The loss per byte of text.",
+        "sources": [],
+        "created": "2026-11-02",
+        "updated": "2026-11-02",
+        "created_at": "2026-11-02T10:00:00Z",
+        "updated_at": "2026-11-02T10:00:00Z",
+        "created_by": {
+          "kind": "agent"
+        },
+        "updated_by": {
+          "kind": "agent"
+        },
+        "revision": 1
+      }
+    },
+    {
+      "reason": "no gist",
+      "value": {
+        "schema_version": 1,
+        "note_id": "bits-per-byte",
+        "project_id": "custom-architecture-lab",
+        "type": "concept",
+        "title": "Bits per byte",
+        "sources": [],
+        "created": "2026-11-02",
+        "updated": "2026-11-02",
+        "created_at": "2026-11-02T10:00:00Z",
+        "updated_at": "2026-11-02T10:00:00Z",
+        "created_by": {
+          "kind": "agent"
+        },
+        "updated_by": {
+          "kind": "agent"
+        },
+        "revision": 1
+      }
+    },
+    {
+      "reason": "an unknown evidence role",
+      "value": {
+        "schema_version": 1,
+        "note_id": "a-finding",
+        "project_id": "custom-architecture-lab",
+        "type": "finding",
+        "title": "A finding",
+        "gist": "Something was seen.",
+        "evidence": [
+          {
+            "run": "r1",
+            "role": "candidate"
+          }
+        ],
+        "sources": [],
+        "created": "2026-11-02",
+        "updated": "2026-11-02",
+        "created_at": "2026-11-02T10:00:00Z",
+        "updated_at": "2026-11-02T10:00:00Z",
+        "created_by": {
+          "kind": "agent"
+        },
+        "updated_by": {
+          "kind": "agent"
+        },
+        "revision": 1
+      }
+    },
+    {
+      "reason": "an unknown cite role",
+      "value": {
+        "schema_version": 1,
+        "note_id": "a-finding",
+        "project_id": "custom-architecture-lab",
+        "type": "finding",
+        "title": "A finding",
+        "gist": "Something was seen.",
+        "sources": [],
+        "created": "2026-11-02",
+        "updated": "2026-11-02",
+        "created_at": "2026-11-02T10:00:00Z",
+        "updated_at": "2026-11-02T10:00:00Z",
+        "created_by": {
+          "kind": "agent"
+        },
+        "updated_by": {
+          "kind": "agent"
+        },
+        "revision": 1,
+        "cites": [
+          {
+            "work": "xiong-2020-layernorm",
+            "role": "related"
+          }
+        ]
+      }
+    }
+  ]
+}

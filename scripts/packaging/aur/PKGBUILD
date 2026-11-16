@@ -1,0 +1,42 @@
+# Maintainer: Ali Shahzad
+# AblationKit for Arch Linux (ADR 0028). The source is a `git archive` of the release tag:
+#   bun run package -- --source-tarball scripts/packaging/aur/ablationkit-1.0.0.tar.gz
+#   cd scripts/packaging/aur && makepkg -si
+# Before publishing to the AUR, point `source` at the public release tarball and run updpkgsums.
+pkgname=ablationkit
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="Local-first, agentic workspace for ML experimentation: coordinator, web UI, managed MLflow"
+arch=('any')
+url="https://github.com/zeiteigen/ablationkit"
+license=('MIT')
+depends=('bun>=1.4.4' 'uv' 'git' 'python' 'systemd')
+makedepends=('bun>=1.4.4' 'git')
+optdepends=(
+  'electron43: the desktop app (ablationkit-desktop)'
+  'tailscale: remote clients over tailscale serve'
+  'libnotify: desktop notifications'
+  'openssh: SSH and SLURM compute targets'
+)
+options=('!strip' '!debug')
+source=("$pkgname-$pkgver.tar.gz")
+sha256sums=('SKIP')
+
+build() {
+  cd "$pkgname-$pkgver"
+  bun install --frozen-lockfile --silent
+  bun scripts/package.ts --out "$srcdir/stage"
+}
+
+package() {
+  cd "$srcdir/stage"
+  install -d "$pkgdir/usr/lib"
+  cp -a lib/ablationkit "$pkgdir/usr/lib/ablationkit"
+  install -Dm755 bin/ablationkit "$pkgdir/usr/bin/ablationkit"
+  install -Dm755 bin/ablationkit-desktop "$pkgdir/usr/bin/ablationkit-desktop"
+  install -Dm644 share/applications/ablationkit.desktop \
+    "$pkgdir/usr/share/applications/ablationkit.desktop"
+  install -Dm644 share/icons/hicolor/scalable/apps/ablationkit.svg \
+    "$pkgdir/usr/share/icons/hicolor/scalable/apps/ablationkit.svg"
+  install -Dm644 share/licenses/ablationkit/LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

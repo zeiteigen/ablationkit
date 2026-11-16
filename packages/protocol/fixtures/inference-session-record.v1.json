@@ -1,0 +1,423 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "session_id": "is-0123456789abcdef",
+      "project_id": "custom-architecture-lab",
+      "model": {
+        "model_id": "m-59c48f6bab2b4dfeb7eefdaadde2b9ed",
+        "registered_name": "sentiment",
+        "version": "3",
+        "alias": "champion"
+      },
+      "source_run_id": "e1c747043f8e4023a3e7e0be54117df5",
+      "task": "text",
+      "output": "classification",
+      "environment": "managed",
+      "state": "ready",
+      "limits": {
+        "idle_timeout_sec": 900,
+        "max_lifetime_sec": 28800,
+        "memory_mb": 2048,
+        "max_request_bytes": 1048576,
+        "max_queue": 4,
+        "request_timeout_sec": 120
+      },
+      "enforcement": "enforced",
+      "pid": 4242,
+      "unit": "ak-op-is-0123456789abcdef.scope",
+      "timings": {
+        "import_ms": 880,
+        "load_ms": 1036,
+        "start_ms": 1990
+      },
+      "counters": {
+        "requests": 3,
+        "errors": 0,
+        "rejected": 1,
+        "last_predict_ms": 12
+      },
+      "memory": {
+        "rss_bytes": 269770752,
+        "peak_rss_bytes": 274784256,
+        "at": "2026-11-03T10:00:05Z"
+      },
+      "mlflow_version": "3.17.2",
+      "python_version": "3.12.14",
+      "restarts": 0,
+      "transitions": [
+        {
+          "state": "starting",
+          "at": "2026-11-03T10:00:00Z"
+        },
+        {
+          "state": "ready",
+          "at": "2026-11-03T10:00:02Z",
+          "reason": "model loaded"
+        }
+      ],
+      "requested_by": {
+        "kind": "human",
+        "id": "tok-1"
+      },
+      "created_at": "2026-11-03T10:00:00Z",
+      "ready_at": "2026-11-03T10:00:02Z",
+      "last_activity_at": "2026-11-03T10:00:04Z",
+      "updated_at": "2026-11-03T10:00:05Z"
+    },
+    {
+      "schema_version": 1,
+      "session_id": "is-0123456789abcdef",
+      "project_id": "custom-architecture-lab",
+      "model": {
+        "model_id": "m-59c48f6bab2b4dfeb7eefdaadde2b9ed",
+        "registered_name": "sentiment",
+        "version": "3",
+        "alias": "champion"
+      },
+      "source_run_id": "e1c747043f8e4023a3e7e0be54117df5",
+      "task": "text",
+      "output": "classification",
+      "environment": "managed",
+      "state": "crashed",
+      "limits": {
+        "idle_timeout_sec": 900,
+        "max_lifetime_sec": 28800,
+        "memory_mb": 2048,
+        "max_request_bytes": 1048576,
+        "max_queue": 4,
+        "request_timeout_sec": 120
+      },
+      "enforcement": "enforced",
+      "pid": 4242,
+      "unit": "ak-op-is-0123456789abcdef.scope",
+      "timings": {
+        "import_ms": 880,
+        "load_ms": 1036,
+        "start_ms": 1990
+      },
+      "counters": {
+        "requests": 3,
+        "errors": 0,
+        "rejected": 1,
+        "last_predict_ms": 12
+      },
+      "memory": {
+        "rss_bytes": 269770752,
+        "peak_rss_bytes": 274784256,
+        "at": "2026-11-03T10:00:05Z"
+      },
+      "mlflow_version": "3.17.2",
+      "python_version": "3.12.14",
+      "restarts": 0,
+      "transitions": [
+        {
+          "state": "starting",
+          "at": "2026-11-03T10:00:00Z"
+        },
+        {
+          "state": "ready",
+          "at": "2026-11-03T10:00:02Z",
+          "reason": "model loaded"
+        },
+        {
+          "state": "crashed",
+          "at": "2026-11-03T10:05:00Z",
+          "reason": "crashed"
+        }
+      ],
+      "requested_by": {
+        "kind": "system",
+        "id": "dep-20261103-abcd1234"
+      },
+      "created_at": "2026-11-03T10:00:00Z",
+      "ready_at": "2026-11-03T10:00:02Z",
+      "last_activity_at": "2026-11-03T10:00:04Z",
+      "updated_at": "2026-11-03T10:00:05Z",
+      "ended_at": "2026-11-03T10:05:00Z",
+      "end_reason": "the worker exited unexpectedly (signal SIGKILL)",
+      "deployment_id": "dep-20261103-abcd1234"
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "float timing",
+      "value": {
+        "schema_version": 1,
+        "session_id": "is-0123456789abcdef",
+        "project_id": "custom-architecture-lab",
+        "model": {
+          "model_id": "m-59c48f6bab2b4dfeb7eefdaadde2b9ed",
+          "registered_name": "sentiment",
+          "version": "3",
+          "alias": "champion"
+        },
+        "source_run_id": "e1c747043f8e4023a3e7e0be54117df5",
+        "task": "text",
+        "output": "classification",
+        "environment": "managed",
+        "state": "ready",
+        "limits": {
+          "idle_timeout_sec": 900,
+          "max_lifetime_sec": 28800,
+          "memory_mb": 2048,
+          "max_request_bytes": 1048576,
+          "max_queue": 4,
+          "request_timeout_sec": 120
+        },
+        "enforcement": "enforced",
+        "pid": 4242,
+        "unit": "ak-op-is-0123456789abcdef.scope",
+        "timings": {
+          "import_ms": 880,
+          "load_ms": 1036.5,
+          "start_ms": 1990
+        },
+        "counters": {
+          "requests": 3,
+          "errors": 0,
+          "rejected": 1,
+          "last_predict_ms": 12
+        },
+        "memory": {
+          "rss_bytes": 269770752,
+          "peak_rss_bytes": 274784256,
+          "at": "2026-11-03T10:00:05Z"
+        },
+        "mlflow_version": "3.17.2",
+        "python_version": "3.12.14",
+        "restarts": 0,
+        "transitions": [
+          {
+            "state": "starting",
+            "at": "2026-11-03T10:00:00Z"
+          },
+          {
+            "state": "ready",
+            "at": "2026-11-03T10:00:02Z",
+            "reason": "model loaded"
+          }
+        ],
+        "requested_by": {
+          "kind": "human",
+          "id": "tok-1"
+        },
+        "created_at": "2026-11-03T10:00:00Z",
+        "ready_at": "2026-11-03T10:00:02Z",
+        "last_activity_at": "2026-11-03T10:00:04Z",
+        "updated_at": "2026-11-03T10:00:05Z"
+      }
+    },
+    {
+      "reason": "unknown state",
+      "value": {
+        "schema_version": 1,
+        "session_id": "is-0123456789abcdef",
+        "project_id": "custom-architecture-lab",
+        "model": {
+          "model_id": "m-59c48f6bab2b4dfeb7eefdaadde2b9ed",
+          "registered_name": "sentiment",
+          "version": "3",
+          "alias": "champion"
+        },
+        "source_run_id": "e1c747043f8e4023a3e7e0be54117df5",
+        "task": "text",
+        "output": "classification",
+        "environment": "managed",
+        "state": "running",
+        "limits": {
+          "idle_timeout_sec": 900,
+          "max_lifetime_sec": 28800,
+          "memory_mb": 2048,
+          "max_request_bytes": 1048576,
+          "max_queue": 4,
+          "request_timeout_sec": 120
+        },
+        "enforcement": "enforced",
+        "pid": 4242,
+        "unit": "ak-op-is-0123456789abcdef.scope",
+        "timings": {
+          "import_ms": 880,
+          "load_ms": 1036,
+          "start_ms": 1990
+        },
+        "counters": {
+          "requests": 3,
+          "errors": 0,
+          "rejected": 1,
+          "last_predict_ms": 12
+        },
+        "memory": {
+          "rss_bytes": 269770752,
+          "peak_rss_bytes": 274784256,
+          "at": "2026-11-03T10:00:05Z"
+        },
+        "mlflow_version": "3.17.2",
+        "python_version": "3.12.14",
+        "restarts": 0,
+        "transitions": [
+          {
+            "state": "starting",
+            "at": "2026-11-03T10:00:00Z"
+          },
+          {
+            "state": "ready",
+            "at": "2026-11-03T10:00:02Z",
+            "reason": "model loaded"
+          }
+        ],
+        "requested_by": {
+          "kind": "human",
+          "id": "tok-1"
+        },
+        "created_at": "2026-11-03T10:00:00Z",
+        "ready_at": "2026-11-03T10:00:02Z",
+        "last_activity_at": "2026-11-03T10:00:04Z",
+        "updated_at": "2026-11-03T10:00:05Z"
+      }
+    },
+    {
+      "reason": "idle timeout below 2 s",
+      "value": {
+        "schema_version": 1,
+        "session_id": "is-0123456789abcdef",
+        "project_id": "custom-architecture-lab",
+        "model": {
+          "model_id": "m-59c48f6bab2b4dfeb7eefdaadde2b9ed",
+          "registered_name": "sentiment",
+          "version": "3",
+          "alias": "champion"
+        },
+        "source_run_id": "e1c747043f8e4023a3e7e0be54117df5",
+        "task": "text",
+        "output": "classification",
+        "environment": "managed",
+        "state": "ready",
+        "limits": {
+          "idle_timeout_sec": 1,
+          "max_lifetime_sec": 28800,
+          "memory_mb": 2048,
+          "max_request_bytes": 1048576,
+          "max_queue": 4,
+          "request_timeout_sec": 120
+        },
+        "enforcement": "enforced",
+        "pid": 4242,
+        "unit": "ak-op-is-0123456789abcdef.scope",
+        "timings": {
+          "import_ms": 880,
+          "load_ms": 1036,
+          "start_ms": 1990
+        },
+        "counters": {
+          "requests": 3,
+          "errors": 0,
+          "rejected": 1,
+          "last_predict_ms": 12
+        },
+        "memory": {
+          "rss_bytes": 269770752,
+          "peak_rss_bytes": 274784256,
+          "at": "2026-11-03T10:00:05Z"
+        },
+        "mlflow_version": "3.17.2",
+        "python_version": "3.12.14",
+        "restarts": 0,
+        "transitions": [
+          {
+            "state": "starting",
+            "at": "2026-11-03T10:00:00Z"
+          },
+          {
+            "state": "ready",
+            "at": "2026-11-03T10:00:02Z",
+            "reason": "model loaded"
+          }
+        ],
+        "requested_by": {
+          "kind": "human",
+          "id": "tok-1"
+        },
+        "created_at": "2026-11-03T10:00:00Z",
+        "ready_at": "2026-11-03T10:00:02Z",
+        "last_activity_at": "2026-11-03T10:00:04Z",
+        "updated_at": "2026-11-03T10:00:05Z"
+      }
+    },
+    {
+      "reason": "inputs are never stored",
+      "value": {
+        "schema_version": 1,
+        "session_id": "is-0123456789abcdef",
+        "project_id": "custom-architecture-lab",
+        "model": {
+          "model_id": "m-59c48f6bab2b4dfeb7eefdaadde2b9ed",
+          "registered_name": "sentiment",
+          "version": "3",
+          "alias": "champion"
+        },
+        "source_run_id": "e1c747043f8e4023a3e7e0be54117df5",
+        "task": "text",
+        "output": "classification",
+        "environment": "managed",
+        "state": "ready",
+        "limits": {
+          "idle_timeout_sec": 900,
+          "max_lifetime_sec": 28800,
+          "memory_mb": 2048,
+          "max_request_bytes": 1048576,
+          "max_queue": 4,
+          "request_timeout_sec": 120
+        },
+        "enforcement": "enforced",
+        "pid": 4242,
+        "unit": "ak-op-is-0123456789abcdef.scope",
+        "timings": {
+          "import_ms": 880,
+          "load_ms": 1036,
+          "start_ms": 1990
+        },
+        "counters": {
+          "requests": 3,
+          "errors": 0,
+          "rejected": 1,
+          "last_predict_ms": 12
+        },
+        "memory": {
+          "rss_bytes": 269770752,
+          "peak_rss_bytes": 274784256,
+          "at": "2026-11-03T10:00:05Z"
+        },
+        "mlflow_version": "3.17.2",
+        "python_version": "3.12.14",
+        "restarts": 0,
+        "transitions": [
+          {
+            "state": "starting",
+            "at": "2026-11-03T10:00:00Z"
+          },
+          {
+            "state": "ready",
+            "at": "2026-11-03T10:00:02Z",
+            "reason": "model loaded"
+          }
+        ],
+        "requested_by": {
+          "kind": "human",
+          "id": "tok-1"
+        },
+        "created_at": "2026-11-03T10:00:00Z",
+        "ready_at": "2026-11-03T10:00:02Z",
+        "last_activity_at": "2026-11-03T10:00:04Z",
+        "updated_at": "2026-11-03T10:00:05Z",
+        "inputs": {
+          "records": [
+            {
+              "text": "x"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

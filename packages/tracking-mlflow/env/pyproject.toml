@@ -1,0 +1,13 @@
+# The managed MLflow sidecar's own environment (spec §5.5, ADR 0010). Not a uv workspace member:
+# the coordinator syncs it into `<ABLATIONKIT_HOME>/mlflow/venv` with `uv sync --locked`, isolated
+# from the development environment and from every project's environment.
+[project]
+name = "ablationkit-mlflow-sidecar"
+version = "0.0.0"
+requires-python = "==3.12.*"
+# Bumping this pin is an MLflow upgrade: the coordinator backs up MLflow data before migrating
+# (upgrade guard), and the contract tests in packages/tracking-mlflow must pass on the new pin.
+dependencies = ["mlflow==3.17.2"]
+
+[tool.uv]
+package = false

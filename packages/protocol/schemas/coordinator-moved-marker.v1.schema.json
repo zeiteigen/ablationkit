@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ablationkit:schema:coordinator-moved-marker.v1",
+  "title": "CoordinatorMovedMarker",
+  "description": "This runtime directory was handed to another machine; starting here would make a second writable coordinator.",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schema_version",
+    "moved_at",
+    "backup_id",
+    "archive",
+    "archive_sha256",
+    "hostname"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "type": "number"
+    },
+    "moved_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "backup_id": {
+      "minLength": 1,
+      "maxLength": 100,
+      "type": "string"
+    },
+    "archive": {
+      "minLength": 1,
+      "maxLength": 4096,
+      "description": "The archive written.",
+      "type": "string"
+    },
+    "archive_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "hostname": {
+      "minLength": 1,
+      "maxLength": 255,
+      "type": "string"
+    }
+  }
+}

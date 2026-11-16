@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1" name="viewport"/>
+  <meta content="Launch work, inspect results, and compare alternatives." name="description"/>
+  <title>
+   Run and compare · AblationKit guide
+  </title>
+  <link href="guide.css" rel="stylesheet"/>
+ </head>
+ <body class="ak-guide">
+  <a class="akg-skip" href="#content">
+   Skip to content
+  </a>
+  <header>
+   <a class="akg-brand" href="index.html">
+    AblationKit
+    <span>
+     User guide
+    </span>
+   </a>
+   <p>
+    From a question to evidence you can read.
+   </p>
+  </header>
+  <div class="akg-layout">
+   <nav aria-label="Guide chapters">
+    <a href="index.html">
+     Start here
+    </a>
+    <a href="getting-started.html">
+     Your first project
+    </a>
+    <a href="reading.html">
+     Read the research
+    </a>
+    <a aria-current="page" href="experiments.html">
+     Run and compare
+    </a>
+    <a href="llm.html">
+     LLM and RAG research
+    </a>
+    <a href="operations.html">
+     Manage your workspace
+    </a>
+   </nav>
+   <main id="content">
+    <h1>
+     Run and compare
+    </h1>
+    <p class="akg-lead">
+     Use jobs to execute work, runs to inspect measurements, and studies to compare variants around a question.
+    </p>
+    <section>
+     <h2>
+      Launch and follow a job
+     </h2>
+     <p>
+      Open
+      <strong>
+       Runs → Jobs → Launch job
+      </strong>
+      . Enter a command, environment, relative working directory, and resource limits. Optionally associate a run name, study, and variant, and configure metrics-file collection and artifact globs.
+     </p>
+     <aside class="akg-callout">
+      <h3>
+       Commands run directly
+      </h3>
+      <p>
+       The launch command is not interpreted by a shell. Put pipelines, redirections, or multi-step setup in a script and run that script.
+      </p>
+     </aside>
+     <p>
+      The job detail contains attempts and console output. An attempt describes an execution; its status, logs, and delivery state help distinguish a process failure from a tracking failure. Remote delivery may finish after execution.
+     </p>
+    </section>
+    <section>
+     <h2>
+      Find the runs that answer your question
+     </h2>
+     <p>
+      On Runs, filter by status, study, variant, or MLflow filter expression (on a phone, open
+      <strong>
+       Filter
+      </strong>
+      first). For example:
+     </p>
+     <pre><code>metrics.loss &lt; 0.5 and params.lr = '0.01'</code></pre>
+     <p>
+      The table's metric columns start with the metrics your studies decide on, then held-out metrics (
+      <code>
+       validation/
+      </code>
+      ,
+      <code>
+       eval/
+      </code>
+      ), then the rest. Each run's description is cut to one line; hover it for the whole. The Sync and Duration columns appear only when their values differ between runs.
+     </p>
+     <p>
+      Open a run for its description, metrics and curves, parameters, tags, system metrics, and artifacts. Use the artifact browser for saved outputs. What the run came from and what cites it (its lineage) is folded under
+      <strong>
+       Provenance: lineage
+      </strong>
+      at the bottom of the page.
+     </p>
+    </section>
+    <section>
+     <h2>
+      Compare against a baseline
+     </h2>
+     <ol class="akg-steps">
+      <li>
+       Select
+       <strong>
+        2–20 runs
+       </strong>
+       in Runs and choose
+       <strong>
+        Compare selected
+       </strong>
+       , or open
+       <strong>
+        Runs → More ▾ → Compare
+       </strong>
+       and pick them there. Entrypoints (MLproject) and Experiments (MLflow experiments) are under the same
+       <strong>
+        More ▾
+       </strong>
+       menu.
+      </li>
+      <li>
+       Choose a baseline. Inspect parameters and latest metrics, enable
+       <strong>
+        only rows that differ
+       </strong>
+       , and use metric overlays to check how the runs evolved.
+      </li>
+      <li>
+       Check the study's metric goals before interpreting “best.” A lower loss and a higher accuracy have different directions.
+      </li>
+      <li>
+       Export the table as CSV or runs as CSV/JSON when you need the underlying values elsewhere.
+      </li>
+     </ol>
+     <p>
+      Latest metric values are a comparison point, not a substitute for reading the curves. Differences in inputs, splits, or training budgets can change what a result means.
+     </p>
+    </section>
+    <section>
+     <h2>
+      Organize repeatable comparisons
+     </h2>
+     <p>
+      In
+      <strong>
+       Runs → Studies
+      </strong>
+      , create a study with its question, protocol, variants, baseline, and metric goals. Associate subsequent jobs with those variants. Read the study's explanation alongside its runs; variant curves show the newest run for each variant. A study's
+      <strong>
+       Export ▾
+      </strong>
+      menu downloads its table or its runs as CSV. A study's page leads with its results: the table (the metrics that decide the study first, then the parameters that differ), the curves, then what it tests (each claim of the vault resting on the study, with its standing, and the original hypotheses beneath), the reading, and the design and every run by variant folded under
+      <strong>
+       Design and runs
+      </strong>
+      .
+     </p>
+    </section>
+    <section>
+     <h2>
+      Datasets, models, and inference
+     </h2>
+     <table>
+      <thead>
+       <tr>
+        <th>
+         Workflow
+        </th>
+        <th>
+         Where to go and what to supply
+        </th>
+       </tr>
+      </thead>
+      <tbody>
+       <tr>
+        <td>
+         Classical evaluation
+        </td>
+        <td>
+         Data &amp; Evals → Classical evaluations. Supply the model, a checkout-relative dataset path, target column, split, and optional validation thresholds. Read metrics and diagnostics.
+        </td>
+       </tr>
+       <tr>
+        <td>
+         Model registry
+        </td>
+        <td>
+         Models → Registry. Inspect logged models, registered versions, and aliases. Until the project logs a model or runs an evaluation, Data &amp; Evals and Models are under More in the project navigation; Registry, Inference, and Demos may initially sit under the Models tabs' More ▾.
+        </td>
+       </tr>
+       <tr>
+        <td>
+         Try a model
+        </td>
+        <td>
+         Models → Inference. Select a model and adapter inputs, or paste JSON. Use One-shot, Session, or Compare mode and acknowledge model trust when requested.
+        </td>
+       </tr>
+       <tr>
+        <td>
+         Keep an inference result
+        </td>
+        <td>
+         Choose Save as evidence. Exploratory inference is transient; saved evidence preserves the result for later reading.
+        </td>
+       </tr>
+      </tbody>
+     </table>
+    </section>
+    <footer>
+     <a href="index.html">
+      Guide home
+     </a>
+     <span>
+      AblationKit · User documentation
+     </span>
+    </footer>
+   </main>
+  </div>
+ </body>
+</html>

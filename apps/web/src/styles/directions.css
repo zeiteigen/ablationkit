@@ -1,0 +1,321 @@
+/* Directions (ADR 0057): the researcher's words to the agents, where they read. Theme tokens only. */
+
+/* The control: quiet until the line is hovered or focused, like "open". */
+.vault .dr-direct {
+  font-size: 12px;
+  color: var(--faint);
+  visibility: hidden;
+}
+.vault .v-lkey .dr-direct {
+  display: block;
+  margin: 6px 0 0 auto;
+}
+.vault .dr-direct.always,
+.vault .dr-direct.on,
+.vault .v-note:hover > .v-nh .dr-direct,
+.vault .v-note.v-focus > .v-nh .dr-direct,
+.vault .v-note:hover > .v-lrow .dr-direct,
+.vault .v-note.v-focus > .v-lrow .dr-direct,
+.vault .dr-direct:focus-visible {
+  visibility: visible;
+}
+.vault .dr-direct.dr-page {
+  display: inline-block;
+  margin: 10px 0 6px;
+  font-size: 12.5px;
+  border-bottom: 1px dotted var(--line-strong);
+}
+.vault .dr-direct:hover,
+.vault .dr-direct.on {
+  color: var(--fg);
+}
+.vault .dr-direct.on {
+  border-bottom: 1px solid var(--ink);
+}
+
+/* Under a note: the folded threads and the composer. */
+.vault .dr-under {
+  margin: 8px 0 2px;
+  max-width: 66ch;
+}
+.vault .v-lline > .dr-under {
+  margin-left: var(--v-gut);
+}
+.vault .dr-sum {
+  font-size: 12.5px;
+  color: var(--muted);
+  border-bottom: 1px dotted var(--line-strong);
+}
+.vault .dr-sum:hover {
+  color: var(--fg);
+}
+.vault .dr-sum.dr-yours {
+  color: var(--fg);
+}
+.vault .dr-caret {
+  display: inline-block;
+  width: 1em;
+  color: var(--faint);
+}
+.vault .dr-wait {
+  color: var(--ink);
+}
+
+/* One thread. The researcher's turns sit flush; an agent's are set in, under a rule. */
+.vault .dr-thread {
+  position: relative;
+  margin: 10px 0 4px;
+  padding: 10px 12px 10px;
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--ink);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--bg) 97%, var(--fg));
+  font-size: 14px;
+}
+.vault .dr-thread.s-closed,
+.vault .dr-thread.s-withdrawn {
+  border-left-color: var(--line-strong);
+}
+.vault .dr-turn + .dr-turn {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+.vault .dr-turn.dr-agent {
+  padding-left: 14px;
+  border-left: 1px solid var(--line-strong);
+  border-top: 0;
+}
+.vault .dr-h {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  font-size: 12px;
+  color: var(--faint);
+}
+.vault .dr-who {
+  color: var(--muted);
+}
+.vault .dr-kind {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink);
+  font-weight: 600;
+}
+.vault .dr-target {
+  color: var(--muted);
+  border-bottom: 1px dotted var(--line-strong);
+}
+.vault .dr-st {
+  margin-left: auto;
+  font-size: 11.5px;
+}
+.vault .dr-st.st-answered,
+.vault .dr-st.st-declined {
+  color: var(--fg);
+}
+.vault .dr-text {
+  margin-top: 3px;
+  line-height: 1.55;
+  color: var(--v-soft);
+}
+.vault .dr-text p {
+  margin: 4px 0;
+}
+.vault .dr-refs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-top: 6px;
+  font-size: 12.5px;
+}
+.vault .dr-ref {
+  color: var(--fg);
+  border-bottom: 1px solid var(--line-strong);
+}
+.vault .dr-ref:hover {
+  border-bottom-color: var(--fg);
+}
+.vault .dr-rk {
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.vault .dr-seen {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--faint);
+}
+.vault .dr-id {
+  position: absolute;
+  right: 10px;
+  bottom: 8px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--faint);
+  opacity: 0.6;
+}
+.vault .dr-err {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  color: var(--err);
+}
+
+/* Buttons and chips, in the vault's quiet register. */
+.vault .dr-btns {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.vault .dr-btn {
+  font-size: 12.5px;
+  padding: 3px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  color: var(--muted);
+  background: var(--bg);
+}
+.vault .dr-btn:hover:not(:disabled) {
+  color: var(--fg);
+  border-color: var(--faint);
+}
+.vault .dr-btn.primary {
+  color: var(--accent-fg);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.vault .dr-btn.quiet {
+  border-color: transparent;
+}
+.vault .dr-btn:disabled {
+  opacity: 0.5;
+}
+.vault .dr-chip {
+  font-size: 12.5px;
+  padding: 2px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  color: var(--muted);
+}
+.vault .dr-chip:hover {
+  color: var(--fg);
+}
+.vault .dr-chip.on {
+  color: var(--fg);
+  border-color: var(--ink);
+  background: color-mix(in srgb, var(--ink) 12%, var(--bg));
+}
+
+/* The composer. */
+.vault .dr-compose {
+  margin: 10px 0 4px;
+  padding: 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+.vault .dr-kinds,
+.vault .dr-targets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.vault .dr-targets {
+  margin-bottom: 8px;
+}
+.vault .dr-says {
+  margin-left: 4px;
+  font-size: 12.5px;
+  color: var(--faint);
+}
+.vault .dr-compose textarea,
+.vault .dr-reopen textarea {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 8px;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--fg);
+  background: var(--sunk);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  resize: vertical;
+}
+.vault .dr-compose textarea:focus,
+.vault .dr-reopen textarea:focus {
+  outline: none;
+  border-color: var(--faint);
+}
+.vault .dr-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 16px;
+}
+.vault .dr-live {
+  margin-top: 8px;
+  font-size: 12.5px;
+  color: var(--faint);
+  max-width: 52ch;
+}
+
+/* At the top of Standing. */
+.vault .dr-standing {
+  margin: 0;
+  padding: 12px 0 14px;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+  color: var(--muted);
+}
+.vault .dr-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 14px;
+}
+.vault .dr-line {
+  flex: 1 1 320px;
+}
+.vault .dr-standing.dr-quiet .dr-line {
+  color: var(--faint);
+}
+.vault .dr-group {
+  margin-top: 12px;
+}
+.vault .dr-gh {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.vault .dr-gh-b:hover {
+  color: var(--fg);
+}
+.vault .dr-rules {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  color: var(--v-soft);
+}
+.vault .dr-rules li {
+  margin: 2px 0;
+}
+
+@media (max-width: 640px) {
+  .vault .dr-direct {
+    visibility: visible;
+  }
+  .vault .dr-id {
+    position: static;
+    display: block;
+    margin-top: 6px;
+  }
+}

@@ -1,0 +1,105 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "target_id": "hpc",
+      "kind": "slurm",
+      "ssh": {
+        "host": "me@login.hpc.example.org"
+      },
+      "slurm": {
+        "partition": "gpu",
+        "gres": "gpu:1",
+        "directives": ["--constraint=a100"],
+        "drain_sec": 300
+      },
+      "work_dir": "~/.ablationkit-worker",
+      "worker_url": "http://ws.tail1234.ts.net:7422",
+      "paid": false,
+      "ntfy": {
+        "url": "https://ntfy.sh/ak-3f9c2a",
+        "token_env": "NTFY_TOKEN"
+      },
+      "created_at": "2026-11-05T10:00:00.000Z",
+      "updated_at": "2026-11-05T10:00:00.000Z"
+    },
+    {
+      "schema_version": 1,
+      "target_id": "box",
+      "kind": "ssh",
+      "ssh": {
+        "host": "gpu-box",
+        "supervisor": "systemd"
+      },
+      "paid": false,
+      "created_at": "2026-11-05T10:00:00.000Z",
+      "updated_at": "2026-11-05T10:00:00.000Z"
+    },
+    {
+      "schema_version": 1,
+      "target_id": "pods",
+      "kind": "runpod",
+      "runpod": {
+        "api_key_env": "RUNPOD_API_KEY",
+        "image": "runpod/pytorch:2.4.0-py3.11",
+        "gpu_type_ids": ["NVIDIA A40"],
+        "cents_per_hour": 44
+      },
+      "paid": true,
+      "created_at": "2026-11-05T10:00:00.000Z",
+      "updated_at": "2026-11-05T10:00:00.000Z"
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "a stored API key",
+      "value": {
+        "schema_version": 1,
+        "target_id": "hpc",
+        "kind": "slurm",
+        "ssh": {
+          "host": "me@login.hpc.example.org"
+        },
+        "slurm": {
+          "partition": "gpu",
+          "gres": "gpu:1",
+          "directives": ["--constraint=a100"],
+          "drain_sec": 300
+        },
+        "work_dir": "~/.ablationkit-worker",
+        "worker_url": "http://ws.tail1234.ts.net:7422",
+        "paid": false,
+        "ntfy": {
+          "url": "https://ntfy.sh/ak-3f9c2a",
+          "token_env": "NTFY_TOKEN"
+        },
+        "created_at": "2026-11-05T10:00:00.000Z",
+        "updated_at": "2026-11-05T10:00:00.000Z",
+        "api_key": "secret"
+      }
+    },
+    {
+      "reason": "sbatch directive injection",
+      "value": {
+        "schema_version": 1,
+        "target_id": "hpc",
+        "kind": "slurm",
+        "ssh": {
+          "host": "me@login.hpc.example.org"
+        },
+        "slurm": {
+          "directives": ["--wrap=rm -rf ~"]
+        },
+        "work_dir": "~/.ablationkit-worker",
+        "worker_url": "http://ws.tail1234.ts.net:7422",
+        "paid": false,
+        "ntfy": {
+          "url": "https://ntfy.sh/ak-3f9c2a",
+          "token_env": "NTFY_TOKEN"
+        },
+        "created_at": "2026-11-05T10:00:00.000Z",
+        "updated_at": "2026-11-05T10:00:00.000Z"
+      }
+    }
+  ]
+}

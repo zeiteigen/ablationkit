@@ -1,0 +1,453 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ablationkit:schema:inference-session-record.v1",
+  "title": "InferenceSessionRecord",
+  "description": "A supervised, resource-capped, idle-expiring model process (spec §5.6.1 mode 2). No inputs or outputs are stored here.",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schema_version",
+    "session_id",
+    "project_id",
+    "model",
+    "task",
+    "output",
+    "environment",
+    "state",
+    "limits",
+    "timings",
+    "counters",
+    "restarts",
+    "transitions",
+    "requested_by",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "type": "number"
+    },
+    "session_id": {
+      "title": "InferenceSessionId",
+      "description": "AblationKit inference session ID, `is-<id>`.",
+      "pattern": "^is-[a-z0-9]{6,40}$",
+      "type": "string"
+    },
+    "project_id": {
+      "title": "ProjectId",
+      "description": "Stable project identifier (lowercase slug). Never a path; paths live in the local registry.",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,62}$",
+      "type": "string"
+    },
+    "model": {
+      "title": "EvaluationModelRef",
+      "description": "A pinned model: always a logged-model ID, plus the registry version it came from.",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "model_id"
+      ],
+      "properties": {
+        "model_id": {
+          "title": "LoggedModelId",
+          "description": "MLflow 3 logged-model ID (`m-…`). Distinct from a run ID and a registry version.",
+          "pattern": "^m-[A-Za-z0-9]{1,64}$",
+          "type": "string"
+        },
+        "registered_name": {
+          "title": "RegisteredModelName",
+          "description": "MLflow registered model name.",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._ -]{0,199}$",
+          "type": "string"
+        },
+        "version": {
+          "title": "ModelVersionNumber",
+          "description": "MLflow registry version number, as a string.",
+          "pattern": "^[1-9][0-9]{0,9}$",
+          "type": "string"
+        },
+        "alias": {
+          "pattern": "^[A-Za-z0-9_-]{1,100}$",
+          "description": "Alias the researcher chose; resolved to `version` at launch and pinned.",
+          "type": "string"
+        }
+      }
+    },
+    "source_run_id": {
+      "title": "MlflowRunId",
+      "description": "MLflow run ID, as MLflow returns it.",
+      "pattern": "^[A-Za-z0-9_-]{1,64}$",
+      "type": "string"
+    },
+    "task": {
+      "title": "InferenceTask",
+      "description": "Task adapter chosen from the model's signature and metadata.",
+      "anyOf": [
+        {
+          "const": "tabular",
+          "type": "string"
+        },
+        {
+          "const": "text",
+          "type": "string"
+        },
+        {
+          "const": "image",
+          "type": "string"
+        }
+      ]
+    },
+    "output": {
+      "title": "InferenceOutputKind",
+      "anyOf": [
+        {
+          "const": "classification",
+          "type": "string"
+        },
+        {
+          "const": "regression",
+          "type": "string"
+        },
+        {
+          "const": "unknown",
+          "type": "string"
+        }
+      ]
+    },
+    "environment": {
+      "anyOf": [
+        {
+          "const": "managed",
+          "type": "string"
+        },
+        {
+          "const": "project",
+          "type": "string"
+        }
+      ]
+    },
+    "state": {
+      "title": "InferenceSessionState",
+      "description": "`starting`: the worker is loading the model. `ready`: it answers predictions. `expired`: stopped after its idle timeout. `crashed`: the process died while serving. `failed`: the model never loaded. A coordinator restart stops every session (`stopped`).",
+      "anyOf": [
+        {
+          "const": "starting",
+          "type": "string"
+        },
+        {
+          "const": "ready",
+          "type": "string"
+        },
+        {
+          "const": "stopping",
+          "type": "string"
+        },
+        {
+          "const": "stopped",
+          "type": "string"
+        },
+        {
+          "const": "expired",
+          "type": "string"
+        },
+        {
+          "const": "crashed",
+          "type": "string"
+        },
+        {
+          "const": "failed",
+          "type": "string"
+        }
+      ]
+    },
+    "limits": {
+      "title": "InferenceSessionLimits",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "idle_timeout_sec",
+        "max_lifetime_sec",
+        "memory_mb",
+        "max_request_bytes",
+        "max_queue",
+        "request_timeout_sec"
+      ],
+      "properties": {
+        "idle_timeout_sec": {
+          "minimum": 2,
+          "maximum": 86400,
+          "type": "integer"
+        },
+        "max_lifetime_sec": {
+          "minimum": 10,
+          "maximum": 604800,
+          "type": "integer"
+        },
+        "memory_mb": {
+          "minimum": 128,
+          "maximum": 1048576,
+          "type": "integer"
+        },
+        "max_request_bytes": {
+          "minimum": 1024,
+          "maximum": 67108864,
+          "type": "integer"
+        },
+        "max_queue": {
+          "minimum": 1,
+          "maximum": 64,
+          "description": "Requests waiting or running at once; the worker answers one at a time.",
+          "type": "integer"
+        },
+        "request_timeout_sec": {
+          "minimum": 1,
+          "maximum": 3600,
+          "type": "integer"
+        }
+      }
+    },
+    "enforcement": {
+      "description": "Whether memory and lifetime limits are enforced by a systemd scope.",
+      "anyOf": [
+        {
+          "const": "enforced",
+          "type": "string"
+        },
+        {
+          "const": "advisory",
+          "type": "string"
+        }
+      ]
+    },
+    "pid": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "unit": {
+      "maxLength": 200,
+      "type": "string"
+    },
+    "timings": {
+      "title": "InferenceSessionTimings",
+      "description": "`start_ms`: process start to ready. `load_ms`: model download and load alone.",
+      "additionalProperties": false,
+      "type": "object",
+      "properties": {
+        "import_ms": {
+          "minimum": 0,
+          "description": "Whole milliseconds.",
+          "type": "integer"
+        },
+        "load_ms": {
+          "minimum": 0,
+          "description": "Whole milliseconds.",
+          "type": "integer"
+        },
+        "start_ms": {
+          "minimum": 0,
+          "description": "Whole milliseconds.",
+          "type": "integer"
+        }
+      }
+    },
+    "counters": {
+      "title": "InferenceSessionCounters",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "requests",
+        "errors",
+        "rejected"
+      ],
+      "properties": {
+        "requests": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "errors": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "rejected": {
+          "minimum": 0,
+          "description": "Refused before reaching the worker.",
+          "type": "integer"
+        },
+        "last_predict_ms": {
+          "minimum": 0,
+          "description": "Whole milliseconds.",
+          "type": "integer"
+        }
+      }
+    },
+    "memory": {
+      "title": "InferenceSessionMemory",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "at"
+      ],
+      "properties": {
+        "rss_bytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "peak_rss_bytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "gpu_allocated_bytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "at": {
+          "title": "Timestamp",
+          "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+          "type": "string"
+        }
+      }
+    },
+    "mlflow_version": {
+      "maxLength": 50,
+      "type": "string"
+    },
+    "python_version": {
+      "maxLength": 50,
+      "type": "string"
+    },
+    "deployment_id": {
+      "pattern": "^dep-[a-z0-9-]{1,60}$",
+      "description": "Started by this local preview deployment.",
+      "type": "string"
+    },
+    "restarts": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "end_reason": {
+      "maxLength": 4000,
+      "type": "string"
+    },
+    "transitions": {
+      "maxItems": 100,
+      "type": "array",
+      "items": {
+        "title": "InferenceSessionTransition",
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "state",
+          "at"
+        ],
+        "properties": {
+          "state": {
+            "title": "InferenceSessionState",
+            "description": "`starting`: the worker is loading the model. `ready`: it answers predictions. `expired`: stopped after its idle timeout. `crashed`: the process died while serving. `failed`: the model never loaded. A coordinator restart stops every session (`stopped`).",
+            "anyOf": [
+              {
+                "const": "starting",
+                "type": "string"
+              },
+              {
+                "const": "ready",
+                "type": "string"
+              },
+              {
+                "const": "stopping",
+                "type": "string"
+              },
+              {
+                "const": "stopped",
+                "type": "string"
+              },
+              {
+                "const": "expired",
+                "type": "string"
+              },
+              {
+                "const": "crashed",
+                "type": "string"
+              },
+              {
+                "const": "failed",
+                "type": "string"
+              }
+            ]
+          },
+          "at": {
+            "title": "Timestamp",
+            "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 1000,
+            "type": "string"
+          }
+        }
+      }
+    },
+    "requested_by": {
+      "title": "InferenceSessionActor",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "anyOf": [
+            {
+              "const": "human",
+              "type": "string"
+            },
+            {
+              "const": "agent",
+              "type": "string"
+            },
+            {
+              "const": "system",
+              "type": "string"
+            }
+          ]
+        },
+        "id": {
+          "maxLength": 200,
+          "type": "string"
+        }
+      }
+    },
+    "created_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "ready_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "last_activity_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "ended_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "updated_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    }
+  }
+}

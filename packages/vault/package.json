@@ -1,0 +1,13 @@
+{
+  "name": "@ablationkit/vault",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./markdown": "./src/markdown.ts"
+  },
+  "dependencies": {
+    "@ablationkit/protocol": "workspace:*"
+  }
+}

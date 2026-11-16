@@ -1,0 +1,50 @@
+{
+  "name": "ablationkit",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.4.4",
+  "engines": {
+    "bun": ">=1.4.4"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "ablationkit": "bun apps/cli/src/main.ts",
+    "doctor": "bun apps/cli/src/main.ts dev doctor",
+    "format": "biome format --write . && uv run --frozen ruff format",
+    "format:check": "biome format . && uv run --frozen ruff format --check",
+    "lint": "biome lint . && uv run --frozen ruff check",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p apps/web/tsconfig.json && tsc --noEmit -p apps/desktop/tsconfig.json && tsc --noEmit -p packages/extension-sdk/tsconfig.json && tsc --noEmit -p packages/extension-host/templates/tsconfig.json && uv run --frozen mypy",
+    "protocol:generate": "bun packages/protocol/scripts/generate.ts",
+    "protocol:check": "bun packages/protocol/scripts/generate.ts --check",
+    "test": "bun test --parallel && uv run --frozen pytest",
+    "ci": "bun scripts/ci.ts",
+    "test:mlflow": "ABLATIONKIT_MLFLOW_CONTRACT=1 bun test packages/tracking-mlflow/test/contract.test.ts",
+    "test:lifecycle": "ABLATIONKIT_LIFECYCLE_E2E=1 bun test apps/server/test/lifecycle-e2e.test.ts --timeout 900000",
+    "test:inference": "ABLATIONKIT_INFERENCE_E2E=1 bun test apps/server/test/inference-e2e.test.ts --timeout 900000",
+    "test:llm": "ABLATIONKIT_LLM_E2E=1 bun test apps/server/test/llm-e2e.test.ts --timeout 900000",
+    "test:restore": "ABLATIONKIT_RESTORE_E2E=1 bun test apps/server/test/restore-e2e.test.ts --timeout 1800000",
+    "web:build": "bun apps/web/build.ts",
+    "web:dev": "bun apps/web/build.ts --watch",
+    "test:web": "ABLATIONKIT_WEB_E2E=1 bun test apps/web/e2e --timeout 120000",
+    "test:torch": "ABLATIONKIT_TORCH_E2E=1 bun test apps/server/test/torch-fixture.test.ts --timeout 900000",
+    "test:extensions": "ABLATIONKIT_EXTENSIONS_E2E=1 bun test apps/server/test/extensions-e2e.test.ts --timeout 900000",
+    "desktop": "bun apps/desktop/run.ts",
+    "desktop:build": "bun apps/desktop/build.ts",
+    "test:desktop": "ABLATIONKIT_DESKTOP_E2E=1 bun test apps/desktop/e2e --timeout 300000",
+    "acceptance": "bun scripts/acceptance.ts",
+    "mlflow:matrix": "bun scripts/mlflow-matrix.ts --write",
+    "package": "bun scripts/package.ts",
+    "test:package": "ABLATIONKIT_PACKAGE_E2E=1 bun test scripts/test/package-e2e.test.ts --timeout 900000",
+    "security:map": "bun scripts/security-map.ts --write",
+    "test:security": "bun test apps/server/test/security-routes.test.ts apps/server/test/security-remote.test.ts apps/server/test/security-agent.test.ts scripts/test/security-map.test.ts --timeout 300000"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.4",
+    "@types/bun": "1.4.4",
+    "typescript": "7.0.2"
+  }
+}

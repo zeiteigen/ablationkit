@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "__ID__",
+  "version": "0.1.0",
+  "name": "__NAME__",
+  "description": "A Python evaluator for one run: reads the staged run, computes metrics, writes an artifact; results are logged to MLflow through the coordinator.",
+  "host_api": "^1.0.0",
+  "contributes": [
+    {
+      "id": "evaluate",
+      "point": "run.evaluator",
+      "title": "__NAME__",
+      "entry": "python/evaluator.py:evaluate"
+    }
+  ],
+  "python": {
+    "requires_python": ">=3.10",
+    "project": "python",
+    "lockfile": "python/uv.lock",
+    "max_runtime_seconds": 120,
+    "max_memory_mb": 512,
+    "gpu": false,
+    "network": "none"
+  },
+  "capabilities": ["project.analysis.execute", "project.runs.read", "project.results.write"]
+}

@@ -1,0 +1,59 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "project_id": "custom-architecture-lab",
+      "name": "Custom architecture lab"
+    },
+    {
+      "schema_version": 1,
+      "project_id": "custom-architecture-lab",
+      "name": "Custom architecture lab",
+      "description": "Ünïcödé description 🚀"
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "empty name",
+      "value": {
+        "schema_version": 1,
+        "project_id": "custom-architecture-lab",
+        "name": ""
+      }
+    },
+    {
+      "reason": "name too long",
+      "value": {
+        "schema_version": 1,
+        "project_id": "custom-architecture-lab",
+        "name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      }
+    },
+    {
+      "reason": "explicit null description",
+      "value": {
+        "schema_version": 1,
+        "project_id": "custom-architecture-lab",
+        "name": "Custom architecture lab",
+        "description": null
+      }
+    },
+    {
+      "reason": "unknown field",
+      "value": {
+        "schema_version": 1,
+        "project_id": "custom-architecture-lab",
+        "name": "Custom architecture lab",
+        "path": "/home/x"
+      }
+    },
+    {
+      "reason": "project id is not a slug",
+      "value": {
+        "schema_version": 1,
+        "project_id": "My Project",
+        "name": "Custom architecture lab"
+      }
+    }
+  ]
+}

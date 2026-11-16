@@ -1,0 +1,87 @@
+/* The witness (ADR 0056): live run references, the runs a note leaves out, a session's account. */
+
+/* A number drawn from a run: reads as the number, marked as live. */
+.v-rr {
+  font-variant-numeric: tabular-nums;
+  color: var(--v-soft, var(--fg));
+  border-bottom: 1px dotted var(--faint);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.v-rr:hover {
+  border-bottom-style: solid;
+}
+.v-rr-bad {
+  color: var(--err);
+  border-bottom-color: var(--err);
+}
+
+.vault .v-behind {
+  margin: 12px 0 6px;
+  max-width: 580px;
+}
+.vault .v-behind-h {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 0;
+  background: none;
+  border: 0;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.vault .v-behind-h:hover {
+  color: var(--fg);
+}
+.vault .v-behind-t td:last-child {
+  color: var(--muted);
+}
+.vault .v-behind-t tr.acc-unaccounted .v-ev-role {
+  color: var(--warn);
+}
+.vault .v-behind-t tr.acc-set_aside .v-ev-role {
+  color: var(--faint);
+}
+
+.w-account {
+  padding: 8px 0;
+}
+.w-account h3 {
+  margin: 4px 0 2px;
+  font-size: 14px;
+}
+.w-account .w-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px 28px;
+}
+.w-account .w-dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 14px;
+  margin: 8px 0;
+  font-size: 13px;
+}
+.w-account .w-dl dt {
+  color: var(--faint);
+}
+.w-account .w-dl dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+.w-account.w-compact {
+  margin: 20px 0 8px;
+  padding: 10px 0 0;
+  border-top: 1px solid var(--line);
+  max-width: 64ch;
+}
+.w-account.w-compact p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  line-height: 1.55;
+}

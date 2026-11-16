@@ -1,0 +1,377 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ablationkit:schema:research-direction.v1",
+  "title": "ResearchDirection",
+  "description": "The researcher's direction to the agents working on a project (ADR 0057), anchored where they read, with its thread and its deliveries. Written by the researcher only; agents respond.",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schema_version",
+    "direction_id",
+    "project_id",
+    "target",
+    "kind",
+    "text",
+    "status",
+    "round",
+    "thread",
+    "deliveries",
+    "created_at",
+    "created_by",
+    "updated_at",
+    "revision"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "type": "number"
+    },
+    "direction_id": {
+      "title": "DirectionId",
+      "description": "A direction's identifier, `dir-YYYYMMDD-xxxxxx`.",
+      "pattern": "^dir-[0-9]{8}-[a-z0-9]{6}$",
+      "type": "string"
+    },
+    "project_id": {
+      "title": "ProjectId",
+      "description": "Stable project identifier (lowercase slug). Never a path; paths live in the local registry.",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,62}$",
+      "type": "string"
+    },
+    "target": {
+      "title": "DirectionTarget",
+      "description": "What a direction is about: where the researcher was reading when they wrote it.",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "description": "note: a note of the vault. run: a run by name or MLflow run ID. study: a study record. task: a research task. bottom_line: the ledger's bottom line. project: the project as a whole.",
+          "anyOf": [
+            {
+              "const": "note",
+              "type": "string"
+            },
+            {
+              "const": "run",
+              "type": "string"
+            },
+            {
+              "const": "study",
+              "type": "string"
+            },
+            {
+              "const": "task",
+              "type": "string"
+            },
+            {
+              "const": "bottom_line",
+              "type": "string"
+            },
+            {
+              "const": "project",
+              "type": "string"
+            }
+          ]
+        },
+        "id": {
+          "minLength": 1,
+          "maxLength": 250,
+          "description": "The note, run, study or task; absent for the bottom line and the project.",
+          "type": "string"
+        }
+      }
+    },
+    "kind": {
+      "title": "DirectionKind",
+      "description": "What the researcher wants. ask: explain or justify this. doubt: I do not believe this; bring more evidence or lower its standing. do: do this next. focus: prioritise this line. park: stop spending on this line for now. rule: a standing rule for every session, in force until the researcher withdraws it.",
+      "anyOf": [
+        {
+          "const": "ask",
+          "type": "string"
+        },
+        {
+          "const": "doubt",
+          "type": "string"
+        },
+        {
+          "const": "do",
+          "type": "string"
+        },
+        {
+          "const": "focus",
+          "type": "string"
+        },
+        {
+          "const": "park",
+          "type": "string"
+        },
+        {
+          "const": "rule",
+          "type": "string"
+        }
+      ]
+    },
+    "text": {
+      "minLength": 1,
+      "maxLength": 8000,
+      "description": "The researcher's words, Markdown with LaTeX.",
+      "type": "string"
+    },
+    "status": {
+      "title": "DirectionStatus",
+      "description": "open: waiting for an agent. acknowledged: an agent said what it will do. answered or declined: an agent answered (with what it changed) or declined (with its reason); waiting for the researcher, who closes it or reopens it (back to open). withdrawn: the researcher took it back. A rule is open until a session acknowledges it and stays in force (open or acknowledged) until withdrawn.",
+      "anyOf": [
+        {
+          "const": "open",
+          "type": "string"
+        },
+        {
+          "const": "acknowledged",
+          "type": "string"
+        },
+        {
+          "const": "answered",
+          "type": "string"
+        },
+        {
+          "const": "declined",
+          "type": "string"
+        },
+        {
+          "const": "closed",
+          "type": "string"
+        },
+        {
+          "const": "withdrawn",
+          "type": "string"
+        }
+      ]
+    },
+    "round": {
+      "minimum": 1,
+      "description": "1, and one more each time the researcher reopens it: a reopened direction is delivered again.",
+      "type": "integer"
+    },
+    "thread": {
+      "maxItems": 500,
+      "type": "array",
+      "items": {
+        "title": "DirectionEntry",
+        "description": "One turn of a direction's thread. An agent's entry is attributed to its agent session (`by.id` is the session's token ID).",
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "act",
+          "at",
+          "by"
+        ],
+        "properties": {
+          "act": {
+            "description": "ack, answer and decline are an agent's; close, reopen and withdraw the researcher's.",
+            "anyOf": [
+              {
+                "const": "ack",
+                "type": "string"
+              },
+              {
+                "const": "answer",
+                "type": "string"
+              },
+              {
+                "const": "decline",
+                "type": "string"
+              },
+              {
+                "const": "close",
+                "type": "string"
+              },
+              {
+                "const": "reopen",
+                "type": "string"
+              },
+              {
+                "const": "withdraw",
+                "type": "string"
+              }
+            ]
+          },
+          "at": {
+            "title": "Timestamp",
+            "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+            "type": "string"
+          },
+          "by": {
+            "title": "ResearchActor",
+            "description": "Who made a change: a human session, an agent token or the system. Work under a task links the task (`task:ID`).",
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "anyOf": [
+                  {
+                    "const": "human",
+                    "type": "string"
+                  },
+                  {
+                    "const": "agent",
+                    "type": "string"
+                  },
+                  {
+                    "const": "system",
+                    "type": "string"
+                  }
+                ]
+              },
+              "id": {
+                "maxLength": 200,
+                "type": "string"
+              }
+            }
+          },
+          "text": {
+            "maxLength": 8000,
+            "description": "Markdown with LaTeX.",
+            "type": "string"
+          },
+          "refs": {
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "title": "DirectionRef",
+              "description": "Something an answer points at by name: a note it revised, a job or run it ran, a study, a task, a work of the library. It resolved when it was recorded.",
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "kind",
+                "id"
+              ],
+              "properties": {
+                "kind": {
+                  "anyOf": [
+                    {
+                      "const": "note",
+                      "type": "string"
+                    },
+                    {
+                      "const": "run",
+                      "type": "string"
+                    },
+                    {
+                      "const": "job",
+                      "type": "string"
+                    },
+                    {
+                      "const": "study",
+                      "type": "string"
+                    },
+                    {
+                      "const": "task",
+                      "type": "string"
+                    },
+                    {
+                      "const": "work",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "id": {
+                  "minLength": 1,
+                  "maxLength": 250,
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "deliveries": {
+      "maxItems": 2000,
+      "description": "Which agent session was shown it, when, and in which round: shown once per session and round.",
+      "type": "array",
+      "items": {
+        "title": "DirectionDelivery",
+        "description": "One agent session was shown the direction.",
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "session",
+          "at",
+          "round"
+        ],
+        "properties": {
+          "session": {
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "The agent session (its token ID) it was shown to.",
+            "type": "string"
+          },
+          "at": {
+            "title": "Timestamp",
+            "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+            "type": "string"
+          },
+          "round": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      }
+    },
+    "created_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "created_by": {
+      "title": "ResearchActor",
+      "description": "Who made a change: a human session, an agent token or the system. Work under a task links the task (`task:ID`).",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "anyOf": [
+            {
+              "const": "human",
+              "type": "string"
+            },
+            {
+              "const": "agent",
+              "type": "string"
+            },
+            {
+              "const": "system",
+              "type": "string"
+            }
+          ]
+        },
+        "id": {
+          "maxLength": 200,
+          "type": "string"
+        }
+      }
+    },
+    "updated_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "revision": {
+      "minimum": 1,
+      "type": "integer"
+    }
+  }
+}

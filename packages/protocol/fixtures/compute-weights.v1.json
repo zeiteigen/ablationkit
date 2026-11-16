@@ -1,0 +1,45 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "weights": {}
+    },
+    {
+      "schema_version": 1,
+      "weights": {
+        "local": 100,
+        "t4": 100,
+        "a100": 300,
+        "cpu-box": 50
+      },
+      "updated_at": "2026-11-10T09:00:00Z",
+      "updated_by": "human:0123456789abcdef"
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "a weight of zero",
+      "value": {
+        "schema_version": 1,
+        "weights": {
+          "local": 0
+        }
+      }
+    },
+    {
+      "reason": "a fractional weight (weights are hundredths)",
+      "value": {
+        "schema_version": 1,
+        "weights": {
+          "local": 1.5
+        }
+      }
+    },
+    {
+      "reason": "missing weights",
+      "value": {
+        "schema_version": 1
+      }
+    }
+  ]
+}

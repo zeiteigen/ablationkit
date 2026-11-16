@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ablationkit:schema:review-state.v1",
+  "title": "ReviewState",
+  "description": "What the researcher has reviewed in a project (ADR 0048), stored in the coordinator state directory. A mark records reading, not approval, and decides nothing.",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schema_version",
+    "project_id",
+    "items"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "type": "number"
+    },
+    "project_id": {
+      "title": "ProjectId",
+      "description": "Stable project identifier (lowercase slug). Never a path; paths live in the local registry.",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,62}$",
+      "type": "string"
+    },
+    "items": {
+      "description": "Review marks by `kind:id` (a research record kind, or `task`).",
+      "type": "object",
+      "patternProperties": {
+        "^(.*)$": {
+          "title": "ReviewMark",
+          "description": "The researcher read one research record or task (ADR 0048).",
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "digest",
+            "reviewed_at",
+            "by"
+          ],
+          "properties": {
+            "digest": {
+              "pattern": "^[a-f0-9]{16}$",
+              "description": "Hash of what the researcher read (title, status, description, read, evidence and the like; not links or tags). A different hash later shows the item as changed since review.",
+              "type": "string"
+            },
+            "reviewed_at": {
+              "title": "Timestamp",
+              "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+              "type": "string"
+            },
+            "by": {
+              "title": "ResearchActor",
+              "description": "Who made a change: a human session, an agent token or the system. Work under a task links the task (`task:ID`).",
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "kind"
+              ],
+              "properties": {
+                "kind": {
+                  "anyOf": [
+                    {
+                      "const": "human",
+                      "type": "string"
+                    },
+                    {
+                      "const": "agent",
+                      "type": "string"
+                    },
+                    {
+                      "const": "system",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "id": {
+                  "maxLength": 200,
+                  "type": "string"
+                }
+              }
+            },
+            "note": {
+              "maxLength": 4000,
+              "description": "The researcher's note on the item. Agents can read it; it grants nothing.",
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

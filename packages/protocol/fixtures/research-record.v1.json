@@ -1,0 +1,192 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "record_id": "hyp-20261102-a1b2c3",
+      "project_id": "custom-architecture-lab",
+      "kind": "hypothesis",
+      "title": "Subword tokenizer lowers validation loss",
+      "status": "testing",
+      "summary": "A BPE-lite tokenizer beats the character tokenizer at equal steps.",
+      "tags": ["tokenizer", "ablation"],
+      "links": [{ "kind": "study", "id": "tokenizer-ablation" }],
+      "created_at": "2026-11-02T10:00:00Z",
+      "updated_at": "2026-11-02T10:00:00Z",
+      "created_by": { "kind": "human", "id": "0123456789abcdef" },
+      "updated_by": { "kind": "agent", "id": "fedcba9876543210" },
+      "revision": 1
+    },
+    {
+      "schema_version": 1,
+      "record_id": "rep-20261102-ffee00",
+      "project_id": "custom-architecture-lab",
+      "kind": "report",
+      "title": "Tokenizer ablation: Ünïcödé 🚀",
+      "body": "Interpretation goes here.",
+      "follow_up": "Try a larger vocabulary.",
+      "tags": [],
+      "links": [],
+      "evidence": [
+        {
+          "ref": { "kind": "run", "id": "abc123", "label": "baseline seed 0" },
+          "role": "baseline",
+          "mlflow_run_id": "abc123",
+          "attempt_id": "att-1",
+          "job_id": "job-1",
+          "variant_id": "char",
+          "source_commit": "0123456789abcdef0123456789abcdef01234567",
+          "source_dirty": false,
+          "values": { "val/loss": "1.2345678901234567" },
+          "artifacts": ["model/weights.json"],
+          "captured_at": "2026-11-02T10:05:00.123Z"
+        }
+      ],
+      "generated": {
+        "study_id": "tokenizer-ablation",
+        "baseline_variant": "char",
+        "metric_keys": ["val/loss"],
+        "runs": 2,
+        "generated_at": "2026-11-02T10:05:00Z"
+      },
+      "created_at": "2026-11-02T10:05:00Z",
+      "updated_at": "2026-11-02T10:05:00Z",
+      "created_by": { "kind": "system" },
+      "updated_by": { "kind": "system" },
+      "revision": 3,
+      "archived_at": "2026-11-03T00:00:00Z"
+    },
+    {
+      "schema_version": 1,
+      "record_id": "conv-20261102-000001",
+      "project_id": "custom-architecture-lab",
+      "kind": "conversation",
+      "title": "Brainstorm on tokenizers",
+      "source": "claude",
+      "url": "https://claude.ai/chat/0000",
+      "conversation_created_at": "2026-10-30T09:00:00Z",
+      "body": "Private notes.",
+      "export_notes": false,
+      "tags": ["idea"],
+      "links": [{ "kind": "hypothesis", "id": "hyp-20261102-a1b2c3" }],
+      "created_at": "2026-11-02T10:00:00Z",
+      "updated_at": "2026-11-02T10:00:00Z",
+      "created_by": { "kind": "human" },
+      "updated_by": { "kind": "human" },
+      "revision": 1
+    },
+    {
+      "schema_version": 1,
+      "record_id": "tokenizer-ablation",
+      "project_id": "custom-architecture-lab",
+      "kind": "study",
+      "title": "Tokenizer ablation",
+      "protocol": "3 seeds per variant, report val/loss at the last step.",
+      "baseline_variant": "char",
+      "variants": [{ "variant_id": "char", "title": "Character" }, { "variant_id": "bpe" }],
+      "metric_goals": [{ "key": "val/loss", "goal": "min" }],
+      "tags": [],
+      "links": [],
+      "created_at": "2026-11-02T10:00:00Z",
+      "updated_at": "2026-11-02T10:00:00Z",
+      "created_by": { "kind": "human" },
+      "updated_by": { "kind": "human" },
+      "revision": 1
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "unknown kind",
+      "value": {
+        "schema_version": 1,
+        "record_id": "x-1",
+        "project_id": "p",
+        "kind": "idea",
+        "title": "t",
+        "tags": [],
+        "links": [],
+        "created_at": "2026-11-02T10:00:00Z",
+        "updated_at": "2026-11-02T10:00:00Z",
+        "created_by": { "kind": "human" },
+        "updated_by": { "kind": "human" },
+        "revision": 1
+      }
+    },
+    {
+      "reason": "float metric value",
+      "value": {
+        "schema_version": 1,
+        "record_id": "rep-1",
+        "project_id": "p",
+        "kind": "report",
+        "title": "t",
+        "tags": [],
+        "links": [],
+        "evidence": [
+          {
+            "ref": { "kind": "run", "id": "r" },
+            "values": { "loss": 1.5 },
+            "captured_at": "2026-11-02T10:00:00Z"
+          }
+        ],
+        "created_at": "2026-11-02T10:00:00Z",
+        "updated_at": "2026-11-02T10:00:00Z",
+        "created_by": { "kind": "human" },
+        "updated_by": { "kind": "human" },
+        "revision": 1
+      }
+    },
+    {
+      "reason": "non-http conversation url",
+      "value": {
+        "schema_version": 1,
+        "record_id": "conv-1",
+        "project_id": "p",
+        "kind": "conversation",
+        "title": "t",
+        "url": "file:///etc/passwd",
+        "tags": [],
+        "links": [],
+        "created_at": "2026-11-02T10:00:00Z",
+        "updated_at": "2026-11-02T10:00:00Z",
+        "created_by": { "kind": "human" },
+        "updated_by": { "kind": "human" },
+        "revision": 1
+      }
+    },
+    {
+      "reason": "revision zero",
+      "value": {
+        "schema_version": 1,
+        "record_id": "n-1",
+        "project_id": "p",
+        "kind": "note",
+        "title": "t",
+        "tags": [],
+        "links": [],
+        "created_at": "2026-11-02T10:00:00Z",
+        "updated_at": "2026-11-02T10:00:00Z",
+        "created_by": { "kind": "human" },
+        "updated_by": { "kind": "human" },
+        "revision": 0
+      }
+    },
+    {
+      "reason": "explicit null body",
+      "value": {
+        "schema_version": 1,
+        "record_id": "n-1",
+        "project_id": "p",
+        "kind": "note",
+        "title": "t",
+        "body": null,
+        "tags": [],
+        "links": [],
+        "created_at": "2026-11-02T10:00:00Z",
+        "updated_at": "2026-11-02T10:00:00Z",
+        "created_by": { "kind": "human" },
+        "updated_by": { "kind": "human" },
+        "revision": 1
+      }
+    }
+  ]
+}

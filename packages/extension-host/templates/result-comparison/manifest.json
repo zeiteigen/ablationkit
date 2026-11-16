@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "id": "__ID__",
+  "version": "0.1.0",
+  "name": "__NAME__",
+  "description": "A comparison view: the selected runs' shared metrics side by side, with the best value per metric marked.",
+  "host_api": "^1.0.0",
+  "contributes": [
+    {
+      "id": "compare",
+      "point": "comparison.view",
+      "title": "__NAME__",
+      "entry": "ui/src/Compare.tsx"
+    }
+  ],
+  "capabilities": ["project.runs.read"]
+}

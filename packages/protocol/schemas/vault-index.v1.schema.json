@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ablationkit:schema:vault-index.v1",
+  "title": "VaultIndex",
+  "description": "The shelf and the ledger of a project's vault (ADR 0049). Editions are not listed: they are the notebooks that carry an `edition` date.",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schema_version",
+    "project_id",
+    "shelf",
+    "ledger",
+    "updated_at",
+    "updated_by",
+    "revision"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "type": "number"
+    },
+    "project_id": {
+      "title": "ProjectId",
+      "description": "Stable project identifier (lowercase slug). Never a path; paths live in the local registry.",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,62}$",
+      "type": "string"
+    },
+    "shelf": {
+      "maxItems": 200,
+      "description": "The top-level notebooks in the order to read them, the fundamentals first. Everything else is reached by embedding.",
+      "type": "array",
+      "items": {
+        "title": "VaultNoteId",
+        "description": "A note's identifier, unique within a project: kebab-case words that say what the note is (`macro-tokenizer`, not `note-12`). It is what `[[id]]` links and `![[id]]` embeds name, so it does not change.",
+        "pattern": "^[a-z0-9][a-z0-9-]{0,95}$",
+        "type": "string"
+      }
+    },
+    "ledger": {
+      "title": "VaultLedger",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "order"
+      ],
+      "properties": {
+        "bottom_line": {
+          "maxLength": 2000,
+          "description": "Two or three sentences: where the project stands today.",
+          "type": "string"
+        },
+        "order": {
+          "maxItems": 2000,
+          "description": "The claims, most important first. Claims left out follow in id order.",
+          "type": "array",
+          "items": {
+            "title": "VaultNoteId",
+            "description": "A note's identifier, unique within a project: kebab-case words that say what the note is (`macro-tokenizer`, not `note-12`). It is what `[[id]]` links and `![[id]]` embeds name, so it does not change.",
+            "pattern": "^[a-z0-9][a-z0-9-]{0,95}$",
+            "type": "string"
+          }
+        }
+      }
+    },
+    "updated_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "updated_by": {
+      "title": "ResearchActor",
+      "description": "Who made a change: a human session, an agent token or the system. Work under a task links the task (`task:ID`).",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "anyOf": [
+            {
+              "const": "human",
+              "type": "string"
+            },
+            {
+              "const": "agent",
+              "type": "string"
+            },
+            {
+              "const": "system",
+              "type": "string"
+            }
+          ]
+        },
+        "id": {
+          "maxLength": 200,
+          "type": "string"
+        }
+      }
+    },
+    "revision": {
+      "minimum": 1,
+      "type": "integer"
+    }
+  }
+}

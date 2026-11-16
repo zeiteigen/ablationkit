@@ -1,0 +1,17 @@
+[project]
+name = "torch-custom-loop"
+version = "0.1.0"
+description = "AblationKit fixture: a custom PyTorch training loop with a project-defined model and tokenizer."
+requires-python = ">=3.10,<3.14"
+dependencies = ["torch>=2.5"]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu" }]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true

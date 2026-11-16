@@ -1,0 +1,64 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "event_id": "evt-01",
+      "project_id": "custom-architecture-lab",
+      "producer_id": "sdk.host-a",
+      "producer_seq": 0,
+      "ts": "2026-11-02T10:00:00Z",
+      "type": "run.started",
+      "payload": {},
+      "seq": 0
+    },
+    {
+      "schema_version": 1,
+      "event_id": "evt-02",
+      "project_id": "custom-architecture-lab",
+      "producer_id": "sdk.host-a",
+      "producer_seq": 9007199254740991,
+      "ts": "2026-11-02T10:00:00.123456789Z",
+      "type": "console.line",
+      "payload": {
+        "stream": "stdout",
+        "text": "épöch 1 🚀 loss=0.25",
+        "nested": {
+          "x": null,
+          "list": [1, 2.5, "s", true]
+        }
+      },
+      "ablationkit_job_id": "job-7",
+      "attempt_id": "job-7:a1",
+      "seq": 41
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "missing journal seq",
+      "value": {
+        "schema_version": 1,
+        "event_id": "evt-01",
+        "project_id": "custom-architecture-lab",
+        "producer_id": "sdk.host-a",
+        "producer_seq": 0,
+        "ts": "2026-11-02T10:00:00Z",
+        "type": "run.started",
+        "payload": {}
+      }
+    },
+    {
+      "reason": "negative journal seq",
+      "value": {
+        "schema_version": 1,
+        "event_id": "evt-01",
+        "project_id": "custom-architecture-lab",
+        "producer_id": "sdk.host-a",
+        "producer_seq": 0,
+        "ts": "2026-11-02T10:00:00Z",
+        "type": "run.started",
+        "payload": {},
+        "seq": -1
+      }
+    }
+  ]
+}

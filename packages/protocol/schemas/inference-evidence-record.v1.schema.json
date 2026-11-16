@@ -1,0 +1,338 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ablationkit:schema:inference-evidence-record.v1",
+  "title": "InferenceEvidenceRecord",
+  "description": "An inference result or model comparison the researcher saved explicitly. MLflow holds the artifact (an `inference_evidence` run); this record holds the provenance.",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schema_version",
+    "evidence_id",
+    "project_id",
+    "kind",
+    "via",
+    "title",
+    "models",
+    "task",
+    "output",
+    "rows",
+    "input_sha256",
+    "environment",
+    "stored",
+    "artifact_path",
+    "artifact_bytes",
+    "predicted_at",
+    "saved_by",
+    "saved_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "type": "number"
+    },
+    "evidence_id": {
+      "title": "InferenceEvidenceId",
+      "description": "Saved inference evidence ID, `ie-<id>`.",
+      "pattern": "^ie-[a-z0-9]{6,40}$",
+      "type": "string"
+    },
+    "project_id": {
+      "title": "ProjectId",
+      "description": "Stable project identifier (lowercase slug). Never a path; paths live in the local registry.",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,62}$",
+      "type": "string"
+    },
+    "kind": {
+      "anyOf": [
+        {
+          "const": "prediction",
+          "type": "string"
+        },
+        {
+          "const": "comparison",
+          "type": "string"
+        }
+      ]
+    },
+    "via": {
+      "anyOf": [
+        {
+          "const": "one_shot",
+          "type": "string"
+        },
+        {
+          "const": "session",
+          "type": "string"
+        }
+      ]
+    },
+    "session_id": {
+      "title": "InferenceSessionId",
+      "description": "AblationKit inference session ID, `is-<id>`.",
+      "pattern": "^is-[a-z0-9]{6,40}$",
+      "type": "string"
+    },
+    "title": {
+      "minLength": 1,
+      "maxLength": 200,
+      "type": "string"
+    },
+    "note": {
+      "maxLength": 5000,
+      "type": "string"
+    },
+    "models": {
+      "minItems": 1,
+      "maxItems": 8,
+      "type": "array",
+      "items": {
+        "title": "InferenceEvidenceModel",
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "model_id"
+        ],
+        "properties": {
+          "model_id": {
+            "title": "LoggedModelId",
+            "description": "MLflow 3 logged-model ID (`m-…`). Distinct from a run ID and a registry version.",
+            "pattern": "^m-[A-Za-z0-9]{1,64}$",
+            "type": "string"
+          },
+          "registered_name": {
+            "title": "RegisteredModelName",
+            "description": "MLflow registered model name.",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._ -]{0,199}$",
+            "type": "string"
+          },
+          "version": {
+            "title": "ModelVersionNumber",
+            "description": "MLflow registry version number, as a string.",
+            "pattern": "^[1-9][0-9]{0,9}$",
+            "type": "string"
+          },
+          "alias": {
+            "pattern": "^[A-Za-z0-9_-]{1,100}$",
+            "description": "Alias the researcher chose; resolved to `version` at launch and pinned.",
+            "type": "string"
+          },
+          "source_run_id": {
+            "title": "MlflowRunId",
+            "description": "MLflow run ID, as MLflow returns it.",
+            "pattern": "^[A-Za-z0-9_-]{1,64}$",
+            "type": "string"
+          },
+          "source_commit": {
+            "pattern": "^[a-f0-9]{7,64}$",
+            "type": "string"
+          }
+        }
+      }
+    },
+    "task": {
+      "title": "InferenceTask",
+      "description": "Task adapter chosen from the model's signature and metadata.",
+      "anyOf": [
+        {
+          "const": "tabular",
+          "type": "string"
+        },
+        {
+          "const": "text",
+          "type": "string"
+        },
+        {
+          "const": "image",
+          "type": "string"
+        }
+      ]
+    },
+    "output": {
+      "title": "InferenceOutputKind",
+      "anyOf": [
+        {
+          "const": "classification",
+          "type": "string"
+        },
+        {
+          "const": "regression",
+          "type": "string"
+        },
+        {
+          "const": "unknown",
+          "type": "string"
+        }
+      ]
+    },
+    "rows": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "input_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "SHA-256 of the canonical JSON inputs (or of the dataset file for a slice).",
+      "type": "string"
+    },
+    "dataset": {
+      "title": "InferenceEvidenceDataset",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "path",
+        "sha256",
+        "offset",
+        "limit"
+      ],
+      "properties": {
+        "path": {
+          "minLength": 1,
+          "maxLength": 1024,
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "offset": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "limit": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "targets": {
+          "maxLength": 250,
+          "type": "string"
+        },
+        "split": {
+          "maxLength": 100,
+          "type": "string"
+        },
+        "source_commit": {
+          "pattern": "^[a-f0-9]{7,64}$",
+          "type": "string"
+        }
+      }
+    },
+    "params": {
+      "type": "object",
+      "patternProperties": {
+        "^(.*)$": {}
+      }
+    },
+    "code_revision": {
+      "pattern": "^[a-f0-9]{7,64}$",
+      "description": "The project checkout's HEAD when the evidence was saved.",
+      "type": "string"
+    },
+    "environment": {
+      "title": "InferenceEvidenceEnvironment",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "kind",
+        "bridge_version"
+      ],
+      "properties": {
+        "kind": {
+          "anyOf": [
+            {
+              "const": "managed",
+              "type": "string"
+            },
+            {
+              "const": "project",
+              "type": "string"
+            }
+          ]
+        },
+        "mlflow_version": {
+          "maxLength": 50,
+          "type": "string"
+        },
+        "python_version": {
+          "maxLength": 50,
+          "type": "string"
+        },
+        "bridge_version": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      }
+    },
+    "stored": {
+      "maxItems": 20,
+      "description": "What the MLflow artifact contains (inputs, outputs, probabilities, targets…).",
+      "type": "array",
+      "items": {
+        "maxLength": 50,
+        "type": "string"
+      }
+    },
+    "mlflow_run_id": {
+      "title": "MlflowRunId",
+      "description": "MLflow run ID, as MLflow returns it.",
+      "pattern": "^[A-Za-z0-9_-]{1,64}$",
+      "type": "string"
+    },
+    "experiment_id": {
+      "title": "MlflowExperimentId",
+      "description": "MLflow experiment ID, as MLflow returns it.",
+      "pattern": "^[A-Za-z0-9_-]{1,64}$",
+      "type": "string"
+    },
+    "artifact_path": {
+      "maxLength": 500,
+      "type": "string"
+    },
+    "artifact_bytes": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "predicted_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "saved_by": {
+      "title": "InferenceEvidenceActor",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "anyOf": [
+            {
+              "const": "human",
+              "type": "string"
+            },
+            {
+              "const": "agent",
+              "type": "string"
+            }
+          ]
+        },
+        "id": {
+          "maxLength": 200,
+          "type": "string"
+        }
+      }
+    },
+    "saved_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "deleted_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    }
+  }
+}

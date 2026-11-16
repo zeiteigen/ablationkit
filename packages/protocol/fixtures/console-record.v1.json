@@ -1,0 +1,33 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "seq": 0,
+      "ts": "2026-11-02T18:00:00Z",
+      "stream": "stdout",
+      "text": "epoch 1 loss=0.5"
+    },
+    {
+      "schema_version": 1,
+      "seq": 1,
+      "ts": "2026-11-02T18:00:00.123Z",
+      "stream": "log",
+      "text": "starting training",
+      "level": "INFO",
+      "logger": "train",
+      "event_id": "e-1"
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "unknown stream",
+      "value": {
+        "schema_version": 1,
+        "seq": 0,
+        "ts": "2026-11-02T18:00:00Z",
+        "stream": "stdin",
+        "text": "x"
+      }
+    }
+  ]
+}

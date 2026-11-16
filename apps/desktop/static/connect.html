@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; form-action 'none'; base-uri 'none'"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Connect to a coordinator</title>
+    <link rel="stylesheet" href="connect.css" />
+  </head>
+  <body>
+    <main>
+      <h1>AblationKit</h1>
+      <p class="muted">
+        The desktop app shows the coordinator's web UI. Pick which coordinator to open.
+      </p>
+      <p id="error" class="error" role="alert" hidden></p>
+      <form id="form">
+        <fieldset>
+          <legend>Coordinator</legend>
+          <label class="choice">
+            <input type="radio" name="mode" value="managed" checked />
+            <span>
+              <strong>On this machine</strong>
+              <span class="muted">Started if it is not running, then logged in automatically.</span>
+            </span>
+          </label>
+          <label class="choice">
+            <input type="radio" name="mode" value="remote" />
+            <span>
+              <strong>Remote</strong>
+              <span class="muted">A workstation coordinator over the tailnet (HTTPS).</span>
+            </span>
+          </label>
+        </fieldset>
+
+        <section id="managed">
+          <label
+            >Runtime directory
+            <input id="home" name="home" type="text" placeholder="~/.ablationkit" autocomplete="off"
+          /></label>
+          <label class="choice">
+            <input type="checkbox" id="child" name="child" />
+            <span>
+              <strong>Run it as part of this app</strong>
+              <span class="muted"
+                >Stops when the app quits. Otherwise it runs as the systemd user service and keeps
+                running.</span
+              >
+            </span>
+          </label>
+        </section>
+
+        <section id="remote" hidden>
+          <label
+            >Coordinator URL
+            <input
+              id="remote_url"
+              name="remote_url"
+              type="url"
+              placeholder="https://workstation.tailnet.ts.net"
+              autocomplete="off"
+          /></label>
+          <label
+            >One-time login link
+            <input
+              id="link"
+              name="link"
+              type="url"
+              placeholder="https://workstation.tailnet.ts.net/login?code=…"
+              autocomplete="off"
+          /></label>
+          <p class="muted small">
+            On the workstation run <code>ablationkit login --origin URL</code> and paste the link
+            here. It works once and expires in a few minutes. Leave it empty to reuse a session
+            from before.
+          </p>
+        </section>
+
+        <button id="connect" type="submit">Connect</button>
+        <p id="config" class="muted small"></p>
+      </form>
+    </main>
+    <script src="connect.js"></script>
+  </body>
+</html>

@@ -1,0 +1,14 @@
+[project]
+name = "ablationkit-pytorch"
+version = "0.1.0"
+description = "Optional PyTorch helpers for AblationKit: training-loop logging and checkpoints. Brings no torch dependency of its own."
+requires-python = ">=3.10"
+license = "MIT"
+dependencies = ["ablationkit-sdk"]
+
+[tool.uv.sources]
+ablationkit-sdk = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.9,<0.13"]
+build-backend = "uv_build"

@@ -1,0 +1,50 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "project_id": "custom-architecture-lab",
+      "files": {},
+      "drift": []
+    },
+    {
+      "schema_version": 1,
+      "project_id": "custom-architecture-lab",
+      "imported_at": "2026-11-02T10:00:00Z",
+      "imported_records": 4,
+      "import_note": "imported from /home/x/repo/.ablationkit",
+      "last_export_at": "2026-11-02T10:01:00Z",
+      "files": {
+        "research/hypotheses.json": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "drift": [
+        {
+          "path": "research/hypotheses.json",
+          "saved_to": "/home/x/.ablationkit/state/p/research/drift/20261102T100000Z/research/hypotheses.json",
+          "detected_at": "2026-11-02T10:01:00Z"
+        }
+      ],
+      "last_export_redactions": 1
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "bad hash",
+      "value": {
+        "schema_version": 1,
+        "project_id": "custom-architecture-lab",
+        "files": {
+          "research/hypotheses.json": "abc"
+        },
+        "drift": []
+      }
+    },
+    {
+      "reason": "missing files",
+      "value": {
+        "schema_version": 1,
+        "project_id": "custom-architecture-lab",
+        "drift": []
+      }
+    }
+  ]
+}

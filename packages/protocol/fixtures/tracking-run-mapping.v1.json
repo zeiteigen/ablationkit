@@ -1,0 +1,101 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "ref": "att-01",
+      "kind": "attempt",
+      "project_id": "demo",
+      "experiment_name": "ak/demo",
+      "sync_state": "tracking_pending",
+      "created_at": "2026-11-02T18:00:00Z",
+      "updated_at": "2026-11-02T18:00:00Z"
+    },
+    {
+      "schema_version": 1,
+      "ref": "att-01",
+      "kind": "attempt",
+      "project_id": "demo",
+      "experiment_name": "ak/demo",
+      "sync_state": "synced",
+      "created_at": "2026-11-02T18:00:00Z",
+      "updated_at": "2026-11-02T18:00:00Z",
+      "experiment_id": "1",
+      "mlflow_run_id": "26fa61cc0d4e4821be5898deed81ed27",
+      "job_id": "job-01",
+      "attempt_id": "att-01",
+      "study_id": "study-a",
+      "variant_id": "baseline",
+      "task_id": "task-1",
+      "run_name": "baseline seed 1",
+      "synced_at": "2026-11-02T18:00:00Z",
+      "mlproject_entrypoint": "train"
+    },
+    {
+      "schema_version": 1,
+      "ref": "mr-abc",
+      "kind": "manual",
+      "project_id": "demo",
+      "experiment_name": "ak/demo",
+      "sync_state": "sync_failed",
+      "created_at": "2026-11-02T18:00:00Z",
+      "updated_at": "2026-11-02T18:00:00Z",
+      "last_error": "INVALID_PARAMETER_VALUE: Changing param values is not allowed"
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "unknown sync state",
+      "value": {
+        "schema_version": 1,
+        "ref": "att-01",
+        "kind": "attempt",
+        "project_id": "demo",
+        "experiment_name": "ak/demo",
+        "sync_state": "committed",
+        "created_at": "2026-11-02T18:00:00Z",
+        "updated_at": "2026-11-02T18:00:00Z"
+      }
+    },
+    {
+      "reason": "null run id",
+      "value": {
+        "schema_version": 1,
+        "ref": "att-01",
+        "kind": "attempt",
+        "project_id": "demo",
+        "experiment_name": "ak/demo",
+        "sync_state": "tracking_pending",
+        "created_at": "2026-11-02T18:00:00Z",
+        "updated_at": "2026-11-02T18:00:00Z",
+        "mlflow_run_id": null
+      }
+    },
+    {
+      "reason": "extra field",
+      "value": {
+        "schema_version": 1,
+        "ref": "att-01",
+        "kind": "attempt",
+        "project_id": "demo",
+        "experiment_name": "ak/demo",
+        "sync_state": "tracking_pending",
+        "created_at": "2026-11-02T18:00:00Z",
+        "updated_at": "2026-11-02T18:00:00Z",
+        "metrics": []
+      }
+    },
+    {
+      "reason": "bad kind",
+      "value": {
+        "schema_version": 1,
+        "ref": "att-01",
+        "kind": "job",
+        "project_id": "demo",
+        "experiment_name": "ak/demo",
+        "sync_state": "tracking_pending",
+        "created_at": "2026-11-02T18:00:00Z",
+        "updated_at": "2026-11-02T18:00:00Z"
+      }
+    }
+  ]
+}

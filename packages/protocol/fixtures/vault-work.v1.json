@@ -1,0 +1,84 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "work_id": "xiong-2020-layernorm",
+      "project_id": "custom-architecture-lab",
+      "kind": "paper",
+      "title": "On Layer Normalization in the Transformer Architecture",
+      "authors": ["Xiong, Ruibin", "Yang, Yunchang", "others"],
+      "year": 2020,
+      "venue": "ICML 2020",
+      "arxiv": "2002.04745",
+      "url": "https://arxiv.org/abs/2002.04745",
+      "reading": "read",
+      "summary": "Pre-LN Transformers put the normalisation inside the residual branch, so the gradients at the output layer stay bounded at initialisation and warm-up can be dropped. A final LayerNorm after the last block is part of that design.",
+      "takeaway": "Our 64k model is Pre-LN without the final LayerNorm the paper's analysis assumes; adding it is the fix we tried.",
+      "found_for": "Why the 64k model trails the 8k model: [[gap-64k-8k]]",
+      "found_via": "Web search: \"pre-LN transformer final layer norm missing\"",
+      "task_id": "task-20261103-abc123",
+      "accessed": "2026-11-03",
+      "created_at": "2026-11-03T10:00:00Z",
+      "updated_at": "2026-11-03T10:00:00Z",
+      "created_by": { "kind": "agent", "id": "0123456789abcdef" },
+      "updated_by": { "kind": "agent", "id": "0123456789abcdef" },
+      "revision": 1
+    },
+    {
+      "schema_version": 1,
+      "work_id": "karpathy-nanogpt",
+      "project_id": "custom-architecture-lab",
+      "kind": "repo",
+      "title": "nanoGPT",
+      "authors": ["Karpathy, Andrej"],
+      "url": "https://github.com/karpathy/nanoGPT",
+      "version": "93a43d9",
+      "reading": "skimmed",
+      "takeaway": "Considered as a reference training loop; set aside because it ties embeddings, which this project studies separately.",
+      "created_at": "2026-11-03T10:00:00Z",
+      "updated_at": "2026-11-04T10:00:00Z",
+      "created_by": { "kind": "agent" },
+      "updated_by": { "kind": "human", "id": "s-1" },
+      "revision": 2,
+      "archived_at": "2026-11-05T10:00:00Z"
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "no takeaway",
+      "value": {
+        "schema_version": 1,
+        "work_id": "xiong-2020-layernorm",
+        "project_id": "custom-architecture-lab",
+        "kind": "paper",
+        "title": "On Layer Normalization in the Transformer Architecture",
+        "authors": [],
+        "reading": "read",
+        "created_at": "2026-11-03T10:00:00Z",
+        "updated_at": "2026-11-03T10:00:00Z",
+        "created_by": { "kind": "agent" },
+        "updated_by": { "kind": "agent" },
+        "revision": 1
+      }
+    },
+    {
+      "reason": "a DOI that is not a DOI",
+      "value": {
+        "schema_version": 1,
+        "work_id": "xiong-2020-layernorm",
+        "project_id": "custom-architecture-lab",
+        "kind": "paper",
+        "title": "On Layer Normalization in the Transformer Architecture",
+        "authors": [],
+        "doi": "https://doi.org/10.5555/123",
+        "reading": "read",
+        "takeaway": "Used.",
+        "created_at": "2026-11-03T10:00:00Z",
+        "updated_at": "2026-11-03T10:00:00Z",
+        "created_by": { "kind": "agent" },
+        "updated_by": { "kind": "agent" },
+        "revision": 1
+      }
+    }
+  ]
+}

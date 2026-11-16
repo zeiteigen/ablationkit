@@ -1,0 +1,186 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ablationkit:schema:tracking-outbox-record.v1",
+  "title": "TrackingOutboxRecord",
+  "description": "One entry of the temporary durable tracking outbox. Replaying the journal gives the pending and failed writes; fully resolved segments are deleted.",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schema_version",
+    "seq",
+    "ts",
+    "type",
+    "op_id"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "type": "number"
+    },
+    "seq": {
+      "title": "SequenceNumber",
+      "description": "Non-negative sequence number.",
+      "minimum": 0,
+      "maximum": 9007199254740991,
+      "type": "integer"
+    },
+    "ts": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "type": {
+      "description": "`enqueue` adds `op`; `ack` resolves it (with `result`); `fail` parks it after a rejection; `requeue` puts a failed op back.",
+      "anyOf": [
+        {
+          "const": "enqueue",
+          "type": "string"
+        },
+        {
+          "const": "ack",
+          "type": "string"
+        },
+        {
+          "const": "fail",
+          "type": "string"
+        },
+        {
+          "const": "requeue",
+          "type": "string"
+        }
+      ]
+    },
+    "op_id": {
+      "pattern": "^op-[A-Za-z0-9_-]{1,64}$",
+      "type": "string"
+    },
+    "op": {
+      "title": "TrackingOp",
+      "description": "One queued MLflow write.",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "kind",
+        "project_id",
+        "payload",
+        "enqueued_at",
+        "bytes"
+      ],
+      "properties": {
+        "kind": {
+          "title": "TrackingOpKind",
+          "description": "Kind of queued MLflow write.",
+          "anyOf": [
+            {
+              "const": "ensure_experiment",
+              "type": "string"
+            },
+            {
+              "const": "create_run",
+              "type": "string"
+            },
+            {
+              "const": "log_batch",
+              "type": "string"
+            },
+            {
+              "const": "update_run",
+              "type": "string"
+            },
+            {
+              "const": "log_inputs",
+              "type": "string"
+            },
+            {
+              "const": "log_model",
+              "type": "string"
+            },
+            {
+              "const": "log_trace",
+              "type": "string"
+            }
+          ]
+        },
+        "project_id": {
+          "title": "ProjectId",
+          "description": "Stable project identifier (lowercase slug). Never a path; paths live in the local registry.",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,62}$",
+          "type": "string"
+        },
+        "ref": {
+          "title": "TrackingRunRef",
+          "description": "Run the write belongs to; absent for experiment writes.",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "payload": {
+          "description": "Kind-specific body, validated by the tracking package before it is queued.",
+          "type": "object",
+          "patternProperties": {
+            "^(.*)$": {}
+          }
+        },
+        "enqueued_at": {
+          "title": "Timestamp",
+          "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+          "type": "string"
+        },
+        "bytes": {
+          "minimum": 0,
+          "description": "Serialized payload size, for the bound.",
+          "type": "integer"
+        }
+      }
+    },
+    "result": {
+      "type": "object",
+      "patternProperties": {
+        "^(.*)$": {}
+      }
+    },
+    "error": {
+      "title": "TrackingError",
+      "description": "Why an MLflow write did not succeed.",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "kind",
+        "message"
+      ],
+      "properties": {
+        "kind": {
+          "description": "`unavailable`: MLflow unreachable or 5xx (retried). `ambiguous`: the request may have landed (retried idempotently). `rejected`: MLflow refused it (failed until retried by hand).",
+          "anyOf": [
+            {
+              "const": "unavailable",
+              "type": "string"
+            },
+            {
+              "const": "ambiguous",
+              "type": "string"
+            },
+            {
+              "const": "rejected",
+              "type": "string"
+            }
+          ]
+        },
+        "message": {
+          "maxLength": 2000,
+          "type": "string"
+        },
+        "status": {
+          "minimum": 0,
+          "maximum": 999,
+          "type": "integer"
+        },
+        "code": {
+          "maxLength": 200,
+          "type": "string"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,201 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ablationkit:schema:research-task.v2",
+  "title": "ResearchTask",
+  "description": "A research task (ADR 0039): a record an agent creates to group its work. Jobs carry its `task_id` and research records link it (`task:ID`); the coordinator derives both when the task is read.",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schema_version",
+    "task_id",
+    "project_id",
+    "revision",
+    "created_by",
+    "created_at",
+    "updated_at",
+    "title",
+    "goal",
+    "criteria",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 2,
+      "type": "number"
+    },
+    "task_id": {
+      "title": "TaskId",
+      "description": "AblationKit task identifier (UI- or agent-first task).",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "project_id": {
+      "title": "ProjectId",
+      "description": "Stable project identifier (lowercase slug). Never a path; paths live in the local registry.",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,62}$",
+      "type": "string"
+    },
+    "revision": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "created_by": {
+      "title": "ResearchActor",
+      "description": "Who made a change: a human session, an agent token or the system. Work under a task links the task (`task:ID`).",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "anyOf": [
+            {
+              "const": "human",
+              "type": "string"
+            },
+            {
+              "const": "agent",
+              "type": "string"
+            },
+            {
+              "const": "system",
+              "type": "string"
+            }
+          ]
+        },
+        "id": {
+          "maxLength": 200,
+          "type": "string"
+        }
+      }
+    },
+    "created_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "updated_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "title": {
+      "maxLength": 300,
+      "type": "string"
+    },
+    "goal": {
+      "maxLength": 20000,
+      "type": "string"
+    },
+    "criteria": {
+      "maxItems": 50,
+      "description": "What would settle the goal, as the agent wrote it. Optional.",
+      "type": "array",
+      "items": {
+        "maxLength": 2000,
+        "type": "string"
+      }
+    },
+    "status": {
+      "title": "TaskStatus",
+      "description": "`open` while the agent works on it; `completed` with an outcome and a notebook of the vault (or a report record); `abandoned` by the agent or the researcher, with a reason.",
+      "anyOf": [
+        {
+          "const": "open",
+          "type": "string"
+        },
+        {
+          "const": "completed",
+          "type": "string"
+        },
+        {
+          "const": "abandoned",
+          "type": "string"
+        }
+      ]
+    },
+    "outcome": {
+      "title": "TaskOutcome",
+      "description": "The research outcome a completed task reports. `supported` and `not_supported` need a notebook with a note that cites runs, or a report that cites evidence.",
+      "anyOf": [
+        {
+          "const": "supported",
+          "type": "string"
+        },
+        {
+          "const": "not_supported",
+          "type": "string"
+        },
+        {
+          "const": "inconclusive",
+          "type": "string"
+        }
+      ]
+    },
+    "report_id": {
+      "maxLength": 128,
+      "description": "The report record a completed task points at.",
+      "type": "string"
+    },
+    "notebook_id": {
+      "maxLength": 96,
+      "description": "The vault notebook a completed task points at (ADR 0049): what the task established, as the notes it wrote, compiled.",
+      "type": "string"
+    },
+    "conclusion": {
+      "maxLength": 20000,
+      "description": "The answer to the goal in a few sentences, as the agent wrote it when it completed the task: what was found and what it means. Markdown with LaTeX.",
+      "type": "string"
+    },
+    "agenda_item": {
+      "pattern": "^(note:[a-z0-9][a-z0-9-]{0,95}|L[0-9]{1,6})$",
+      "description": "The item of the researcher's agenda this task serves (ADR 0058): `note:<id>` or `L<n>`.",
+      "type": "string"
+    },
+    "closed_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "closed_by": {
+      "title": "ResearchActor",
+      "description": "Who made a change: a human session, an agent token or the system. Work under a task links the task (`task:ID`).",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "anyOf": [
+            {
+              "const": "human",
+              "type": "string"
+            },
+            {
+              "const": "agent",
+              "type": "string"
+            },
+            {
+              "const": "system",
+              "type": "string"
+            }
+          ]
+        },
+        "id": {
+          "maxLength": 200,
+          "type": "string"
+        }
+      }
+    },
+    "reason": {
+      "maxLength": 2000,
+      "description": "Why the task was abandoned.",
+      "type": "string"
+    }
+  }
+}

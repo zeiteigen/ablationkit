@@ -1,0 +1,550 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "evaluation_id": "ev-0123456789abcdef",
+      "project_id": "custom-architecture-lab",
+      "kind": "classical",
+      "model_type": "classifier",
+      "model": {
+        "model_id": "m-59c48f6bab2b4dfeb7eefdaadde2b9ed",
+        "registered_name": "iris clf",
+        "version": "2",
+        "alias": "champion"
+      },
+      "baseline": {
+        "model_id": "m-2ea58415778e45a5aa79348604358b91",
+        "registered_name": "iris clf",
+        "version": "1"
+      },
+      "dataset": {
+        "path": "data/iris.csv",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "name": "iris",
+        "targets": "target",
+        "split": "test",
+        "source_commit": "0123456789abcdef0123456789abcdef01234567"
+      },
+      "thresholds": [
+        {
+          "metric": "accuracy_score",
+          "greater_is_better": true,
+          "threshold": "0.8"
+        },
+        {
+          "metric": "f1_score",
+          "greater_is_better": true,
+          "min_absolute_change": "0.01"
+        }
+      ],
+      "environment": "managed",
+      "state": "succeeded",
+      "mlflow_run_id": "e1c747043f8e4023a3e7e0be54117df5",
+      "baseline_run_id": "f1c747043f8e4023a3e7e0be54117df5",
+      "experiment_id": "1",
+      "validation": {
+        "passed": false,
+        "mlflow_verdict": "failed",
+        "outcomes": [
+          {
+            "metric": "accuracy_score",
+            "passed": true,
+            "candidate": "0.9733",
+            "baseline": "0.96",
+            "failures": []
+          },
+          {
+            "metric": "f1_score",
+            "passed": false,
+            "candidate": "0.9733",
+            "baseline": "0.9733",
+            "failures": ["Metric f1_score minimum absolute change check failed"]
+          }
+        ]
+      },
+      "limits": {
+        "timeout_sec": 1800,
+        "memory_mb": 4096
+      },
+      "enforcement": "enforced",
+      "requested_by": {
+        "kind": "human",
+        "id": "tok-1"
+      },
+      "created_at": "2026-11-03T10:00:00Z",
+      "started_at": "2026-11-03T10:00:01Z",
+      "ended_at": "2026-11-03T10:00:09Z",
+      "updated_at": "2026-11-03T10:00:09Z"
+    },
+    {
+      "schema_version": 1,
+      "evaluation_id": "ev-0123456789abcdef",
+      "project_id": "custom-architecture-lab",
+      "kind": "classical",
+      "model_type": "classifier",
+      "model": {
+        "model_id": "m-59c48f6bab2b4dfeb7eefdaadde2b9ed",
+        "registered_name": "iris clf",
+        "version": "2",
+        "alias": "champion"
+      },
+      "dataset": {
+        "path": "data/iris.csv",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "name": "iris",
+        "targets": "target",
+        "split": "test",
+        "source_commit": "0123456789abcdef0123456789abcdef01234567"
+      },
+      "thresholds": [],
+      "environment": "managed",
+      "state": "queued",
+      "mlflow_run_id": "e1c747043f8e4023a3e7e0be54117df5",
+      "experiment_id": "1",
+      "limits": {
+        "timeout_sec": 1800,
+        "memory_mb": 4096
+      },
+      "requested_by": {
+        "kind": "human",
+        "id": "tok-1"
+      },
+      "created_at": "2026-11-03T10:00:00Z",
+      "updated_at": "2026-11-03T10:00:09Z"
+    },
+    {
+      "schema_version": 1,
+      "evaluation_id": "ev-0123456789abcdef",
+      "project_id": "custom-architecture-lab",
+      "kind": "classical",
+      "model_type": "classifier",
+      "model": {
+        "model_id": "m-59c48f6bab2b4dfeb7eefdaadde2b9ed",
+        "registered_name": "iris clf",
+        "version": "2",
+        "alias": "champion"
+      },
+      "baseline": {
+        "model_id": "m-2ea58415778e45a5aa79348604358b91",
+        "registered_name": "iris clf",
+        "version": "1"
+      },
+      "dataset": {
+        "path": "data/iris.csv",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "name": "iris",
+        "targets": "target",
+        "split": "test",
+        "source_commit": "0123456789abcdef0123456789abcdef01234567"
+      },
+      "thresholds": [
+        {
+          "metric": "accuracy_score",
+          "greater_is_better": true,
+          "threshold": "0.8"
+        },
+        {
+          "metric": "f1_score",
+          "greater_is_better": true,
+          "min_absolute_change": "0.01"
+        }
+      ],
+      "environment": "managed",
+      "state": "succeeded",
+      "mlflow_run_id": "e1c747043f8e4023a3e7e0be54117df5",
+      "baseline_run_id": "f1c747043f8e4023a3e7e0be54117df5",
+      "experiment_id": "1",
+      "validation": {
+        "passed": false,
+        "mlflow_verdict": "failed",
+        "outcomes": [
+          {
+            "metric": "accuracy_score",
+            "passed": true,
+            "candidate": "0.9733",
+            "baseline": "0.96",
+            "failures": []
+          },
+          {
+            "metric": "f1_score",
+            "passed": false,
+            "candidate": "0.9733",
+            "baseline": "0.9733",
+            "failures": ["Metric f1_score minimum absolute change check failed"]
+          }
+        ]
+      },
+      "limits": {
+        "timeout_sec": 1800,
+        "memory_mb": 4096
+      },
+      "enforcement": "enforced",
+      "requested_by": {
+        "kind": "human",
+        "id": "tok-1"
+      },
+      "created_at": "2026-11-03T10:00:00Z",
+      "started_at": "2026-11-03T10:00:01Z",
+      "ended_at": "2026-11-03T10:00:09Z",
+      "updated_at": "2026-11-03T10:00:09Z",
+      "examples_requested": true,
+      "examples": {
+        "rows": 150,
+        "listed": 12,
+        "paired": true,
+        "model_type": "classifier",
+        "candidate_correct": 146,
+        "baseline_correct": 138,
+        "both_correct": 136,
+        "only_candidate_correct": 10,
+        "only_baseline_correct": 2,
+        "both_wrong": 2,
+        "disagreements": 12,
+        "paired_test": {
+          "method": "exact McNemar (two-sided binomial test on discordant pairs)",
+          "assumptions": "paired predictions on the same ordered rows; rows independent",
+          "discordant": 12,
+          "p_value": "0.0386"
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "a float threshold (decimal strings only)",
+      "value": {
+        "schema_version": 1,
+        "evaluation_id": "ev-0123456789abcdef",
+        "project_id": "custom-architecture-lab",
+        "kind": "classical",
+        "model_type": "classifier",
+        "model": {
+          "model_id": "m-59c48f6bab2b4dfeb7eefdaadde2b9ed",
+          "registered_name": "iris clf",
+          "version": "2",
+          "alias": "champion"
+        },
+        "baseline": {
+          "model_id": "m-2ea58415778e45a5aa79348604358b91",
+          "registered_name": "iris clf",
+          "version": "1"
+        },
+        "dataset": {
+          "path": "data/iris.csv",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "name": "iris",
+          "targets": "target",
+          "split": "test",
+          "source_commit": "0123456789abcdef0123456789abcdef01234567"
+        },
+        "thresholds": [
+          {
+            "metric": "accuracy_score",
+            "greater_is_better": true,
+            "threshold": 0.8
+          },
+          {
+            "metric": "f1_score",
+            "greater_is_better": true,
+            "min_absolute_change": "0.01"
+          }
+        ],
+        "environment": "managed",
+        "state": "succeeded",
+        "mlflow_run_id": "e1c747043f8e4023a3e7e0be54117df5",
+        "baseline_run_id": "f1c747043f8e4023a3e7e0be54117df5",
+        "experiment_id": "1",
+        "validation": {
+          "passed": false,
+          "mlflow_verdict": "failed",
+          "outcomes": [
+            {
+              "metric": "accuracy_score",
+              "passed": true,
+              "candidate": "0.9733",
+              "baseline": "0.96",
+              "failures": []
+            },
+            {
+              "metric": "f1_score",
+              "passed": false,
+              "candidate": "0.9733",
+              "baseline": "0.9733",
+              "failures": ["Metric f1_score minimum absolute change check failed"]
+            }
+          ]
+        },
+        "limits": {
+          "timeout_sec": 1800,
+          "memory_mb": 4096
+        },
+        "enforcement": "enforced",
+        "requested_by": {
+          "kind": "human",
+          "id": "tok-1"
+        },
+        "created_at": "2026-11-03T10:00:00Z",
+        "started_at": "2026-11-03T10:00:01Z",
+        "ended_at": "2026-11-03T10:00:09Z",
+        "updated_at": "2026-11-03T10:00:09Z"
+      }
+    },
+    {
+      "reason": "unknown state",
+      "value": {
+        "schema_version": 1,
+        "evaluation_id": "ev-0123456789abcdef",
+        "project_id": "custom-architecture-lab",
+        "kind": "classical",
+        "model_type": "classifier",
+        "model": {
+          "model_id": "m-59c48f6bab2b4dfeb7eefdaadde2b9ed",
+          "registered_name": "iris clf",
+          "version": "2",
+          "alias": "champion"
+        },
+        "baseline": {
+          "model_id": "m-2ea58415778e45a5aa79348604358b91",
+          "registered_name": "iris clf",
+          "version": "1"
+        },
+        "dataset": {
+          "path": "data/iris.csv",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "name": "iris",
+          "targets": "target",
+          "split": "test",
+          "source_commit": "0123456789abcdef0123456789abcdef01234567"
+        },
+        "thresholds": [
+          {
+            "metric": "accuracy_score",
+            "greater_is_better": true,
+            "threshold": "0.8"
+          },
+          {
+            "metric": "f1_score",
+            "greater_is_better": true,
+            "min_absolute_change": "0.01"
+          }
+        ],
+        "environment": "managed",
+        "state": "done",
+        "mlflow_run_id": "e1c747043f8e4023a3e7e0be54117df5",
+        "baseline_run_id": "f1c747043f8e4023a3e7e0be54117df5",
+        "experiment_id": "1",
+        "validation": {
+          "passed": false,
+          "mlflow_verdict": "failed",
+          "outcomes": [
+            {
+              "metric": "accuracy_score",
+              "passed": true,
+              "candidate": "0.9733",
+              "baseline": "0.96",
+              "failures": []
+            },
+            {
+              "metric": "f1_score",
+              "passed": false,
+              "candidate": "0.9733",
+              "baseline": "0.9733",
+              "failures": ["Metric f1_score minimum absolute change check failed"]
+            }
+          ]
+        },
+        "limits": {
+          "timeout_sec": 1800,
+          "memory_mb": 4096
+        },
+        "enforcement": "enforced",
+        "requested_by": {
+          "kind": "human",
+          "id": "tok-1"
+        },
+        "created_at": "2026-11-03T10:00:00Z",
+        "started_at": "2026-11-03T10:00:01Z",
+        "ended_at": "2026-11-03T10:00:09Z",
+        "updated_at": "2026-11-03T10:00:09Z"
+      }
+    },
+    {
+      "reason": "GenAI kind is not classical",
+      "value": {
+        "schema_version": 1,
+        "evaluation_id": "ev-0123456789abcdef",
+        "project_id": "custom-architecture-lab",
+        "kind": "genai",
+        "model_type": "classifier",
+        "model": {
+          "model_id": "m-59c48f6bab2b4dfeb7eefdaadde2b9ed",
+          "registered_name": "iris clf",
+          "version": "2",
+          "alias": "champion"
+        },
+        "baseline": {
+          "model_id": "m-2ea58415778e45a5aa79348604358b91",
+          "registered_name": "iris clf",
+          "version": "1"
+        },
+        "dataset": {
+          "path": "data/iris.csv",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "name": "iris",
+          "targets": "target",
+          "split": "test",
+          "source_commit": "0123456789abcdef0123456789abcdef01234567"
+        },
+        "thresholds": [
+          {
+            "metric": "accuracy_score",
+            "greater_is_better": true,
+            "threshold": "0.8"
+          },
+          {
+            "metric": "f1_score",
+            "greater_is_better": true,
+            "min_absolute_change": "0.01"
+          }
+        ],
+        "environment": "managed",
+        "state": "succeeded",
+        "mlflow_run_id": "e1c747043f8e4023a3e7e0be54117df5",
+        "baseline_run_id": "f1c747043f8e4023a3e7e0be54117df5",
+        "experiment_id": "1",
+        "validation": {
+          "passed": false,
+          "mlflow_verdict": "failed",
+          "outcomes": [
+            {
+              "metric": "accuracy_score",
+              "passed": true,
+              "candidate": "0.9733",
+              "baseline": "0.96",
+              "failures": []
+            },
+            {
+              "metric": "f1_score",
+              "passed": false,
+              "candidate": "0.9733",
+              "baseline": "0.9733",
+              "failures": ["Metric f1_score minimum absolute change check failed"]
+            }
+          ]
+        },
+        "limits": {
+          "timeout_sec": 1800,
+          "memory_mb": 4096
+        },
+        "enforcement": "enforced",
+        "requested_by": {
+          "kind": "human",
+          "id": "tok-1"
+        },
+        "created_at": "2026-11-03T10:00:00Z",
+        "started_at": "2026-11-03T10:00:01Z",
+        "ended_at": "2026-11-03T10:00:09Z",
+        "updated_at": "2026-11-03T10:00:09Z"
+      }
+    },
+    {
+      "reason": "p-value as a float",
+      "value": {
+        "schema_version": 1,
+        "evaluation_id": "ev-0123456789abcdef",
+        "project_id": "custom-architecture-lab",
+        "kind": "classical",
+        "model_type": "classifier",
+        "model": {
+          "model_id": "m-59c48f6bab2b4dfeb7eefdaadde2b9ed",
+          "registered_name": "iris clf",
+          "version": "2",
+          "alias": "champion"
+        },
+        "baseline": {
+          "model_id": "m-2ea58415778e45a5aa79348604358b91",
+          "registered_name": "iris clf",
+          "version": "1"
+        },
+        "dataset": {
+          "path": "data/iris.csv",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "name": "iris",
+          "targets": "target",
+          "split": "test",
+          "source_commit": "0123456789abcdef0123456789abcdef01234567"
+        },
+        "thresholds": [
+          {
+            "metric": "accuracy_score",
+            "greater_is_better": true,
+            "threshold": "0.8"
+          },
+          {
+            "metric": "f1_score",
+            "greater_is_better": true,
+            "min_absolute_change": "0.01"
+          }
+        ],
+        "environment": "managed",
+        "state": "succeeded",
+        "mlflow_run_id": "e1c747043f8e4023a3e7e0be54117df5",
+        "baseline_run_id": "f1c747043f8e4023a3e7e0be54117df5",
+        "experiment_id": "1",
+        "validation": {
+          "passed": false,
+          "mlflow_verdict": "failed",
+          "outcomes": [
+            {
+              "metric": "accuracy_score",
+              "passed": true,
+              "candidate": "0.9733",
+              "baseline": "0.96",
+              "failures": []
+            },
+            {
+              "metric": "f1_score",
+              "passed": false,
+              "candidate": "0.9733",
+              "baseline": "0.9733",
+              "failures": ["Metric f1_score minimum absolute change check failed"]
+            }
+          ]
+        },
+        "limits": {
+          "timeout_sec": 1800,
+          "memory_mb": 4096
+        },
+        "enforcement": "enforced",
+        "requested_by": {
+          "kind": "human",
+          "id": "tok-1"
+        },
+        "created_at": "2026-11-03T10:00:00Z",
+        "started_at": "2026-11-03T10:00:01Z",
+        "ended_at": "2026-11-03T10:00:09Z",
+        "updated_at": "2026-11-03T10:00:09Z",
+        "examples_requested": true,
+        "examples": {
+          "rows": 150,
+          "listed": 12,
+          "paired": true,
+          "model_type": "classifier",
+          "candidate_correct": 146,
+          "baseline_correct": 138,
+          "both_correct": 136,
+          "only_candidate_correct": 10,
+          "only_baseline_correct": 2,
+          "both_wrong": 2,
+          "disagreements": 12,
+          "paired_test": {
+            "method": "exact McNemar (two-sided binomial test on discordant pairs)",
+            "assumptions": "paired predictions on the same ordered rows; rows independent",
+            "discordant": 12,
+            "p_value": 0.0386
+          }
+        }
+      }
+    }
+  ]
+}

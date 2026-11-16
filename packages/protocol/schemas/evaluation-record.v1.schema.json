@@ -1,0 +1,595 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ablationkit:schema:evaluation-record.v1",
+  "title": "EvaluationRecord",
+  "description": "A classical evaluation AblationKit launched in an isolated Python worker. Metrics, plots and tables live in its MLflow run.",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schema_version",
+    "evaluation_id",
+    "project_id",
+    "kind",
+    "model_type",
+    "model",
+    "dataset",
+    "thresholds",
+    "environment",
+    "state",
+    "limits",
+    "requested_by",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "type": "number"
+    },
+    "evaluation_id": {
+      "title": "EvaluationId",
+      "description": "AblationKit evaluation ID, `ev-<id>`.",
+      "pattern": "^ev-[a-z0-9]{6,40}$",
+      "type": "string"
+    },
+    "project_id": {
+      "title": "ProjectId",
+      "description": "Stable project identifier (lowercase slug). Never a path; paths live in the local registry.",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,62}$",
+      "type": "string"
+    },
+    "kind": {
+      "description": "`mlflow.models.evaluate` (GenAI evaluation is a separate kind, Stage 14).",
+      "const": "classical",
+      "type": "string"
+    },
+    "model_type": {
+      "anyOf": [
+        {
+          "const": "classifier",
+          "type": "string"
+        },
+        {
+          "const": "regressor",
+          "type": "string"
+        }
+      ]
+    },
+    "model": {
+      "title": "EvaluationModelRef",
+      "description": "A pinned model: always a logged-model ID, plus the registry version it came from.",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "model_id"
+      ],
+      "properties": {
+        "model_id": {
+          "title": "LoggedModelId",
+          "description": "MLflow 3 logged-model ID (`m-…`). Distinct from a run ID and a registry version.",
+          "pattern": "^m-[A-Za-z0-9]{1,64}$",
+          "type": "string"
+        },
+        "registered_name": {
+          "title": "RegisteredModelName",
+          "description": "MLflow registered model name.",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._ -]{0,199}$",
+          "type": "string"
+        },
+        "version": {
+          "title": "ModelVersionNumber",
+          "description": "MLflow registry version number, as a string.",
+          "pattern": "^[1-9][0-9]{0,9}$",
+          "type": "string"
+        },
+        "alias": {
+          "pattern": "^[A-Za-z0-9_-]{1,100}$",
+          "description": "Alias the researcher chose; resolved to `version` at launch and pinned.",
+          "type": "string"
+        }
+      }
+    },
+    "baseline": {
+      "title": "EvaluationModelRef",
+      "description": "A pinned model: always a logged-model ID, plus the registry version it came from.",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "model_id"
+      ],
+      "properties": {
+        "model_id": {
+          "title": "LoggedModelId",
+          "description": "MLflow 3 logged-model ID (`m-…`). Distinct from a run ID and a registry version.",
+          "pattern": "^m-[A-Za-z0-9]{1,64}$",
+          "type": "string"
+        },
+        "registered_name": {
+          "title": "RegisteredModelName",
+          "description": "MLflow registered model name.",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._ -]{0,199}$",
+          "type": "string"
+        },
+        "version": {
+          "title": "ModelVersionNumber",
+          "description": "MLflow registry version number, as a string.",
+          "pattern": "^[1-9][0-9]{0,9}$",
+          "type": "string"
+        },
+        "alias": {
+          "pattern": "^[A-Za-z0-9_-]{1,100}$",
+          "description": "Alias the researcher chose; resolved to `version` at launch and pinned.",
+          "type": "string"
+        }
+      }
+    },
+    "dataset": {
+      "title": "EvaluationDataset",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "path",
+        "sha256",
+        "name",
+        "targets"
+      ],
+      "properties": {
+        "path": {
+          "minLength": 1,
+          "maxLength": 1024,
+          "description": "Relative to the checkout.",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "maxLength": 250,
+          "type": "string"
+        },
+        "targets": {
+          "minLength": 1,
+          "maxLength": 250,
+          "type": "string"
+        },
+        "split": {
+          "minLength": 1,
+          "maxLength": 100,
+          "type": "string"
+        },
+        "source_commit": {
+          "pattern": "^[a-f0-9]{7,64}$",
+          "type": "string"
+        }
+      }
+    },
+    "thresholds": {
+      "maxItems": 50,
+      "type": "array",
+      "items": {
+        "title": "ThresholdSpec",
+        "description": "One validation threshold, with MLflow `MetricThreshold` semantics. The change checks need a baseline.",
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "metric",
+          "greater_is_better"
+        ],
+        "properties": {
+          "metric": {
+            "pattern": "^[A-Za-z0-9_./ -]{1,250}$",
+            "type": "string"
+          },
+          "greater_is_better": {
+            "type": "boolean"
+          },
+          "threshold": {
+            "title": "DecimalString",
+            "description": "A finite number written as a decimal string, for example `0.8125` or `-1.5e-3`.",
+            "pattern": "^-?[0-9]+([.][0-9]+)?([eE][-+]?[0-9]+)?$",
+            "maxLength": 40,
+            "type": "string"
+          },
+          "min_absolute_change": {
+            "title": "DecimalString",
+            "description": "A finite number written as a decimal string, for example `0.8125` or `-1.5e-3`.",
+            "pattern": "^-?[0-9]+([.][0-9]+)?([eE][-+]?[0-9]+)?$",
+            "maxLength": 40,
+            "type": "string"
+          },
+          "min_relative_change": {
+            "title": "DecimalString",
+            "description": "A finite number written as a decimal string, for example `0.8125` or `-1.5e-3`.",
+            "pattern": "^-?[0-9]+([.][0-9]+)?([eE][-+]?[0-9]+)?$",
+            "maxLength": 40,
+            "type": "string"
+          }
+        }
+      }
+    },
+    "environment": {
+      "description": "`managed`: the coordinator's pinned MLflow environment. `project`: the project's own uv environment (it must provide mlflow).",
+      "anyOf": [
+        {
+          "const": "managed",
+          "type": "string"
+        },
+        {
+          "const": "project",
+          "type": "string"
+        }
+      ]
+    },
+    "state": {
+      "title": "EvaluationState",
+      "description": "Execution state of the evaluation worker. `succeeded` means it ran; whether the thresholds passed is `validation.passed`. `interrupted`: the coordinator stopped while it ran; it is never rerun on its own.",
+      "anyOf": [
+        {
+          "const": "queued",
+          "type": "string"
+        },
+        {
+          "const": "running",
+          "type": "string"
+        },
+        {
+          "const": "succeeded",
+          "type": "string"
+        },
+        {
+          "const": "failed",
+          "type": "string"
+        },
+        {
+          "const": "canceled",
+          "type": "string"
+        },
+        {
+          "const": "interrupted",
+          "type": "string"
+        }
+      ]
+    },
+    "mlflow_run_id": {
+      "title": "MlflowRunId",
+      "description": "MLflow run ID, as MLflow returns it.",
+      "pattern": "^[A-Za-z0-9_-]{1,64}$",
+      "type": "string"
+    },
+    "baseline_run_id": {
+      "title": "MlflowRunId",
+      "description": "MLflow run ID, as MLflow returns it.",
+      "pattern": "^[A-Za-z0-9_-]{1,64}$",
+      "type": "string"
+    },
+    "experiment_id": {
+      "title": "MlflowExperimentId",
+      "description": "MLflow experiment ID, as MLflow returns it.",
+      "pattern": "^[A-Za-z0-9_-]{1,64}$",
+      "type": "string"
+    },
+    "validation": {
+      "title": "EvaluationValidation",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "passed",
+        "outcomes"
+      ],
+      "properties": {
+        "passed": {
+          "type": "boolean"
+        },
+        "outcomes": {
+          "maxItems": 50,
+          "type": "array",
+          "items": {
+            "title": "ThresholdOutcome",
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "metric",
+              "passed",
+              "failures"
+            ],
+            "properties": {
+              "metric": {
+                "minLength": 1,
+                "maxLength": 250,
+                "type": "string"
+              },
+              "passed": {
+                "type": "boolean"
+              },
+              "candidate": {
+                "title": "DecimalString",
+                "description": "A finite number written as a decimal string, for example `0.8125` or `-1.5e-3`.",
+                "pattern": "^-?[0-9]+([.][0-9]+)?([eE][-+]?[0-9]+)?$",
+                "maxLength": 40,
+                "type": "string"
+              },
+              "baseline": {
+                "title": "DecimalString",
+                "description": "A finite number written as a decimal string, for example `0.8125` or `-1.5e-3`.",
+                "pattern": "^-?[0-9]+([.][0-9]+)?([eE][-+]?[0-9]+)?$",
+                "maxLength": 40,
+                "type": "string"
+              },
+              "failures": {
+                "maxItems": 8,
+                "type": "array",
+                "items": {
+                  "maxLength": 500,
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "mlflow_verdict": {
+          "description": "What `mlflow.validate_evaluation_results` decided; must agree. Absent for a remote evaluation, whose thresholds the coordinator checks against the synced metrics.",
+          "anyOf": [
+            {
+              "const": "passed",
+              "type": "string"
+            },
+            {
+              "const": "failed",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    "examples_requested": {
+      "description": "Batch evaluation: also record per-example predictions and paired outcomes (`ablationkit/examples.json` in the candidate run).",
+      "type": "boolean"
+    },
+    "examples": {
+      "title": "EvaluationExamples",
+      "description": "Summary of the per-example artifact. A paired test appears only where its method is standard, with the method and assumptions.",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "rows",
+        "listed",
+        "paired",
+        "model_type"
+      ],
+      "properties": {
+        "rows": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "listed": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "paired": {
+          "type": "boolean"
+        },
+        "model_type": {
+          "anyOf": [
+            {
+              "const": "classifier",
+              "type": "string"
+            },
+            {
+              "const": "regressor",
+              "type": "string"
+            }
+          ]
+        },
+        "candidate_correct": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "baseline_correct": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "both_correct": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "only_candidate_correct": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "only_baseline_correct": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "both_wrong": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "disagreements": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "candidate_mae": {
+          "title": "DecimalString",
+          "description": "A finite number written as a decimal string, for example `0.8125` or `-1.5e-3`.",
+          "pattern": "^-?[0-9]+([.][0-9]+)?([eE][-+]?[0-9]+)?$",
+          "maxLength": 40,
+          "type": "string"
+        },
+        "baseline_mae": {
+          "title": "DecimalString",
+          "description": "A finite number written as a decimal string, for example `0.8125` or `-1.5e-3`.",
+          "pattern": "^-?[0-9]+([.][0-9]+)?([eE][-+]?[0-9]+)?$",
+          "maxLength": 40,
+          "type": "string"
+        },
+        "candidate_better_rows": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "paired_test": {
+          "title": "EvaluationPairedTest",
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "method",
+            "assumptions",
+            "discordant",
+            "p_value"
+          ],
+          "properties": {
+            "method": {
+              "maxLength": 200,
+              "type": "string"
+            },
+            "assumptions": {
+              "maxLength": 500,
+              "type": "string"
+            },
+            "discordant": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "p_value": {
+              "title": "DecimalString",
+              "description": "A finite number written as a decimal string, for example `0.8125` or `-1.5e-3`.",
+              "pattern": "^-?[0-9]+([.][0-9]+)?([eE][-+]?[0-9]+)?$",
+              "maxLength": 40,
+              "type": "string"
+            }
+          }
+        },
+        "paired_test_note": {
+          "maxLength": 500,
+          "type": "string"
+        }
+      }
+    },
+    "error": {
+      "maxLength": 4000,
+      "type": "string"
+    },
+    "remote": {
+      "title": "EvaluationRemote",
+      "description": "A remote evaluation (criterion 9e): a job on a compute target whose bundle carries the pinned model. It is independently supervised, survives a coordinator restart and reconciles without running twice.",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "target_id",
+        "job_id",
+        "model_sha256"
+      ],
+      "properties": {
+        "target_id": {
+          "pattern": "^[a-z][a-z0-9-]{0,39}$",
+          "type": "string"
+        },
+        "job_id": {
+          "title": "JobId",
+          "description": "AblationKit job identifier.",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "attempt_id": {
+          "title": "AttemptId",
+          "description": "Identifier of one attempt of a job.",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "model_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "note": {
+          "maxLength": 1000,
+          "description": "Why the evaluation is still open (for example the attempt is `unknown` and waits for a human to resolve it; it is never rerun).",
+          "type": "string"
+        }
+      }
+    },
+    "limits": {
+      "title": "EvaluationLimits",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "timeout_sec"
+      ],
+      "properties": {
+        "timeout_sec": {
+          "minimum": 10,
+          "maximum": 86400,
+          "type": "integer"
+        },
+        "memory_mb": {
+          "minimum": 64,
+          "maximum": 1048576,
+          "type": "integer"
+        }
+      }
+    },
+    "enforcement": {
+      "description": "Whether the worker's resource limits were enforced (systemd scope).",
+      "anyOf": [
+        {
+          "const": "enforced",
+          "type": "string"
+        },
+        {
+          "const": "advisory",
+          "type": "string"
+        }
+      ]
+    },
+    "requested_by": {
+      "title": "EvaluationActor",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "anyOf": [
+            {
+              "const": "human",
+              "type": "string"
+            },
+            {
+              "const": "agent",
+              "type": "string"
+            }
+          ]
+        },
+        "id": {
+          "maxLength": 200,
+          "type": "string"
+        }
+      }
+    },
+    "created_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "started_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "ended_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "updated_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    }
+  }
+}

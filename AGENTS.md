@@ -1,0 +1,94 @@
+# AblationKit — agent entry point
+
+AblationKit is a local-first workspace for ML experimentation: a Bun coordinator, a native web/Electron UI and a managed MLflow sidecar. Coding agents (Claude Code, Codex, any MCP client) work in the researcher's own harness and report into AblationKit through its MCP server, `ablationkit mcp`, and Agent Skills: jobs, MLflow runs, research records and tasks. The `ablationkit` CLI is the researcher's and the operator's. This file is a map, not a manual: read only what your task needs.
+
+## Status
+
+v1.0 is built; the release notes and the tag remain. ADRs 0036 and 0037 narrowed the agent boundary: the web UI reads results and compute and does not drive agents, and the agent's session, Git and sandbox belong to the user's harness. Campaigns, the Git broker, candidate workspaces, approvals, protected evaluation, AblationKit's own agent sandbox and passkeys are gone. What AblationKit decides for agents is the project policy (version 2: local and remote jobs, deployments) and a per-project compute limit in weighted hours. ADR 0039 removed T3 Code integration and agent orchestration (dispatch, preflight, the agent dock, task modes): agents report into AblationKit, and tasks are records agents create to group their work. ADR 0040 made `ablationkit mcp` the agents' only interface: it mints one agent token per agent session through the login socket (identity, not a boundary). ADR 0048 made what agents record readable: every record, study, run and task carries a short description and an in-depth read (Markdown with LaTeX), the researcher audits through a reading list with review marks, and pages lead with the read and put provenance last. ADR 0049 changed what agents write and what the researcher reads: a project's knowledge is a vault of atomic notes (one idea each, stated once, read at gist, summary and full text), composed by embedding into notebooks, with a ledger of where the project stands; the web UI leads with Standing and Notebooks, reading marks itself, and research records remain as provenance. ADR 0052 gave the vault a library of prior work: agents research before they design experiments and when stuck, keep every work they consult (used or set aside) and cite it from notes with its role; the researcher reads the roles and exports the citations. ADR 0053 made figures vault notes: an agent's own JavaScript (with Observable Plot and d3) draws a chart, table or visualisation live from the runs, in the extension views' sandbox with read-only access to runs; extensions are for views that must run code. ADR 0054 cut the MCP server from a hundred tools to eight: `ablationkit_project`, `ablationkit_read` (every read, by `op`), `ablationkit_job`, `ablationkit_run`, `ablationkit_task`, `ablationkit_note` and `ablationkit_work` (by `action`), and `ablationkit_do` (everything else, by `op`), over the same operations; the skills write a call as `ablationkit_note add` or `ablationkit_read run.metrics`. ADR 0055 calmed the web UI: health only on exceptions, one page header (trail, eyebrow, handwritten title), the Overview as the vault in brief beside what the agents did, a global layer of Home and Compute with Settings (Preferences, Agent sessions, System) and Docs at the bottom, and one More per project (unused sections, the original records). ADR 0056 holds the agent's account to the coordinator's record (the witness): every run a task's jobs produced is cited by a note or set aside with the agent's reason, a number in prose is a live run reference (`[[run:A#metric vs B]]`) and one typed by hand is flagged (`unreferenced_number`), a finding shows the runs it leaves out, and each agent session has an account (its jobs, time limits hit and weighted hours beside what it wrote). ADR 0057 gave the researcher directions: `ask`, `doubt`, `do`, `focus`, `park` or `rule`, written in the web UI on what they read, delivered as the researcher's words at the end of the agent's next tool result and answered on the record; a task cannot be completed while one on it is unanswered. ADR 0058 gave the researcher an agenda on Standing (Now, Next, Parked, Dropped and rules): agents read it first, are told at the start of their next tool result when it changes and name the item their tasks and jobs serve; its checks advise. The three were prototyped on branches and merged on the researcher's instruction (`design/human-in-the-loop/`); folding the agenda's moves and rules into directions on one delivery path remains to do.
+
+## Where to look
+
+| Need | Go to |
+| --- | --- |
+| User-facing HTML guide (UI → Docs, also standalone/offline) | `docs/guide/index.html` (pages and shared `guide.css` in `docs/guide/`); rendered directly by `apps/web/src/guide/Guide.tsx` with a thin route adapter in `apps/web/src/pages/docs.tsx` |
+| Every maintained doc, by task | `docs/README.md` |
+| Packages, the coordinator's modules, request and job paths | `docs/architecture/README.md` |
+| The CLI by task (the CLI's `help` for the full usage) | `docs/cli.md` |
+| Dev setup; troubleshooting | `docs/contributing/dev-setup.md`; `docs/troubleshooting/README.md` |
+| Why something is the way it is | `docs/decisions/` (ADRs; the README has the index). Not published: it exists only in the maintainer's checkout |
+| Routes, schemas, storage layouts | `docs/api/` (`protocol.md` is generated) |
+| Project policy, the agent compute limit, deployment gates, how agents report in (`ablationkit mcp`, agent sessions, tasks) | `docs/autonomy/`, ADRs 0037, 0039, 0040 |
+| The vault: atomic notes, notebooks, the ledger, its checks and read marks, the library of prior work and its citations, figures (notes whose own JavaScript draws them from runs in a sandbox); how agents write it and the researcher reads it | ADR 0049, ADR 0052, ADR 0053, `apps/server/src/vault/figures.ts`, `apps/web/src/components/Figure.tsx`, `apps/web/src/figure/runtime.ts`, `packages/vault/src/works.ts`, `apps/web/src/pages/library.tsx`, `packages/vault`, `apps/server/src/vault/vault.ts`, `apps/web/src/pages/standing.tsx`, `skills/research-task/references/writing.md`; the designs it came from: `design/second-brain/` |
+| How records, runs and tasks are described, rendered and reviewed (summaries, bodies, run descriptions, the reading list, task checks) | ADR 0048, `apps/server/src/research/reviews.ts`, `apps/web/src/components/Markdown.tsx`, `skills/research-task/references/writing.md` |
+| The researcher in the loop: the witness (runs accounted for, live numbers, a session's account), directions (the researcher's words, delivered at the agent's next call, answered on the record) and the agenda (the plan on Standing) | ADRs 0056, 0057, 0058, `apps/server/src/vault/witness.ts`, `packages/vault/src/witness.ts`, `apps/web/src/components/Witness.tsx`, `apps/server/src/vault/directions.ts`, `apps/server/src/listeners/directions.ts`, `apps/web/src/components/Directions.tsx`, `apps/server/src/vault/agenda.ts`, `packages/vault/src/agenda.ts`, `apps/web/src/components/Agenda.tsx`, the tool-result delivery in `apps/cli/src/commands/mcp.ts`; the exploration they came from: `design/human-in-the-loop/` |
+| The agents' MCP server, its eight tools and their operations; agent sessions | `apps/cli/src/commands/mcp.ts`, ADR 0054, `apps/server/src/agents/sessions.ts`, `docs/autonomy/agent-first.md` |
+| Extensions (manifest, capabilities, SDKs, tutorials) | `docs/extensions/README.md` (templates in `packages/extension-host/templates/`) |
+| Changing AblationKit's own source (Level 2) | `docs/contributing/source-changes.md` |
+| Threats, controls and their levels | `docs/security/threat-map.md` (generated; ADR 0027) |
+| Release qualification, packaging | `docs/release/README.md`, `scripts/packaging/`, ADR 0028 |
+| The original intent | `docs/spec/AblationKit_SPEC.md` (spec v0.16, ~1700 lines; read by section, never whole; ADRs record deviations) |
+
+Spec anchors: §0 summary and decisions, §2.2 information architecture, §3 architecture, §5 storage and MLflow, §6.1 glossary, §7.7 project policy, §7.11 trust model, §12 CLI, §15 acceptance criteria. Superseded ADRs are history; current behaviour is in the maintained docs and the latest ADRs.
+
+## Working rules
+
+- Work directly on `main`: don't create branches or worktrees unless the researcher asks. Commit at each working checkpoint. `origin` is the public GitHub repository: push only when the researcher asks, and no PRs.
+- Don't widen scope. Note follow-ups in your summary rather than doing them.
+- Search before opening; read large files in slices.
+- Record decisions and spec deviations as ADRs in `docs/decisions/` (see its README). That folder and `design/` are kept out of the public repository (`.git/info/exclude`): cite an ADR by number, never link to it or to `design/` from a published doc, or the drift test fails on a clean clone.
+- Keep the user guide in `docs/guide/` current in the same change whenever a user-facing feature is added, changed, or removed. Document how to use it: entry point, steps, inputs, results, and meaningful limits. Update chapter navigation on every guide page when adding a chapter. Keep the guide content and renderer independent of application routing, APIs, and services. In the UI, use AblationKit's existing theme tokens, typography, and surface/navigation styles; do not introduce a separate docs theme or duplicate branding. Render it directly in the UI without an iframe, separate endpoint, or docs server. Keep the source HTML with relative links and local assets: it must work offline and on a static host as well as in UI → Docs. Run `bun test apps/web/test/guide.test.ts` and `bun run test:web` for guide/integration changes.
+- Keep the docs current in the same change: a new command in `docs/cli.md` and the CLI usage, a new route in `docs/api/coordinator-api.md`, a new package or module in `docs/architecture/README.md` and the layout below. The drift tests name what is missing.
+- Never describe an advisory control as enforced (spec §7.11).
+- No containers, no application SQL database for AblationKit's own state, no stock MLflow UI (spec §0).
+
+## Commands
+
+| Task | Command |
+| --- | --- |
+| Install | `bun install --frozen-lockfile && uv sync --locked` (or `sh scripts/setup.sh`: also puts `ablationkit` on PATH from this checkout, links `skills/` into every Claude Code config (`~/.claude`, `~/.claude-*` profiles) and Codex (`$CODEX_HOME`, default `~/.codex`), and registers the `ablationkit` MCP server with them at user scope; `--no-mcp` skips that, `--uninstall` undoes it; it also applies the agent guard (ADR 0041) to every registered project, `--no-guard` skips that) |
+| Check environment | `bun run doctor` |
+| Everything CI runs | `bun run ci` |
+| Test | `bun run test` (or `bun test <path>`, `uv run pytest`) |
+| Lint / format | `bun run lint` / `bun run format:check` (fix with `bun run format`) |
+| Typecheck | `bun run typecheck` (tsc strict + mypy strict) |
+| After editing schemas | `bun run protocol:generate` (CI fails on stale output) |
+| After changing an MLflow call or bridge op | update `packages/tracking-mlflow/src/feature-matrix.ts`, then `bun run mlflow:matrix` |
+| After adding a threat or renaming a test it names | update `scripts/security-threats.ts`, then `bun run security:map` |
+| After adding a `resolve(import.meta.dir, …)` asset path | make sure `scripts/package.ts` ships it (`scripts/test/package.test.ts` checks) |
+| Web UI | `bun run web:build` / `bun run web:dev`; throwaway stack with seeded runs: `bun apps/web/e2e/stack.ts` |
+| Run the coordinator | `bun run ablationkit coordinator start [--foreground]`, then `bun run ablationkit ui` |
+| Desktop app (system Electron: `electron43` or `ABLATIONKIT_ELECTRON`) | `bun run desktop` |
+| Acceptance sweep (writes `docs/release/acceptance-report.md`) | `bun run acceptance` (`--real` adds the opt-in extension and torch suites) |
+| Stage a release | `bun run package -- --out DIR [--tar FILE]`; see `docs/release/README.md` |
+
+Suites outside `bun run test` (each needs its real dependency): `bun run test:web` (Chromium), `test:desktop` (Electron and a display), `test:security`, `test:mlflow`, `test:lifecycle`, `test:inference`, `test:llm`, `test:restore` (the pinned MLflow and the Python bridge), `test:extensions` (a real wheel), `test:torch` (downloads torch), `test:package` (the installed tree).
+
+## Layout
+
+One line each; details, dependencies and the coordinator's file map are in `docs/architecture/README.md`.
+
+- `packages/protocol`: TypeBox schemas, the source of truth; generates JSON Schema, the Python models and `docs/api/protocol.md`. Don't edit generated files. ADR 0005.
+- `packages/core`: atomic JSON, JSONL journals, migrations, crash recovery, read-only Git (`git.ts`). ADRs 0007, 0037.
+- `packages/auth`: hashed tokens, sessions, login codes, agent tokens (one per agent session, ADR 0040). ADR 0008.
+- `packages/tracking-mlflow`: MLflow REST client, durable outbox, run mapping, managed sidecar. Coordinator-only. ADR 0010. Its `env/` is the pinned MLflow environment (`uv.lock`) and the operations bridge (`bridge/ablationkit_bridge.py`); bump the pin only with `test:mlflow`, `test:lifecycle` and `test:llm` passing.
+- `packages/process-supervisor`: systemd user scopes with limits (direct-mode fallback, advisory), process-tree cleanup. ADRs 0003, 0011.
+- `packages/collector`: the per-attempt worker collector (spool, delivery, artifact uploads). ADR 0011.
+- `packages/compute-targets`: run bundles and the `ssh`, `slurm`, `runpod` and `colab` target adapters. ADR 0023.
+- `packages/autonomy-policy`: the project action policy (version 2), decisions, diffs, compute accounting and admission (`compute.ts`). Pure. ADRs 0018, 0037.
+- `packages/inference-adapters`: inference task adapters (tabular, text, image) and payload validation. Pure. ADR 0020.
+- `packages/data-controls`: domain-neutral capture and redaction.
+- `packages/llm-research`: pure LLM research logic (spans, prompts, usage, cost estimates). ADR 0021.
+- `packages/vault`: the vault's pure logic (what a note embeds and links, the tree, the ledger, the checks; `./markdown` is the Markdown form). ADR 0049.
+- `packages/builtin-llm`: the bundled LLM backend (services, routes, UI, Python GenAI worker, the `ablationkit_llm` job SDK, six Agent Skills; its agent operations are reached through `ablationkit_read` and `ablationkit_do` by their manifest IDs). ADR 0024.
+- `packages/extension-host`: the pure extension host (catalogs, manifest validation, host API ranges, build IDs) and, in `templates/`, the extension templates `extension scaffold` copies. ADR 0022.
+- `packages/extension-sdk`: `@ablationkit/extension-sdk`, the frame side of the extension bridge; bundled into extension views only.
+- `apps/server`: the Bun coordinator: routes in `src/listeners/`, services in one folder per domain under `src/` (`agents/`, `compute/`, `extensions/`, `models/`, `research/`, `state/`, `tracking/`, `vault/`), agent sessions minted through the login socket (`agents/sessions.ts`). Routes: `docs/api/coordinator-api.md`.
+- `apps/web`: the React web shell for results, notes, graphs and compute; human API only, no agent orchestration; Standing and Notebooks (the vault, ADR 0049), research text as Markdown with LaTeX; the original records (Knowledge, Tasks, Review) under the project's More; Settings → Agent sessions; one page header and the calmer layout of ADR 0055; the witness's live numbers and accounts, directions and the agenda on Standing and notes. ADRs 0012, 0036, 0040, 0048, 0055, 0056, 0057, 0058.
+- `apps/cli`: the `ablationkit` CLI: the researcher's and the operator's commands, `dev build` (Level 2), and `ablationkit mcp` (`commands/mcp.ts`), the agents' only interface. ADR 0040.
+- `apps/desktop`: the Electron shell (no Node, no preload on coordinator pages). ADR 0025.
+- `python/`: uv workspace members `ablationkit-protocol` (generated), `ablationkit-sdk` (stdlib-only, injected into jobs), `ablationkit-pytorch`, `ablationkit-extension` (Python extension SDK and runner) and `ablationkit-worker` (the remote worker in every run bundle).
+- `fixtures/`: standalone fixture projects and Level 1 extensions used by tests; not workspace members.
+- `design/` (maintainer's checkout only, not published):
+  - `design/second-brain/`: the design exploration behind ADR 0049, kept: fifteen static prototypes in two rounds with their galleries (`index.html`, `round2/index.html`), the two vaults written for them (`round2/corpus/`), and `preview.ts`, a throwaway coordinator seeded with them. Not linted, not shipped.
+  - `design/human-in-the-loop/`: the exploration of how AblationKit keeps the researcher in the loop and holds agents to account, against Sakana AI's AI Scientist (`README.md`, its sources in `sources.md`, a live test with a real agent in `live-test.md`, `witness-audit.ts`, screenshots in `shots/`); the three approaches it compares were prototyped on branches and merged into `main` on the researcher's instruction as ADRs 0056 (the witness), 0057 (directions) and 0058 (the agenda). Not linted, not shipped.
+- `skills/`, `scripts/`: Agent Skills (they use the `ablationkit_*` MCP tools); CI, release and acceptance scripts, with the install script and AUR package in `scripts/packaging/` (left out of releases; `package.ts` copies `install.sh` beside the staged tree).

@@ -1,0 +1,638 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "evaluation_id": "le-0123456789abcdef",
+      "project_id": "rag-lab",
+      "kind": "genai",
+      "golden_set": {
+        "golden_set_id": "gs-0123456789ab",
+        "name": "faq-golden",
+        "version": 2,
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "held_out": true,
+        "examples": 14
+      },
+      "targets": [
+        {
+          "kind": "prompt",
+          "label": "v1-llama",
+          "prompt": {
+            "name": "faq-answer",
+            "version": 3,
+            "alias": "champion",
+            "template_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "format": "chat"
+          },
+          "provider_id": "local-ollama",
+          "model": "llama3.2:3b",
+          "params": {
+            "temperature": "0.2",
+            "max_tokens": 256,
+            "seed": 7
+          }
+        },
+        {
+          "kind": "recorded",
+          "label": "rag-index-v2",
+          "source_run_id": "e1c747043f8e4023a3e7e0be54117df5",
+          "traces": 14,
+          "matched": 14
+        }
+      ],
+      "scorers": [
+        {
+          "name": "exact_match",
+          "kind": "builtin",
+          "builtin": "exact_match"
+        },
+        {
+          "name": "grounded",
+          "kind": "judge",
+          "judge": {
+            "provider_id": "local-ollama",
+            "model": "llama3.2:3b",
+            "locality": "local",
+            "rubric": "Is every claim in the answer supported by the retrieved passages? Answer yes or no.",
+            "rubric_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "uses": "grounding",
+            "params": {
+              "temperature": "0"
+            }
+          }
+        },
+        {
+          "name": "cites_policy",
+          "kind": "project",
+          "project": {
+            "path": "evals/scorers.py",
+            "function": "cites_policy",
+            "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "commit": "0123456789abcdef0123456789abcdef01234567"
+          }
+        }
+      ],
+      "trials": 1,
+      "retention": {
+        "capture": "redacted",
+        "retention_days": 30,
+        "settings_revision": 2
+      },
+      "egress": [
+        {
+          "provider_id": "local-ollama",
+          "locality": "local",
+          "purpose": "generation"
+        },
+        {
+          "provider_id": "local-ollama",
+          "locality": "local",
+          "purpose": "judge"
+        }
+      ],
+      "environment": "managed",
+      "state": "succeeded",
+      "experiment_id": "3",
+      "results": [
+        {
+          "label": "v1-llama",
+          "run_id": "0123456789abcdef0123456789abcdef",
+          "metrics": {
+            "exact_match/mean": "0.5",
+            "grounded/mean": "0.857"
+          },
+          "examples": 14,
+          "errors": 0,
+          "scorer_errors": 1,
+          "usage": {
+            "input_tokens": 2100,
+            "output_tokens": 700,
+            "total_tokens": 2800,
+            "reported": 14,
+            "missing": 0
+          },
+          "judge_usage": {
+            "reported": 0,
+            "missing": 14
+          },
+          "latency_ms": {
+            "mean": 420,
+            "p50": 390,
+            "max": 910
+          },
+          "cost": {
+            "estimated_usd": "0",
+            "basis": "2100 input + 700 output tokens at llama3.2:3b rates",
+            "rate_source": "local: no charge",
+            "rate_version": "2026-11",
+            "partial": false
+          }
+        },
+        {
+          "label": "rag-index-v2",
+          "run_id": "fedcba9876543210fedcba9876543210",
+          "metrics": {
+            "grounded/mean": "0.786"
+          },
+          "examples": 14,
+          "usage": {
+            "reported": 0,
+            "missing": 14
+          }
+        }
+      ],
+      "source_commit": "0123456789abcdef0123456789abcdef01234567",
+      "limits": {
+        "timeout_sec": 1800,
+        "max_calls": 500
+      },
+      "enforcement": "advisory",
+      "requested_by": {
+        "kind": "human",
+        "id": "tok-abc"
+      },
+      "created_at": "2026-11-04T10:00:00.000Z",
+      "updated_at": "2026-11-04T10:05:00.000Z",
+      "started_at": "2026-11-04T10:00:01.000Z",
+      "ended_at": "2026-11-04T10:05:00.000Z"
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "decoding parameters are decimal strings, not floats",
+      "value": {
+        "schema_version": 1,
+        "evaluation_id": "le-0123456789abcdef",
+        "project_id": "rag-lab",
+        "kind": "genai",
+        "golden_set": {
+          "golden_set_id": "gs-0123456789ab",
+          "name": "faq-golden",
+          "version": 2,
+          "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "held_out": true,
+          "examples": 14
+        },
+        "targets": [
+          {
+            "kind": "prompt",
+            "label": "v1-llama",
+            "prompt": {
+              "name": "faq-answer",
+              "version": 3,
+              "alias": "champion",
+              "template_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "format": "chat"
+            },
+            "provider_id": "local-ollama",
+            "model": "llama3.2:3b",
+            "params": {
+              "temperature": 0.2,
+              "max_tokens": 256,
+              "seed": 7
+            }
+          },
+          {
+            "kind": "recorded",
+            "label": "rag-index-v2",
+            "source_run_id": "e1c747043f8e4023a3e7e0be54117df5",
+            "traces": 14,
+            "matched": 14
+          }
+        ],
+        "scorers": [
+          {
+            "name": "exact_match",
+            "kind": "builtin",
+            "builtin": "exact_match"
+          },
+          {
+            "name": "grounded",
+            "kind": "judge",
+            "judge": {
+              "provider_id": "local-ollama",
+              "model": "llama3.2:3b",
+              "locality": "local",
+              "rubric": "Is every claim in the answer supported by the retrieved passages? Answer yes or no.",
+              "rubric_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "uses": "grounding",
+              "params": {
+                "temperature": "0"
+              }
+            }
+          },
+          {
+            "name": "cites_policy",
+            "kind": "project",
+            "project": {
+              "path": "evals/scorers.py",
+              "function": "cites_policy",
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "commit": "0123456789abcdef0123456789abcdef01234567"
+            }
+          }
+        ],
+        "trials": 1,
+        "retention": {
+          "capture": "redacted",
+          "retention_days": 30,
+          "settings_revision": 2
+        },
+        "egress": [
+          {
+            "provider_id": "local-ollama",
+            "locality": "local",
+            "purpose": "generation"
+          },
+          {
+            "provider_id": "local-ollama",
+            "locality": "local",
+            "purpose": "judge"
+          }
+        ],
+        "environment": "managed",
+        "state": "succeeded",
+        "experiment_id": "3",
+        "results": [
+          {
+            "label": "v1-llama",
+            "run_id": "0123456789abcdef0123456789abcdef",
+            "metrics": {
+              "exact_match/mean": "0.5",
+              "grounded/mean": "0.857"
+            },
+            "examples": 14,
+            "errors": 0,
+            "scorer_errors": 1,
+            "usage": {
+              "input_tokens": 2100,
+              "output_tokens": 700,
+              "total_tokens": 2800,
+              "reported": 14,
+              "missing": 0
+            },
+            "judge_usage": {
+              "reported": 0,
+              "missing": 14
+            },
+            "latency_ms": {
+              "mean": 420,
+              "p50": 390,
+              "max": 910
+            },
+            "cost": {
+              "estimated_usd": "0",
+              "basis": "2100 input + 700 output tokens at llama3.2:3b rates",
+              "rate_source": "local: no charge",
+              "rate_version": "2026-11",
+              "partial": false
+            }
+          },
+          {
+            "label": "rag-index-v2",
+            "run_id": "fedcba9876543210fedcba9876543210",
+            "metrics": {
+              "grounded/mean": "0.786"
+            },
+            "examples": 14,
+            "usage": {
+              "reported": 0,
+              "missing": 14
+            }
+          }
+        ],
+        "source_commit": "0123456789abcdef0123456789abcdef01234567",
+        "limits": {
+          "timeout_sec": 1800,
+          "max_calls": 500
+        },
+        "enforcement": "advisory",
+        "requested_by": {
+          "kind": "human",
+          "id": "tok-abc"
+        },
+        "created_at": "2026-11-04T10:00:00.000Z",
+        "updated_at": "2026-11-04T10:05:00.000Z",
+        "started_at": "2026-11-04T10:00:01.000Z",
+        "ended_at": "2026-11-04T10:05:00.000Z"
+      }
+    },
+    {
+      "reason": "metric values are decimal strings",
+      "value": {
+        "schema_version": 1,
+        "evaluation_id": "le-0123456789abcdef",
+        "project_id": "rag-lab",
+        "kind": "genai",
+        "golden_set": {
+          "golden_set_id": "gs-0123456789ab",
+          "name": "faq-golden",
+          "version": 2,
+          "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "held_out": true,
+          "examples": 14
+        },
+        "targets": [
+          {
+            "kind": "prompt",
+            "label": "v1-llama",
+            "prompt": {
+              "name": "faq-answer",
+              "version": 3,
+              "alias": "champion",
+              "template_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "format": "chat"
+            },
+            "provider_id": "local-ollama",
+            "model": "llama3.2:3b",
+            "params": {
+              "temperature": "0.2",
+              "max_tokens": 256,
+              "seed": 7
+            }
+          },
+          {
+            "kind": "recorded",
+            "label": "rag-index-v2",
+            "source_run_id": "e1c747043f8e4023a3e7e0be54117df5",
+            "traces": 14,
+            "matched": 14
+          }
+        ],
+        "scorers": [
+          {
+            "name": "exact_match",
+            "kind": "builtin",
+            "builtin": "exact_match"
+          },
+          {
+            "name": "grounded",
+            "kind": "judge",
+            "judge": {
+              "provider_id": "local-ollama",
+              "model": "llama3.2:3b",
+              "locality": "local",
+              "rubric": "Is every claim in the answer supported by the retrieved passages? Answer yes or no.",
+              "rubric_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "uses": "grounding",
+              "params": {
+                "temperature": "0"
+              }
+            }
+          },
+          {
+            "name": "cites_policy",
+            "kind": "project",
+            "project": {
+              "path": "evals/scorers.py",
+              "function": "cites_policy",
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "commit": "0123456789abcdef0123456789abcdef01234567"
+            }
+          }
+        ],
+        "trials": 1,
+        "retention": {
+          "capture": "redacted",
+          "retention_days": 30,
+          "settings_revision": 2
+        },
+        "egress": [
+          {
+            "provider_id": "local-ollama",
+            "locality": "local",
+            "purpose": "generation"
+          },
+          {
+            "provider_id": "local-ollama",
+            "locality": "local",
+            "purpose": "judge"
+          }
+        ],
+        "environment": "managed",
+        "state": "succeeded",
+        "experiment_id": "3",
+        "results": [
+          {
+            "label": "v1-llama",
+            "run_id": "0123456789abcdef0123456789abcdef",
+            "metrics": {
+              "exact_match/mean": 0.5,
+              "grounded/mean": "0.857"
+            },
+            "examples": 14,
+            "errors": 0,
+            "scorer_errors": 1,
+            "usage": {
+              "input_tokens": 2100,
+              "output_tokens": 700,
+              "total_tokens": 2800,
+              "reported": 14,
+              "missing": 0
+            },
+            "judge_usage": {
+              "reported": 0,
+              "missing": 14
+            },
+            "latency_ms": {
+              "mean": 420,
+              "p50": 390,
+              "max": 910
+            },
+            "cost": {
+              "estimated_usd": "0",
+              "basis": "2100 input + 700 output tokens at llama3.2:3b rates",
+              "rate_source": "local: no charge",
+              "rate_version": "2026-11",
+              "partial": false
+            }
+          },
+          {
+            "label": "rag-index-v2",
+            "run_id": "fedcba9876543210fedcba9876543210",
+            "metrics": {
+              "grounded/mean": "0.786"
+            },
+            "examples": 14,
+            "usage": {
+              "reported": 0,
+              "missing": 14
+            }
+          }
+        ],
+        "source_commit": "0123456789abcdef0123456789abcdef01234567",
+        "limits": {
+          "timeout_sec": 1800,
+          "max_calls": 500
+        },
+        "enforcement": "advisory",
+        "requested_by": {
+          "kind": "human",
+          "id": "tok-abc"
+        },
+        "created_at": "2026-11-04T10:00:00.000Z",
+        "updated_at": "2026-11-04T10:05:00.000Z",
+        "started_at": "2026-11-04T10:00:01.000Z",
+        "ended_at": "2026-11-04T10:05:00.000Z"
+      }
+    },
+    {
+      "reason": "a prompt target is pinned to a version",
+      "value": {
+        "schema_version": 1,
+        "evaluation_id": "le-0123456789abcdef",
+        "project_id": "rag-lab",
+        "kind": "genai",
+        "golden_set": {
+          "golden_set_id": "gs-0123456789ab",
+          "name": "faq-golden",
+          "version": 2,
+          "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "held_out": true,
+          "examples": 14
+        },
+        "targets": [
+          {
+            "kind": "prompt",
+            "label": "v1-llama",
+            "prompt": {
+              "name": "faq-answer",
+              "alias": "champion",
+              "template_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "format": "chat"
+            },
+            "provider_id": "local-ollama",
+            "model": "llama3.2:3b",
+            "params": {
+              "temperature": "0.2",
+              "max_tokens": 256,
+              "seed": 7
+            }
+          },
+          {
+            "kind": "recorded",
+            "label": "rag-index-v2",
+            "source_run_id": "e1c747043f8e4023a3e7e0be54117df5",
+            "traces": 14,
+            "matched": 14
+          }
+        ],
+        "scorers": [
+          {
+            "name": "exact_match",
+            "kind": "builtin",
+            "builtin": "exact_match"
+          },
+          {
+            "name": "grounded",
+            "kind": "judge",
+            "judge": {
+              "provider_id": "local-ollama",
+              "model": "llama3.2:3b",
+              "locality": "local",
+              "rubric": "Is every claim in the answer supported by the retrieved passages? Answer yes or no.",
+              "rubric_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "uses": "grounding",
+              "params": {
+                "temperature": "0"
+              }
+            }
+          },
+          {
+            "name": "cites_policy",
+            "kind": "project",
+            "project": {
+              "path": "evals/scorers.py",
+              "function": "cites_policy",
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "commit": "0123456789abcdef0123456789abcdef01234567"
+            }
+          }
+        ],
+        "trials": 1,
+        "retention": {
+          "capture": "redacted",
+          "retention_days": 30,
+          "settings_revision": 2
+        },
+        "egress": [
+          {
+            "provider_id": "local-ollama",
+            "locality": "local",
+            "purpose": "generation"
+          },
+          {
+            "provider_id": "local-ollama",
+            "locality": "local",
+            "purpose": "judge"
+          }
+        ],
+        "environment": "managed",
+        "state": "succeeded",
+        "experiment_id": "3",
+        "results": [
+          {
+            "label": "v1-llama",
+            "run_id": "0123456789abcdef0123456789abcdef",
+            "metrics": {
+              "exact_match/mean": "0.5",
+              "grounded/mean": "0.857"
+            },
+            "examples": 14,
+            "errors": 0,
+            "scorer_errors": 1,
+            "usage": {
+              "input_tokens": 2100,
+              "output_tokens": 700,
+              "total_tokens": 2800,
+              "reported": 14,
+              "missing": 0
+            },
+            "judge_usage": {
+              "reported": 0,
+              "missing": 14
+            },
+            "latency_ms": {
+              "mean": 420,
+              "p50": 390,
+              "max": 910
+            },
+            "cost": {
+              "estimated_usd": "0",
+              "basis": "2100 input + 700 output tokens at llama3.2:3b rates",
+              "rate_source": "local: no charge",
+              "rate_version": "2026-11",
+              "partial": false
+            }
+          },
+          {
+            "label": "rag-index-v2",
+            "run_id": "fedcba9876543210fedcba9876543210",
+            "metrics": {
+              "grounded/mean": "0.786"
+            },
+            "examples": 14,
+            "usage": {
+              "reported": 0,
+              "missing": 14
+            }
+          }
+        ],
+        "source_commit": "0123456789abcdef0123456789abcdef01234567",
+        "limits": {
+          "timeout_sec": 1800,
+          "max_calls": 500
+        },
+        "enforcement": "advisory",
+        "requested_by": {
+          "kind": "human",
+          "id": "tok-abc"
+        },
+        "created_at": "2026-11-04T10:00:00.000Z",
+        "updated_at": "2026-11-04T10:05:00.000Z",
+        "started_at": "2026-11-04T10:00:01.000Z",
+        "ended_at": "2026-11-04T10:05:00.000Z"
+      }
+    }
+  ]
+}

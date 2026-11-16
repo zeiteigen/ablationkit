@@ -1,0 +1,228 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "project_id": "rag-lab",
+      "revision": 2,
+      "updated_at": "2026-11-04T10:00:00.000Z",
+      "updated_by": "tok-abc",
+      "providers": [
+        {
+          "provider_id": "local-ollama",
+          "label": "Ollama on the workstation",
+          "kind": "openai_compatible",
+          "base_url": "http://127.0.0.1:11434/v1",
+          "models": ["llama3.2:3b"],
+          "locality": "local",
+          "rates": [
+            {
+              "model": "llama3.2:3b",
+              "input_usd_per_mtok": "0",
+              "output_usd_per_mtok": "0",
+              "source": "local: no charge",
+              "version": "2026-11"
+            }
+          ]
+        },
+        {
+          "provider_id": "hosted",
+          "kind": "openai_compatible",
+          "base_url": "https://api.example.com/v1",
+          "api_key_env": "HOSTED_LLM_KEY",
+          "models": ["judge-large"],
+          "locality": "external",
+          "egress": {
+            "approved_at": "2026-11-04T10:00:00.000Z",
+            "approved_by": "tok-abc",
+            "allow_datasets": false,
+            "note": "judge only for public data"
+          },
+          "timeout_sec": 60
+        }
+      ],
+      "capture": {
+        "mode": "redacted",
+        "builtin_redactions": ["email", "secret"],
+        "patterns": [
+          {
+            "name": "ticket",
+            "regex": "TICKET-[0-9]+"
+          }
+        ],
+        "retention_days": 30,
+        "remote_capture": false
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "an API key value is never stored, only the variable name",
+      "value": {
+        "schema_version": 1,
+        "project_id": "rag-lab",
+        "revision": 2,
+        "updated_at": "2026-11-04T10:00:00.000Z",
+        "updated_by": "tok-abc",
+        "providers": [
+          {
+            "provider_id": "local-ollama",
+            "label": "Ollama on the workstation",
+            "kind": "openai_compatible",
+            "base_url": "http://127.0.0.1:11434/v1",
+            "models": ["llama3.2:3b"],
+            "locality": "local",
+            "rates": [
+              {
+                "model": "llama3.2:3b",
+                "input_usd_per_mtok": "0",
+                "output_usd_per_mtok": "0",
+                "source": "local: no charge",
+                "version": "2026-11"
+              }
+            ]
+          },
+          {
+            "provider_id": "hosted",
+            "kind": "openai_compatible",
+            "base_url": "https://api.example.com/v1",
+            "api_key_env": "HOSTED_LLM_KEY",
+            "models": ["judge-large"],
+            "locality": "external",
+            "egress": {
+              "approved_at": "2026-11-04T10:00:00.000Z",
+              "approved_by": "tok-abc",
+              "allow_datasets": false,
+              "note": "judge only for public data"
+            },
+            "timeout_sec": 60,
+            "api_key": "sk-live"
+          }
+        ],
+        "capture": {
+          "mode": "redacted",
+          "builtin_redactions": ["email", "secret"],
+          "patterns": [
+            {
+              "name": "ticket",
+              "regex": "TICKET-[0-9]+"
+            }
+          ],
+          "retention_days": 30,
+          "remote_capture": false
+        }
+      }
+    },
+    {
+      "reason": "retention must be at least one day",
+      "value": {
+        "schema_version": 1,
+        "project_id": "rag-lab",
+        "revision": 2,
+        "updated_at": "2026-11-04T10:00:00.000Z",
+        "updated_by": "tok-abc",
+        "providers": [
+          {
+            "provider_id": "local-ollama",
+            "label": "Ollama on the workstation",
+            "kind": "openai_compatible",
+            "base_url": "http://127.0.0.1:11434/v1",
+            "models": ["llama3.2:3b"],
+            "locality": "local",
+            "rates": [
+              {
+                "model": "llama3.2:3b",
+                "input_usd_per_mtok": "0",
+                "output_usd_per_mtok": "0",
+                "source": "local: no charge",
+                "version": "2026-11"
+              }
+            ]
+          },
+          {
+            "provider_id": "hosted",
+            "kind": "openai_compatible",
+            "base_url": "https://api.example.com/v1",
+            "api_key_env": "HOSTED_LLM_KEY",
+            "models": ["judge-large"],
+            "locality": "external",
+            "egress": {
+              "approved_at": "2026-11-04T10:00:00.000Z",
+              "approved_by": "tok-abc",
+              "allow_datasets": false,
+              "note": "judge only for public data"
+            },
+            "timeout_sec": 60
+          }
+        ],
+        "capture": {
+          "mode": "redacted",
+          "builtin_redactions": ["email", "secret"],
+          "patterns": [
+            {
+              "name": "ticket",
+              "regex": "TICKET-[0-9]+"
+            }
+          ],
+          "retention_days": 0,
+          "remote_capture": false
+        }
+      }
+    },
+    {
+      "reason": "a provider lists at least one model",
+      "value": {
+        "schema_version": 1,
+        "project_id": "rag-lab",
+        "revision": 2,
+        "updated_at": "2026-11-04T10:00:00.000Z",
+        "updated_by": "tok-abc",
+        "providers": [
+          {
+            "provider_id": "local-ollama",
+            "label": "Ollama on the workstation",
+            "kind": "openai_compatible",
+            "base_url": "http://127.0.0.1:11434/v1",
+            "models": [],
+            "locality": "local",
+            "rates": [
+              {
+                "model": "llama3.2:3b",
+                "input_usd_per_mtok": "0",
+                "output_usd_per_mtok": "0",
+                "source": "local: no charge",
+                "version": "2026-11"
+              }
+            ]
+          },
+          {
+            "provider_id": "hosted",
+            "kind": "openai_compatible",
+            "base_url": "https://api.example.com/v1",
+            "api_key_env": "HOSTED_LLM_KEY",
+            "models": ["judge-large"],
+            "locality": "external",
+            "egress": {
+              "approved_at": "2026-11-04T10:00:00.000Z",
+              "approved_by": "tok-abc",
+              "allow_datasets": false,
+              "note": "judge only for public data"
+            },
+            "timeout_sec": 60
+          }
+        ],
+        "capture": {
+          "mode": "redacted",
+          "builtin_redactions": ["email", "secret"],
+          "patterns": [
+            {
+              "name": "ticket",
+              "regex": "TICKET-[0-9]+"
+            }
+          ],
+          "retention_days": 30,
+          "remote_capture": false
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ablationkit:schema:mlflow-sidecar-state.v1",
+  "title": "MlflowSidecarState",
+  "description": "Managed MLflow sidecar bookkeeping, used by the upgrade guard.",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schema_version",
+    "data_mlflow_version",
+    "initialized_at",
+    "updated_at",
+    "upgrades"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "type": "number"
+    },
+    "data_mlflow_version": {
+      "minLength": 1,
+      "maxLength": 50,
+      "description": "MLflow version that last opened (and migrated) the data in `mlflow/`.",
+      "type": "string"
+    },
+    "initialized_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "updated_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "upgrades": {
+      "type": "array",
+      "items": {
+        "title": "MlflowUpgradeRecord",
+        "description": "An MLflow version change, and the backup taken before it.",
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "from_version",
+          "to_version",
+          "at",
+          "backup_id"
+        ],
+        "properties": {
+          "from_version": {
+            "minLength": 1,
+            "maxLength": 50,
+            "type": "string"
+          },
+          "to_version": {
+            "minLength": 1,
+            "maxLength": 50,
+            "type": "string"
+          },
+          "at": {
+            "title": "Timestamp",
+            "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+            "type": "string"
+          },
+          "backup_id": {
+            "minLength": 1,
+            "maxLength": 100,
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

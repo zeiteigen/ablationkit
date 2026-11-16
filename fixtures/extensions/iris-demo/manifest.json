@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "id": "iris-demo",
+  "version": "0.1.0",
+  "name": "Classifier playground",
+  "description": "Type two features, get the champion model's prediction, and save one as evidence.",
+  "host_api": "^1.0.0",
+  "contributes": [
+    {
+      "id": "demo",
+      "point": "model.demo",
+      "title": "Classifier playground",
+      "entry": "ui/src/Demo.tsx"
+    }
+  ],
+  "capabilities": ["inference.predict"],
+  "capability_config": {
+    "inference": {
+      "models": ["clf-reg@champion"],
+      "max_requests_per_hour": 3,
+      "max_request_bytes": 4096,
+      "max_rows": 10
+    }
+  }
+}

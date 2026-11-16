@@ -1,0 +1,61 @@
+# uv workspace root (virtual). Core packages live under python/; bundled features own their SDKs.
+[project]
+name = "ablationkit-workspace"
+version = "0.0.0"
+requires-python = ">=3.10"
+dependencies = [
+    "ablationkit-protocol",
+    "ablationkit-sdk",
+    "ablationkit-pytorch",
+    "ablationkit-llm",
+    "ablationkit-extension",
+    "ablationkit-worker",
+]
+
+[dependency-groups]
+dev = ["mypy==2.4.1", "pytest==9.2.0", "ruff==0.17.3"]
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["python/*", "packages/builtin-llm/src/python/sdk"]
+
+[tool.uv.sources]
+ablationkit-protocol = { workspace = true }
+ablationkit-sdk = { workspace = true }
+ablationkit-pytorch = { workspace = true }
+ablationkit-llm = { workspace = true }
+ablationkit-extension = { workspace = true }
+ablationkit-worker = { workspace = true }
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+extend-exclude = ["fixtures"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "RUF", "SIM", "PT"]
+
+[tool.ruff.lint.isort]
+known-first-party = [
+    "ablationkit_protocol",
+    "ablationkit_sdk",
+    "ablationkit_pytorch",
+    "ablationkit_extension",
+    "ablationkit_worker",
+]
+
+[tool.mypy]
+strict = true
+python_version = "3.10"
+files = ["python/*/src", "python/*/tests", "packages/builtin-llm/src/python/sdk/src", "packages/builtin-llm/src/python/sdk/tests"]
+exclude = ["fixtures/"]
+plugins = ["pydantic.mypy"]
+
+[tool.pytest.ini_options]
+testpaths = ["python", "packages/builtin-llm/test", "packages/builtin-llm/src/python/sdk/tests"]
+addopts = "-q --import-mode=importlib"
+
+[tool.ruff.lint.per-file-ignores]
+"python/*/src/*/models.py" = ["E501"]

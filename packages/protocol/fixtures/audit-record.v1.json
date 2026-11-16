@@ -1,0 +1,91 @@
+{
+  "valid": [
+    {
+      "seq": 0,
+      "schema_version": 1,
+      "ts": "2026-11-02T10:00:00Z",
+      "actor": {
+        "kind": "system"
+      },
+      "listener": "internal",
+      "action": "coordinator.start",
+      "outcome": "allowed"
+    },
+    {
+      "seq": 5,
+      "schema_version": 1,
+      "ts": "2026-11-02T10:00:00.123Z",
+      "actor": {
+        "kind": "agent",
+        "id": "0123456789abcdef"
+      },
+      "listener": "agent",
+      "action": "project.read",
+      "outcome": "denied",
+      "project_id": "vision-lab",
+      "target": "other-project",
+      "reason": "token not bound to project",
+      "details": {
+        "route": "GET /api/v1/projects/:id",
+        "ünï": "🚀"
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "unknown actor kind",
+      "value": {
+        "seq": 0,
+        "schema_version": 1,
+        "ts": "2026-11-02T10:00:00Z",
+        "actor": {
+          "kind": "root"
+        },
+        "listener": "internal",
+        "action": "a.b",
+        "outcome": "allowed"
+      }
+    },
+    {
+      "reason": "undotted action",
+      "value": {
+        "seq": 0,
+        "schema_version": 1,
+        "ts": "2026-11-02T10:00:00Z",
+        "actor": {
+          "kind": "system"
+        },
+        "listener": "internal",
+        "action": "start",
+        "outcome": "allowed"
+      }
+    },
+    {
+      "reason": "missing seq",
+      "value": {
+        "schema_version": 1,
+        "ts": "2026-11-02T10:00:00Z",
+        "actor": {
+          "kind": "system"
+        },
+        "listener": "internal",
+        "action": "a.b",
+        "outcome": "allowed"
+      }
+    },
+    {
+      "reason": "bad outcome",
+      "value": {
+        "seq": 0,
+        "schema_version": 1,
+        "ts": "2026-11-02T10:00:00Z",
+        "actor": {
+          "kind": "system"
+        },
+        "listener": "internal",
+        "action": "a.b",
+        "outcome": "ok"
+      }
+    }
+  ]
+}

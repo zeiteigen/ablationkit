@@ -1,0 +1,288 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ablationkit:schema:vault-work.v1",
+  "title": "VaultWork",
+  "description": "A work in a project's library (ADR 0052): prior work consulted for the project, used or set aside, with where to find it, how closely it was read and what the project took from it. Notes cite it (`cites`) with the role it plays; its citation is exported as BibTeX, CSL-JSON or an annotated bibliography.",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schema_version",
+    "work_id",
+    "project_id",
+    "kind",
+    "title",
+    "authors",
+    "reading",
+    "takeaway",
+    "created_at",
+    "updated_at",
+    "created_by",
+    "updated_by",
+    "revision"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "type": "number"
+    },
+    "work_id": {
+      "title": "VaultWorkId",
+      "description": "A work's identifier in the project's library, also its citation key: kebab-case, the first author's family name, the year and a word of the title (`vaswani-2017-attention`), or the project and owner for code (`karpathy-nanogpt`). It does not change.",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+      "type": "string"
+    },
+    "project_id": {
+      "title": "ProjectId",
+      "description": "Stable project identifier (lowercase slug). Never a path; paths live in the local registry.",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,62}$",
+      "type": "string"
+    },
+    "kind": {
+      "title": "VaultWorkKind",
+      "description": "What a work is. paper: published in a journal or conference (`venue`). preprint: arXiv and the like. book, thesis, report (a technical report). repo: a code repository. software: a released package. dataset, model: a published dataset or model card. docs: documentation. article: a blog post or essay. thread: an issue, pull request, forum or Q&A thread. talk: a talk or video.",
+      "anyOf": [
+        {
+          "const": "paper",
+          "type": "string"
+        },
+        {
+          "const": "preprint",
+          "type": "string"
+        },
+        {
+          "const": "book",
+          "type": "string"
+        },
+        {
+          "const": "thesis",
+          "type": "string"
+        },
+        {
+          "const": "report",
+          "type": "string"
+        },
+        {
+          "const": "repo",
+          "type": "string"
+        },
+        {
+          "const": "software",
+          "type": "string"
+        },
+        {
+          "const": "dataset",
+          "type": "string"
+        },
+        {
+          "const": "model",
+          "type": "string"
+        },
+        {
+          "const": "docs",
+          "type": "string"
+        },
+        {
+          "const": "article",
+          "type": "string"
+        },
+        {
+          "const": "thread",
+          "type": "string"
+        },
+        {
+          "const": "talk",
+          "type": "string"
+        },
+        {
+          "const": "other",
+          "type": "string"
+        }
+      ]
+    },
+    "title": {
+      "minLength": 1,
+      "maxLength": 400,
+      "description": "The work's own title.",
+      "type": "string"
+    },
+    "authors": {
+      "maxItems": 100,
+      "description": "As `Family, Given` (or an organisation's name), in the work's order. `others` for et al.",
+      "type": "array",
+      "items": {
+        "minLength": 1,
+        "maxLength": 200,
+        "type": "string"
+      }
+    },
+    "year": {
+      "minimum": 1000,
+      "maximum": 3000,
+      "type": "integer"
+    },
+    "venue": {
+      "minLength": 1,
+      "maxLength": 300,
+      "description": "Journal, conference, publisher, institution or site (`NeurIPS 2017`, `GitHub`).",
+      "type": "string"
+    },
+    "doi": {
+      "pattern": "^10\\.[0-9]{4,9}/[^ \\t\\r\\n]{1,300}$",
+      "type": "string"
+    },
+    "arxiv": {
+      "pattern": "^([0-9]{4}\\.[0-9]{4,5}|[a-z-]+(\\.[A-Z]{2})?/[0-9]{7})(v[0-9]+)?$",
+      "description": "The arXiv identifier, `1706.03762` (a version, `v2`, when it matters).",
+      "type": "string"
+    },
+    "url": {
+      "pattern": "^https?://[^ \\t\\r\\n]{1,2000}$",
+      "type": "string"
+    },
+    "version": {
+      "minLength": 1,
+      "maxLength": 120,
+      "description": "The commit, tag or release consulted (code, data, models, docs).",
+      "type": "string"
+    },
+    "accessed": {
+      "title": "VaultDate",
+      "description": "A calendar date, `YYYY-MM-DD`.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "type": "string"
+    },
+    "reading": {
+      "title": "VaultWorkReading",
+      "description": "How closely the work was read: unread (found, not read yet), abstract (the abstract or README only), skimmed, read (the parts that matter, closely). Said plainly so a reader knows how much a citation rests on.",
+      "anyOf": [
+        {
+          "const": "unread",
+          "type": "string"
+        },
+        {
+          "const": "abstract",
+          "type": "string"
+        },
+        {
+          "const": "skimmed",
+          "type": "string"
+        },
+        {
+          "const": "read",
+          "type": "string"
+        }
+      ]
+    },
+    "summary": {
+      "maxLength": 4000,
+      "description": "What the work says or does, in two to five sentences of your own words: its question, method and result as they bear on this project. Markdown with LaTeX. Never pasted from the work.",
+      "type": "string"
+    },
+    "takeaway": {
+      "minLength": 1,
+      "maxLength": 600,
+      "description": "What this project took from it, or why it was set aside, in one or two sentences.",
+      "type": "string"
+    },
+    "found_for": {
+      "maxLength": 400,
+      "description": "The problem or question it was looked up for (a note's `[[id]]` may be named).",
+      "type": "string"
+    },
+    "found_via": {
+      "maxLength": 400,
+      "description": "How it was found: the search and where it was run, or the work that cited it.",
+      "type": "string"
+    },
+    "task_id": {
+      "title": "TaskId",
+      "description": "AblationKit task identifier (UI- or agent-first task).",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "created_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "updated_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "created_by": {
+      "title": "ResearchActor",
+      "description": "Who made a change: a human session, an agent token or the system. Work under a task links the task (`task:ID`).",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "anyOf": [
+            {
+              "const": "human",
+              "type": "string"
+            },
+            {
+              "const": "agent",
+              "type": "string"
+            },
+            {
+              "const": "system",
+              "type": "string"
+            }
+          ]
+        },
+        "id": {
+          "maxLength": 200,
+          "type": "string"
+        }
+      }
+    },
+    "updated_by": {
+      "title": "ResearchActor",
+      "description": "Who made a change: a human session, an agent token or the system. Work under a task links the task (`task:ID`).",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "anyOf": [
+            {
+              "const": "human",
+              "type": "string"
+            },
+            {
+              "const": "agent",
+              "type": "string"
+            },
+            {
+              "const": "system",
+              "type": "string"
+            }
+          ]
+        },
+        "id": {
+          "maxLength": 200,
+          "type": "string"
+        }
+      }
+    },
+    "revision": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "archived_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    }
+  }
+}

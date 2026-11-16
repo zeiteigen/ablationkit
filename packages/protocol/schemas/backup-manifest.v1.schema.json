@@ -1,0 +1,186 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ablationkit:schema:backup-manifest.v1",
+  "title": "BackupManifest",
+  "description": "A coordinated snapshot of MLflow data (database and artifacts) and coordinator state.",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schema_version",
+    "backup_id",
+    "created_at",
+    "reason",
+    "mlflow_database",
+    "outbox",
+    "files",
+    "excluded"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "type": "number"
+    },
+    "backup_id": {
+      "pattern": "^[0-9]{8}T[0-9]{6}Z(-[a-z0-9-]{1,40})?$",
+      "type": "string"
+    },
+    "created_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "reason": {
+      "description": "`move`: taken by `coordinator move` with the coordinator stopped, before this home was retired.",
+      "anyOf": [
+        {
+          "const": "manual",
+          "type": "string"
+        },
+        {
+          "const": "pre_upgrade",
+          "type": "string"
+        },
+        {
+          "const": "move",
+          "type": "string"
+        }
+      ]
+    },
+    "quiesce": {
+      "description": "How writes were held still: tracking delivery paused in a running coordinator, or the coordinator stopped (the runtime lock held by the backup). Absent in backups made before Stage 17 (tracking_paused).",
+      "anyOf": [
+        {
+          "const": "tracking_paused",
+          "type": "string"
+        },
+        {
+          "const": "coordinator_stopped",
+          "type": "string"
+        }
+      ]
+    },
+    "source": {
+      "title": "BackupSource",
+      "additionalProperties": false,
+      "description": "The machine and runtime directory the backup was taken from.",
+      "type": "object",
+      "required": [
+        "hostname",
+        "home"
+      ],
+      "properties": {
+        "hostname": {
+          "minLength": 1,
+          "maxLength": 255,
+          "type": "string"
+        },
+        "home": {
+          "minLength": 1,
+          "maxLength": 4096,
+          "type": "string"
+        }
+      }
+    },
+    "projects": {
+      "description": "Registered projects and their checkout paths at backup time; restore remaps them (`--project ID=PATH`).",
+      "type": "array",
+      "items": {
+        "title": "BackupProject",
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "project_id",
+          "path"
+        ],
+        "properties": {
+          "project_id": {
+            "minLength": 1,
+            "maxLength": 100,
+            "type": "string"
+          },
+          "path": {
+            "minLength": 1,
+            "maxLength": 4096,
+            "type": "string"
+          }
+        }
+      }
+    },
+    "mlflow_version": {
+      "minLength": 1,
+      "maxLength": 50,
+      "type": "string"
+    },
+    "mlflow_database": {
+      "description": "`vacuum_into`: SQLite-safe snapshot taken with `VACUUM INTO` (never a raw copy of the live file). `absent`: no MLflow database yet.",
+      "anyOf": [
+        {
+          "const": "vacuum_into",
+          "type": "string"
+        },
+        {
+          "const": "absent",
+          "type": "string"
+        }
+      ]
+    },
+    "outbox": {
+      "title": "BackupOutboxCounts",
+      "additionalProperties": false,
+      "description": "Outbox state when the snapshot was taken.",
+      "type": "object",
+      "required": [
+        "pending",
+        "failed"
+      ],
+      "properties": {
+        "pending": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "failed": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      }
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "title": "BackupFile",
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "path",
+          "bytes",
+          "sha256"
+        ],
+        "properties": {
+          "path": {
+            "minLength": 1,
+            "maxLength": 4096,
+            "description": "Relative to the backup.",
+            "type": "string"
+          },
+          "bytes": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          }
+        }
+      }
+    },
+    "excluded": {
+      "description": "What was deliberately left out, and why.",
+      "type": "array",
+      "items": {
+        "maxLength": 500,
+        "type": "string"
+      }
+    }
+  }
+}

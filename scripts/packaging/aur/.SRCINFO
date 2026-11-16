@@ -1,0 +1,23 @@
+pkgbase = ablationkit
+	pkgdesc = Local-first, agentic workspace for ML experimentation: coordinator, web UI, managed MLflow
+	pkgver = 1.0.0
+	pkgrel = 1
+	arch = any
+	license = MIT
+	makedepends = bun>=1.4.4
+	makedepends = git
+	depends = bun>=1.4.4
+	depends = uv
+	depends = git
+	depends = python
+	depends = systemd
+	optdepends = electron43: the desktop app (ablationkit-desktop)
+	optdepends = tailscale: remote clients over tailscale serve
+	optdepends = libnotify: desktop notifications
+	optdepends = openssh: SSH and SLURM compute targets
+	options = !strip
+	options = !debug
+	source = ablationkit-1.0.0.tar.gz
+	sha256sums = SKIP
+
+pkgname = ablationkit

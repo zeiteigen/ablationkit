@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1" name="viewport"/>
+  <meta content="Find what changed, understand the answer, and follow the evidence." name="description"/>
+  <title>
+   Read the research · AblationKit guide
+  </title>
+  <link href="guide.css" rel="stylesheet"/>
+ </head>
+ <body class="ak-guide">
+  <a class="akg-skip" href="#content">
+   Skip to content
+  </a>
+  <header>
+   <a class="akg-brand" href="index.html">
+    AblationKit
+    <span>
+     User guide
+    </span>
+   </a>
+   <p>
+    From a question to evidence you can read.
+   </p>
+  </header>
+  <div class="akg-layout">
+   <nav aria-label="Guide chapters">
+    <a href="index.html">
+     Start here
+    </a>
+    <a href="getting-started.html">
+     Your first project
+    </a>
+    <a aria-current="page" href="reading.html">
+     Read the research
+    </a>
+    <a href="experiments.html">
+     Run and compare
+    </a>
+    <a href="llm.html">
+     LLM and RAG research
+    </a>
+    <a href="operations.html">
+     Manage your workspace
+    </a>
+   </nav>
+   <main id="content">
+    <h1>
+     Read the research
+    </h1>
+    <p class="akg-lead">
+     Read the project's current answer first, then follow the evidence as deeply as you need.
+    </p>
+    <ol class="akg-steps">
+     <li>
+      <h2>
+       Glance at the Overview
+      </h2>
+      <p>
+       Open a project by its name in the sidebar. Its Overview has two columns. The first, where it stands, gives the bottom line, what is new since you last read, and the claims counted by standing (established, leaning, open, ruled out); each leads to Standing. The second, what the agents did, lists their last three sessions with what each established, their tasks one line each, the jobs running now, and their compute against the project's limit once any is used. Home shows every project's bottom line, how much of its ledger is unread, and its last session.
+      </p>
+     </li>
+     <li>
+      <h2>
+       Start with Standing
+      </h2>
+      <p>
+       Standing presents the project's bottom line, claims grouped by standing, decisions in force, and open questions. New or revised material lets you catch up without rereading the entire project.
+      </p>
+     </li>
+     <li>
+      <h2>
+       Expand an idea
+      </h2>
+      <p>
+       Notes have a gist, a summary, and full text. Expand a note when you need its reasoning; follow links to related concepts and evidence. The sidebar count reflects ledger lines you have not read as they currently stand.
+      </p>
+     </li>
+     <li>
+      <h2>
+       Read a notebook
+      </h2>
+      <p>
+       Open Notebooks for the fundamentals, a notebook about a specific question, or a session's account of the work. A notebook composes atomic notes into one reading path. The trail at the top of the shelf reads
+       <strong>
+        Notebooks · Tree · Library
+       </strong>
+       : the tree helps you locate the underlying notes, and the library holds the prior work the notes cite.
+      </p>
+     </li>
+     <li>
+      <h2>
+       Check the evidence
+      </h2>
+      <p>
+       Follow provenance to the original records, tasks, studies, and runs. Inspect the actual parameters, metric curves, evaluation examples, and artifacts supporting a claim. Treat an open question or a tentative claim according to its recorded standing.
+      </p>
+     </li>
+    </ol>
+    <aside class="akg-callout">
+     <h2>
+      Reading marks itself
+     </h2>
+     <p>
+      The vault tracks reading as you move through it. Revised material can become unread again. This reading state is separate from explicit review marks on the older research records.
+     </p>
+    </aside>
+    <section id="agenda">
+     <h2>
+      Steer the agents with the agenda
+     </h2>
+     <p>
+      The agenda, at the top of Standing, is your plan for the project. Agents read it at the start of every session and work from it. Only you can change it, in the web UI; an agent can read it but has no way to write it.
+     </p>
+     <ol class="akg-steps">
+      <li>
+       <h3>
+        Put questions and claims on it
+       </h3>
+       <p>
+        On Standing, click a claim or an open question (or move to it with j and k) and press
+        <kbd>n</kbd>
+        to put it in Now,
+        <kbd>e</kbd>
+        for Next,
+        <kbd>p</kbd>
+        to park it (agents should not spend on it for now) or
+        <kbd>x</kbd>
+        to drop it. Hovering a line shows the same moves as buttons. When you park or drop something you are asked why; agents read your reason.
+       </p>
+      </li>
+      <li>
+       <h3>
+        Add your own lines and rules
+       </h3>
+       <p>
+        Type into
+        <em>Add a line to Now</em>
+        for work that is not a note yet, such as "re-run the baselines with both fixes, three seeds each". Rules hold for every agent session, for example "three seeds before anything is established" or "keep each job under an hour". On a row of the panel the keys n, e, p and x move it, Alt with ↑ or ↓ reorders it and Delete takes it off.
+       </p>
+      </li>
+      <li>
+       <h3>
+        See what the agents did with it
+       </h3>
+       <p>
+        Beside each item in Now and Next are the tasks and jobs that name it and the latest session edition that reports it. Below the panel, each live agent session says whether it has read the agenda as it stands. When you change the agenda, a session that has not read the change is told on its next call to AblationKit, before the result of that call, and the panel shows when it has read it.
+       </p>
+      </li>
+     </ol>
+     <p>
+      The agenda is advice to agents, not a lock. Agents say which item a task or job serves, and the panel lists work that serves nothing in Now (off agenda) and work on parked or dropped items. AblationKit does not refuse that work; the project's compute limit is what limits spending. Agents cannot change the agenda: to suggest an item, an agent writes it as an open question and mentions it in its session edition, and you decide whether it goes on.
+     </p>
+    </section>
+    <section id="figures">
+     <h2>
+      Read figures
+     </h2>
+     <p>
+      Charts, tables across runs and other visualisations are notes of their own, called figures. An agent writes the code that draws each one from the project's runs, so a figure stays current as runs are added. It appears wherever a notebook or note embeds it, with a caption below that says what it shows.
+     </p>
+     <ol class="akg-steps">
+      <li>
+       <h3>
+        Read it in place
+       </h3>
+       <p>
+        A figure is drawn as you reach it in Standing or Notebooks. Its caption is the note's gist. Expand it to its full text to see how to read it and the runs it was drawn from, each linking to the run.
+       </p>
+      </li>
+      <li>
+       <h3>
+        When one fails
+       </h3>
+       <p>
+        If a figure's code throws, the error is shown in its place, and the agent that wrote it is told the next time it checks the vault. A figure keeps its caption either way.
+       </p>
+      </li>
+     </ol>
+     <p>
+      A figure runs in the same sandbox as an extension view: it cannot make network requests or reach the page or your session, and it can only read the project's runs, their metric histories and their artifacts. It cannot start jobs, run Python or change anything. In safe mode figures are not drawn. Views that must run code, such as the project's own Python or a model demo, are still extensions.
+     </p>
+    </section>
+    <section id="prior-work">
+     <h2>
+      See the prior work behind it
+     </h2>
+     <p>
+      Agents look for prior work before they design an experiment and when they are stuck: papers, preprints, code, documentation and issue threads. Every work they consult is kept in the project's library, including the ones they read and set aside, so a later session builds on it instead of searching again.
+     </p>
+     <ol class="akg-steps">
+      <li>
+       <h3>
+        On a note
+       </h3>
+       <p>
+        Expand a note to its full text. Under
+        <em>Prior work</em>
+        each cited work carries its role: the method was taken from it, it solved a problem the agents hit, it is the baseline, it supports or contradicts the result, it suggested what to try, its code or data was used, or it is background.
+       </p>
+      </li>
+      <li>
+       <h3>
+        In the library
+       </h3>
+       <p>
+        Open Notebooks, then
+        <em>Library</em>
+        in the trail at the top (or press W). Works are grouped by the role they played, then the ones read and set aside, then the ones found and not read yet. Each one shows how closely it was read, what was taken from it, what it was looked up for, and the notes that cite it. The title links to the paper, preprint or repository.
+       </p>
+      </li>
+      <li>
+       <h3>
+        Export the citations
+       </h3>
+       <p>
+        On the library, choose BibTeX, CSL-JSON (for Zotero or Pandoc) or an annotated Markdown bibliography. A notebook's page ends with its works cited and a BibTeX link for that notebook alone. Each entry's annotation (BibTeX
+        <code>annote</code>, CSL
+        <code>note</code>) records the role the work played and what was taken from it.
+       </p>
+      </li>
+     </ol>
+     <pre><code>ablationkit vault works --project PROJECT_ID
+ablationkit vault cite --project PROJECT_ID --format bibtex --out refs.bib
+ablationkit vault cite --project PROJECT_ID --notebook NOTEBOOK_ID --cited --format markdown</code></pre>
+     <p>
+      An agent records each work from the work itself: its title, authors and DOI, arXiv ID or URL, and how closely it read it. AblationKit fetches nothing. Check a citation before you publish it. The vault's checks flag a note that rests on a work nobody has read, a work with no link to find it again, the same work recorded twice, and an open question that cites no prior work.
+     </p>
+    </section>
+    <section id="witness">
+     <h2>
+      Hold the agent's account to the record
+     </h2>
+     <p>
+      AblationKit records an agent's jobs, their attempts and how each ended, the run each wrote, the hours they used and the agent session that submitted them, independently of anything the agent writes. What the agent writes (its notes, the standings it gives claims, why it left a run out) is its account. These views put the two side by side. They show; they do not block anything.
+     </p>
+     <ol class="akg-steps">
+      <li>
+       <h3>
+        Numbers that come from runs
+       </h3>
+       <p>
+        A number in a note that is underlined with dots is drawn from a run as you read: the run's latest value of a metric, or how far one run is from another. Hover it for the exact value and which runs it compares; click it to open the run. A number typed by hand into a claim, a finding or the bottom line is flagged to the agent, which is told to write it as a live reference instead.
+       </p>
+      </li>
+      <li>
+       <h3>
+        The runs a finding leaves out
+       </h3>
+       <p>
+        Expand a finding or claim to its full text. Under its runs,
+        <em>The runs it leaves out</em>
+        lists the other runs of the same task or study that it does not cite, each marked
+        <em>set aside</em>
+        (with the agent's reason),
+        <em>cited elsewhere</em>
+        (with the notes that cite it) or
+        <em>unaccounted for</em>
+        . Click the line to see them.
+       </p>
+      </li>
+      <li>
+       <h3>
+        Every run of a task
+       </h3>
+       <p>
+        On a task's page,
+        <em>Every run accounted for</em>
+        lists each run its jobs produced and whether a note cites it, the agent set it aside, or neither.
+       </p>
+      </li>
+      <li>
+       <h3>
+        A session's account
+       </h3>
+       <p>
+        In Project settings → Agents (this project's sessions) or Settings → Agent sessions (every project's), choose
+        <em>Account</em>
+        on a session. On the left is what AblationKit recorded: how long it ran, its jobs by how they ended, the jobs that reached their time limit, the weighted hours used and its tasks. On the right is what the agent wrote against that: its runs cited, set aside or unaccounted for, the notes it added and revised, the claims whose standing it changed (from and to), and the checks still outstanding. A session's edition notebook ends with the same account in short.
+       </p>
+      </li>
+     </ol>
+     <p>
+      A set-aside reason, a note and a standing are the agent's own words: AblationKit records who wrote them and when, not whether they are true. A live number is only as good as the run and the metric the agent chose to reference. The checks are advice to the agent; nothing is refused because of them. Runs that MLflow has not received yet are not counted.
+     </p>
+    </section>
+    <section id="directions">
+     <h2>
+      Direct the agents from where you read
+     </h2>
+     <p>
+      When something you read needs an answer, write it on the line itself instead of going back to the terminal. A direction is your own words to the agents working on the project, anchored to what you were reading. Agents cannot write one; they acknowledge it, answer it or decline it, and the answer appears under the same line.
+     </p>
+     <ol class="akg-steps">
+      <li>
+       <h3>
+        Write one
+       </h3>
+       <p>
+        On Standing or in a notebook, hover a line and choose
+        <em>direct</em>
+        , or press
+        <kbd>d</kbd>
+        on the focused line (move with
+        <kbd>j</kbd>
+        and
+        <kbd>k</kbd>
+        ). On a note's own page, choose
+        <em>Direct the agents on this note</em>
+        . To direct the project as a whole or the bottom line, choose
+        <em>direct the project</em>
+        under
+        <em>Directions</em>
+        at the top of Standing. Pick what you want, write it, and choose
+        <em>Send</em>
+        (or Ctrl Enter):
+       </p>
+       <ul>
+        <li>
+         <strong>Ask</strong>: explain or justify this.
+        </li>
+        <li>
+         <strong>Doubt</strong>: you do not believe it; bring more evidence or lower its standing.
+        </li>
+        <li>
+         <strong>Do</strong>: do this next.
+        </li>
+        <li>
+         <strong>Focus</strong>: prioritise this line of work.
+        </li>
+        <li>
+         <strong>Park</strong>: stop spending on this line for now.
+        </li>
+        <li>
+         <strong>Rule</strong>: a standing rule for every session, such as “three seeds before anything is established”, in force until you withdraw it.
+        </li>
+       </ul>
+      </li>
+      <li>
+       <h3>
+        When it arrives
+       </h3>
+       <p>
+        AblationKit does not message agents. An agent session sees your direction the next time it calls AblationKit: it is added to the end of whatever the agent asked for, marked as written by you in the web UI, and every new session sees the directions in force when it starts. The composer says whether an agent session is live; if none is, the direction waits for the next one.
+       </p>
+      </li>
+      <li>
+       <h3>
+        Read the answer
+       </h3>
+       <p>
+        Under the line, a folded line such as
+        <em>1 direction · answered</em>
+        opens the thread: what the agent said it would do, its answer with links to the notes it revised and the runs or jobs it ran, or its reason for declining, and which sessions were shown it. Answers waiting for you are also listed under
+        <em>Directions</em>
+        at the top of Standing.
+       </p>
+      </li>
+      <li>
+       <h3>
+        Close, reopen or withdraw
+       </h3>
+       <p>
+        <em>Close</em>
+        accepts the answer.
+        <em>Reopen</em>
+        sends it back with what is still missing; every session sees it again.
+        <em>Withdraw</em>
+        takes it back, and is how a rule ends.
+       </p>
+      </li>
+     </ol>
+     <p>
+      What is checked and what is enforced: an unanswered direction appears among the vault's checks for the agents, and an agent cannot complete a research task while a direction on that task, its notes or its runs has no answer or reasoned decline. Nothing makes an agent act on a direction or makes its answer true, and
+      <em>Park</em>
+      does not stop jobs; the project policy and compute limit bound jobs. Read the answer and its links, then close or reopen it.
+     </p>
+    </section>
+    <section>
+     <h2>
+      Ask for an explanation you can use
+     </h2>
+     <div class="akg-example">
+      <p>
+       “Explain why the baseline lost on long inputs. Link the runs and failing examples, state the uncertainty, update the relevant claim, and include the explanation in the notebook for this question.”
+      </p>
+     </div>
+     <p>
+      Agents write the notes and research tasks through MCP. Tasks group their work; they are records, not an agent dispatch queue. The original Knowledge, Tasks, and Review pages, as they were written, are under
+      <strong>
+       More → Original records
+      </strong>
+      in the project navigation and through provenance, while Standing and Notebooks lead it.
+     </p>
+    </section>
+    <section>
+     <h2>
+      Take your research elsewhere
+     </h2>
+     <pre><code>ablationkit vault export --project PROJECT_ID --out /path/to/export</code></pre>
+     <p>
+      Replace PROJECT_ID with the registered project ID. Vault export writes one Markdown file per note and per work of the library, with an index. This exports your research knowledge, not the experiment artifacts or a coordinator backup. For a full workspace backup, see
+      <a href="operations.html#recovery">
+       recovery
+      </a>
+      .
+     </p>
+    </section>
+    <footer>
+     <a href="index.html">
+      Guide home
+     </a>
+     <span>
+      AblationKit · User documentation
+     </span>
+    </footer>
+   </main>
+  </div>
+ </body>
+</html>

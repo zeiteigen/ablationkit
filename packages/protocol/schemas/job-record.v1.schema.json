@@ -1,0 +1,382 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ablationkit:schema:job-record.v1",
+  "title": "JobRecord",
+  "description": "One logical job submission. Retries add attempts; each attempt has its own run.",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schema_version",
+    "job_id",
+    "project_id",
+    "command",
+    "environment",
+    "env",
+    "limits",
+    "artifact_paths",
+    "submitted_by",
+    "state",
+    "attempts",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "type": "number"
+    },
+    "job_id": {
+      "title": "JobId",
+      "description": "AblationKit job identifier.",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "project_id": {
+      "title": "ProjectId",
+      "description": "Stable project identifier (lowercase slug). Never a path; paths live in the local registry.",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,62}$",
+      "type": "string"
+    },
+    "command": {
+      "minItems": 1,
+      "maxItems": 1024,
+      "description": "argv, run from `cwd` inside the project checkout.",
+      "type": "array",
+      "items": {
+        "maxLength": 8192,
+        "type": "string"
+      }
+    },
+    "cwd": {
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^[^/].*$",
+      "description": "Working directory relative to the checkout.",
+      "type": "string"
+    },
+    "environment": {
+      "description": "`uv`: run through `uv run --frozen --project <checkout>` (the project's own environment). `none`: run argv as given.",
+      "anyOf": [
+        {
+          "const": "uv",
+          "type": "string"
+        },
+        {
+          "const": "none",
+          "type": "string"
+        }
+      ]
+    },
+    "env": {
+      "description": "Extra environment variables. Stored in plain text: never put secrets here.",
+      "type": "object",
+      "patternProperties": {
+        "^(.*)$": {
+          "maxLength": 32768,
+          "type": "string"
+        }
+      }
+    },
+    "limits": {
+      "title": "JobLimits",
+      "description": "CPU, memory, time and task limits for one attempt.",
+      "additionalProperties": false,
+      "type": "object",
+      "properties": {
+        "memory_max_bytes": {
+          "minimum": 16777216,
+          "description": "`MemoryMax` (with `MemorySwapMax=0`).",
+          "type": "integer"
+        },
+        "cpu_quota_percent": {
+          "minimum": 1,
+          "maximum": 100000,
+          "description": "`CPUQuota`; 100 is one core.",
+          "type": "integer"
+        },
+        "runtime_max_sec": {
+          "minimum": 1,
+          "maximum": 31536000,
+          "description": "`RuntimeMaxSec`.",
+          "type": "integer"
+        },
+        "tasks_max": {
+          "minimum": 1,
+          "maximum": 1000000,
+          "type": "integer"
+        }
+      }
+    },
+    "artifact_paths": {
+      "maxItems": 64,
+      "description": "Globs relative to the checkout, collected as artifacts after the process exits (for scripts without the SDK).",
+      "type": "array",
+      "items": {
+        "minLength": 1,
+        "maxLength": 1024,
+        "type": "string"
+      }
+    },
+    "metrics_file": {
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^[^/].*$",
+      "description": "File adapter for scripts without the SDK: a JSON-lines file (relative to the checkout) the collector tails; each object's numeric fields (nested ones flattened with `/`) become metrics at its step.",
+      "type": "string"
+    },
+    "metrics_format": {
+      "title": "MetricsFormat",
+      "description": "How the metrics-file adapter reads each line: nested objects are always flattened with `/`; these name the step and time keys, which are never metrics.",
+      "additionalProperties": false,
+      "type": "object",
+      "properties": {
+        "step_keys": {
+          "minItems": 1,
+          "maxItems": 8,
+          "description": "Keys that hold the step, the first holding a non-negative integer wins; nested keys by their flattened name (`validation/global_step`). Default `[\"step\"]`; without one, the line number.",
+          "type": "array",
+          "items": {
+            "minLength": 1,
+            "maxLength": 250,
+            "type": "string"
+          }
+        },
+        "timestamp_key": {
+          "minLength": 1,
+          "maxLength": 250,
+          "description": "Key that holds the time: milliseconds, or seconds when below 1e11. Default `timestamp`; without one, the read time.",
+          "type": "string"
+        }
+      }
+    },
+    "input_paths": {
+      "maxItems": 16,
+      "description": "Globs relative to the checkout, recorded as `inputs/<path>` artifacts as the job starts (configs the source commit does not hold, e.g. ignored ones). Jobs on this machine only.",
+      "type": "array",
+      "items": {
+        "minLength": 1,
+        "maxLength": 1024,
+        "type": "string"
+      }
+    },
+    "run_name": {
+      "minLength": 1,
+      "maxLength": 250,
+      "type": "string"
+    },
+    "description": {
+      "minLength": 1,
+      "maxLength": 2000,
+      "description": "What the run tests and why, in a sentence or two. Each attempt's run starts with it as its summary (ADR 0048).",
+      "type": "string"
+    },
+    "study_id": {
+      "title": "StudyId",
+      "description": "Study identifier (a planned comparison: baseline plus variants).",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "variant_id": {
+      "title": "VariantId",
+      "description": "Variant identifier (one configuration or code change under test).",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "task_id": {
+      "title": "TaskId",
+      "description": "AblationKit task identifier (UI- or agent-first task).",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "agenda_item": {
+      "pattern": "^(note:[a-z0-9][a-z0-9-]{0,95}|L[0-9]{1,6})$",
+      "description": "The item of the researcher's agenda this job serves (ADR 0058): `note:<id>` or `L<n>`.",
+      "type": "string"
+    },
+    "mlproject": {
+      "title": "MlprojectRunInfo",
+      "description": "The `MLproject` entrypoint a job was launched from (spec §5.5 MLflow Projects). It runs with local environment semantics in the job runner.",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "entrypoint",
+        "parameters",
+        "declared_environment"
+      ],
+      "properties": {
+        "entrypoint": {
+          "pattern": "^[A-Za-z0-9_.-]{1,200}$",
+          "type": "string"
+        },
+        "parameters": {
+          "type": "object",
+          "patternProperties": {
+            "^(.*)$": {
+              "maxLength": 4096,
+              "type": "string"
+            }
+          }
+        },
+        "declared_environment": {
+          "description": "What the MLproject file declares.",
+          "anyOf": [
+            {
+              "const": "python_env",
+              "type": "string"
+            },
+            {
+              "const": "conda_env",
+              "type": "string"
+            },
+            {
+              "const": "docker_env",
+              "type": "string"
+            },
+            {
+              "const": "none",
+              "type": "string"
+            }
+          ]
+        },
+        "project_name": {
+          "maxLength": 250,
+          "type": "string"
+        }
+      }
+    },
+    "target_id": {
+      "title": "TargetId",
+      "description": "Remote compute target (ADR 0023). Absent: this machine. Each attempt runs from its own staged bundle.",
+      "pattern": "^[a-z][a-z0-9-]{0,39}$",
+      "type": "string"
+    },
+    "bundle_inputs": {
+      "maxItems": 8,
+      "description": "Remote jobs: coordinator-staged directories copied into each attempt's bundle at `inputs/<name>` and checksummed with it (a remote evaluation's pinned model). The job finds them under `$ABLATIONKIT_BUNDLE_INPUTS`.",
+      "type": "array",
+      "items": {
+        "title": "BundleInput",
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "path"
+        ],
+        "properties": {
+          "name": {
+            "pattern": "^[a-z][a-z0-9_-]{0,39}$",
+            "type": "string"
+          },
+          "path": {
+            "pattern": "^/.*$",
+            "maxLength": 4096,
+            "description": "A directory the coordinator staged.",
+            "type": "string"
+          }
+        }
+      }
+    },
+    "submitted_by": {
+      "title": "JobActor",
+      "description": "Who submitted a job.",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "anyOf": [
+            {
+              "const": "human",
+              "type": "string"
+            },
+            {
+              "const": "agent",
+              "type": "string"
+            },
+            {
+              "const": "system",
+              "type": "string"
+            }
+          ]
+        },
+        "id": {
+          "maxLength": 200,
+          "type": "string"
+        }
+      }
+    },
+    "compute_weight_hundredths": {
+      "minimum": 1,
+      "maximum": 100000,
+      "description": "Agent jobs (ADR 0037): the weight of the job's target when it was submitted, in hundredths. Every attempt's wall time times this weight counts against the project's `compute.limit_hours`; changing the target's weight later does not change it.",
+      "type": "integer"
+    },
+    "via_extension": {
+      "pattern": "^[a-z][a-z0-9-]{1,63}$",
+      "description": "Submitted through this extension backend's broker (`compute.remote`, ADR 0024); only it may read or cancel the job there.",
+      "type": "string"
+    },
+    "state": {
+      "title": "AttemptState",
+      "description": "State of the latest attempt.",
+      "anyOf": [
+        {
+          "const": "starting",
+          "type": "string"
+        },
+        {
+          "const": "running",
+          "type": "string"
+        },
+        {
+          "const": "succeeded",
+          "type": "string"
+        },
+        {
+          "const": "failed",
+          "type": "string"
+        },
+        {
+          "const": "cancelled",
+          "type": "string"
+        },
+        {
+          "const": "timed_out",
+          "type": "string"
+        },
+        {
+          "const": "oom_killed",
+          "type": "string"
+        },
+        {
+          "const": "unknown",
+          "type": "string"
+        }
+      ]
+    },
+    "attempts": {
+      "description": "Attempt IDs, oldest first.",
+      "type": "array",
+      "items": {
+        "title": "AttemptId",
+        "description": "Identifier of one attempt of a job.",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+        "type": "string"
+      }
+    },
+    "created_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "updated_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    }
+  }
+}

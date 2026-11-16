@@ -1,0 +1,168 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ablationkit:schema:restore-record.v1",
+  "title": "RestoreRecord",
+  "description": "What `backup restore` did to this runtime directory, for the System page.",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schema_version",
+    "backup_id",
+    "backup_reason",
+    "backup_created_at",
+    "restored_at",
+    "hostname",
+    "projects",
+    "sessions_revoked",
+    "settings_changes",
+    "extension_envs",
+    "warnings"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "type": "number"
+    },
+    "backup_id": {
+      "minLength": 1,
+      "maxLength": 100,
+      "type": "string"
+    },
+    "backup_reason": {
+      "minLength": 1,
+      "maxLength": 50,
+      "type": "string"
+    },
+    "backup_created_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "restored_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "source": {
+      "title": "RestoreSource",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "hostname",
+        "home"
+      ],
+      "properties": {
+        "hostname": {
+          "minLength": 1,
+          "maxLength": 255,
+          "type": "string"
+        },
+        "home": {
+          "minLength": 1,
+          "maxLength": 4096,
+          "type": "string"
+        }
+      }
+    },
+    "hostname": {
+      "minLength": 1,
+      "maxLength": 255,
+      "description": "Where it was restored.",
+      "type": "string"
+    },
+    "projects": {
+      "type": "array",
+      "items": {
+        "title": "RestoredProject",
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "project_id",
+          "from_path",
+          "to_path",
+          "checkout",
+          "files_written",
+          "files_kept"
+        ],
+        "properties": {
+          "project_id": {
+            "minLength": 1,
+            "maxLength": 100,
+            "type": "string"
+          },
+          "from_path": {
+            "minLength": 1,
+            "maxLength": 4096,
+            "type": "string"
+          },
+          "to_path": {
+            "minLength": 1,
+            "maxLength": 4096,
+            "type": "string"
+          },
+          "checkout": {
+            "description": "`present`: the checkout exists and its manifest names this project. `missing`: no checkout at `to_path` yet (clone it, or `project remap`). `wrong_project`: the manifest there names another project.",
+            "anyOf": [
+              {
+                "const": "present",
+                "type": "string"
+              },
+              {
+                "const": "missing",
+                "type": "string"
+              },
+              {
+                "const": "wrong_project",
+                "type": "string"
+              }
+            ]
+          },
+          "files_written": {
+            "minimum": 0,
+            "description": "Backed-up research/ and .ablationkit/ files written because they were absent.",
+            "type": "integer"
+          },
+          "files_kept": {
+            "maxItems": 200,
+            "description": "Files present in the checkout that differ from the backup; the checkout's copy was kept.",
+            "type": "array",
+            "items": {
+              "maxLength": 4096,
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "sessions_revoked": {
+      "minimum": 0,
+      "description": "Browser and CLI sessions revoked: every client logs in again.",
+      "type": "integer"
+    },
+    "settings_changes": {
+      "description": "Settings the restore changed (for example `remote.worker_url`).",
+      "type": "array",
+      "items": {
+        "maxLength": 500,
+        "type": "string"
+      }
+    },
+    "extension_envs": {
+      "description": "Python extension builds (`<project>/<extension>@<build>`) whose environments are rebuilt from their lockfile on first use.",
+      "type": "array",
+      "items": {
+        "maxLength": 300,
+        "type": "string"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "maxLength": 1000,
+        "type": "string"
+      }
+    }
+  }
+}

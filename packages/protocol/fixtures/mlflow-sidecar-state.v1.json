@@ -1,0 +1,52 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "data_mlflow_version": "3.17.2",
+      "initialized_at": "2026-11-02T18:00:00Z",
+      "updated_at": "2026-11-02T18:00:00Z",
+      "upgrades": []
+    },
+    {
+      "schema_version": 1,
+      "data_mlflow_version": "3.17.2",
+      "initialized_at": "2026-11-02T18:00:00Z",
+      "updated_at": "2026-11-02T18:00:00Z",
+      "upgrades": [
+        {
+          "from_version": "3.16.1",
+          "to_version": "3.17.2",
+          "at": "2026-11-02T18:00:00Z",
+          "backup_id": "20261102T180000Z-pre-upgrade"
+        }
+      ]
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "missing version",
+      "value": {
+        "schema_version": 1,
+        "initialized_at": "2026-11-02T18:00:00Z",
+        "updated_at": "2026-11-02T18:00:00Z",
+        "upgrades": []
+      }
+    },
+    {
+      "reason": "upgrade without backup",
+      "value": {
+        "schema_version": 1,
+        "data_mlflow_version": "3.17.2",
+        "initialized_at": "2026-11-02T18:00:00Z",
+        "updated_at": "2026-11-02T18:00:00Z",
+        "upgrades": [
+          {
+            "from_version": "3.16.1",
+            "to_version": "3.17.2",
+            "at": "2026-11-02T18:00:00Z"
+          }
+        ]
+      }
+    }
+  ]
+}

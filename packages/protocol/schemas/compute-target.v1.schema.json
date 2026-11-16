@@ -1,0 +1,316 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ablationkit:schema:compute-target.v1",
+  "title": "ComputeTarget",
+  "description": "A configured remote compute target. Credentials are referenced, never stored.",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schema_version",
+    "target_id",
+    "kind",
+    "paid",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "type": "number"
+    },
+    "target_id": {
+      "title": "TargetId",
+      "description": "Compute target identifier (lowercase slug). `local` is reserved for this machine.",
+      "pattern": "^[a-z][a-z0-9-]{0,39}$",
+      "type": "string"
+    },
+    "kind": {
+      "title": "TargetKind",
+      "description": "`ssh`: a worker host reached over SSH (usually on the tailnet). `slurm`: a cluster login node reached over SSH; jobs go through `sbatch`. `runpod`: pods through the Runpod REST API. `colab`: notebook export only (no unattended execution).",
+      "anyOf": [
+        {
+          "const": "ssh",
+          "type": "string"
+        },
+        {
+          "const": "slurm",
+          "type": "string"
+        },
+        {
+          "const": "runpod",
+          "type": "string"
+        },
+        {
+          "const": "colab",
+          "type": "string"
+        }
+      ]
+    },
+    "label": {
+      "maxLength": 200,
+      "type": "string"
+    },
+    "ssh": {
+      "title": "SshConfig",
+      "description": "How the coordinator reaches a host. Uses the user's SSH keys and config.",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "host"
+      ],
+      "properties": {
+        "host": {
+          "pattern": "^([A-Za-z0-9._-]{1,64}@)?[A-Za-z0-9.:_-]{1,253}$",
+          "description": "`[user@]host`, for example a MagicDNS name on the tailnet.",
+          "type": "string"
+        },
+        "port": {
+          "minimum": 1,
+          "maximum": 65535,
+          "type": "integer"
+        },
+        "identity_file": {
+          "pattern": "^/.*$",
+          "maxLength": 4096,
+          "type": "string"
+        },
+        "command": {
+          "minItems": 1,
+          "maxItems": 16,
+          "description": "argv prefix used instead of `ssh` (tests, or a wrapper). The host and remote command are appended.",
+          "type": "array",
+          "items": {
+            "minLength": 1,
+            "maxLength": 4096,
+            "type": "string"
+          }
+        },
+        "supervisor": {
+          "description": "How an `ssh` target keeps the worker alive: a systemd user service (restarted on failure; `auto` picks it when available) or a detached `setsid nohup` process.",
+          "anyOf": [
+            {
+              "const": "auto",
+              "type": "string"
+            },
+            {
+              "const": "systemd",
+              "type": "string"
+            },
+            {
+              "const": "nohup",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    "slurm": {
+      "title": "SlurmConfig",
+      "additionalProperties": false,
+      "type": "object",
+      "properties": {
+        "partition": {
+          "pattern": "^[A-Za-z0-9_.,-]{1,100}$",
+          "type": "string"
+        },
+        "account": {
+          "pattern": "^[A-Za-z0-9_.-]{1,100}$",
+          "type": "string"
+        },
+        "qos": {
+          "pattern": "^[A-Za-z0-9_.-]{1,100}$",
+          "type": "string"
+        },
+        "gres": {
+          "pattern": "^[A-Za-z0-9_:,.-]{1,200}$",
+          "description": "For example `gpu:1`.",
+          "type": "string"
+        },
+        "directives": {
+          "maxItems": 32,
+          "description": "Extra `#SBATCH` options, one `--name[=value]` each.",
+          "type": "array",
+          "items": {
+            "pattern": "^--[a-z][a-z-]{0,40}(=[A-Za-z0-9_:,./@%+-]{1,200})?$",
+            "type": "string"
+          }
+        },
+        "drain_sec": {
+          "minimum": 0,
+          "maximum": 86400,
+          "description": "How long the worker keeps delivering inside the allocation after the job exits. The rest is drained from the login node on reconnection. Default 300.",
+          "type": "integer"
+        }
+      }
+    },
+    "runpod": {
+      "title": "RunpodConfig",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "api_key_env",
+        "image",
+        "gpu_type_ids"
+      ],
+      "properties": {
+        "api_url": {
+          "pattern": "^https?://[^ ]+$",
+          "maxLength": 2048,
+          "type": "string",
+          "description": "Default https://rest.runpod.io/v1."
+        },
+        "api_key_env": {
+          "pattern": "^[A-Z_][A-Z0-9_]{0,127}$",
+          "type": "string",
+          "description": "Coordinator environment variable holding the Runpod API key. Never stored."
+        },
+        "image": {
+          "minLength": 1,
+          "maxLength": 500,
+          "description": "Container image with Python 3.",
+          "type": "string"
+        },
+        "gpu_type_ids": {
+          "maxItems": 20,
+          "type": "array",
+          "items": {
+            "minLength": 1,
+            "maxLength": 100,
+            "type": "string"
+          }
+        },
+        "gpu_count": {
+          "minimum": 0,
+          "maximum": 16,
+          "type": "integer"
+        },
+        "cloud_type": {
+          "anyOf": [
+            {
+              "const": "SECURE",
+              "type": "string"
+            },
+            {
+              "const": "COMMUNITY",
+              "type": "string"
+            }
+          ]
+        },
+        "container_disk_gb": {
+          "minimum": 1,
+          "maximum": 2000,
+          "type": "integer"
+        },
+        "volume_gb": {
+          "minimum": 1,
+          "maximum": 4000,
+          "description": "Pod volume mounted at /workspace (default 20). The worker directory lives there, so a stopped pod keeps its spool and a drain restarts it.",
+          "type": "integer"
+        },
+        "deliver_deadline_sec": {
+          "minimum": 0,
+          "maximum": 604800,
+          "description": "How long a pod keeps trying to deliver after the job exits before it stops itself (default 3600). A stopped pod bills storage only; its spool is delivered by a drain (pod restart).",
+          "type": "integer"
+        },
+        "network_volume_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,100}$",
+          "type": "string"
+        },
+        "tailscale_authkey_secret": {
+          "pattern": "^[A-Za-z0-9_-]{1,100}$",
+          "description": "Name of a Runpod secret holding a Tailscale auth key; the pod joins the tailnet to reach the worker listener. Referenced, never copied.",
+          "type": "string"
+        },
+        "cents_per_hour": {
+          "minimum": 0,
+          "description": "Rate card for estimates (provider billing lags).",
+          "type": "integer"
+        },
+        "serve_command": {
+          "minLength": 1,
+          "maxLength": 2000,
+          "description": "Research endpoints: the shell command that serves the model in `$MODEL_DIR` on `$PORT`. Default `python3 -m mlflow models serve -m \"$MODEL_DIR\" -h 0.0.0.0 -p \"$PORT\" --env-manager local` (the image needs MLflow and the model's dependencies).",
+          "type": "string"
+        },
+        "serve_port": {
+          "minimum": 1024,
+          "maximum": 65535,
+          "description": "Research endpoints: the port the server listens on (default 8080).",
+          "type": "integer"
+        }
+      }
+    },
+    "colab": {
+      "title": "ColabConfig",
+      "additionalProperties": false,
+      "type": "object",
+      "properties": {
+        "live": {
+          "description": "Put the attempt's worker credentials in the notebook so the runtime delivers live. Only when `worker_url` is reachable from Colab; the notebook is then a secret. Default false: results come back with `remote import`.",
+          "type": "boolean"
+        },
+        "deliver_deadline_sec": {
+          "minimum": 0,
+          "maximum": 86400,
+          "description": "With `live`, how long the notebook keeps delivering after the job (default 120).",
+          "type": "integer"
+        }
+      }
+    },
+    "work_dir": {
+      "pattern": "^(/|~/)[A-Za-z0-9._/~-]{0,1000}$",
+      "description": "Where bundles are unpacked on the worker. Default `~/.ablationkit-worker`.",
+      "type": "string"
+    },
+    "python": {
+      "pattern": "^[A-Za-z0-9._/-]{1,500}$",
+      "description": "Python 3.10+ on the worker. Default `python3`.",
+      "type": "string"
+    },
+    "worker_url": {
+      "pattern": "^https?://[^ ]+$",
+      "maxLength": 2048,
+      "type": "string",
+      "description": "URL workers on this target use to reach the coordinator's worker listener (a tailnet name or a gateway). Default: settings `remote.worker_url`."
+    },
+    "ntfy": {
+      "title": "NtfyConfig",
+      "description": "Workers post terminal status, disk pressure and credential problems here, independently of the coordinator. Passed in the worker's credentials file, not the bundle.",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "url"
+      ],
+      "properties": {
+        "url": {
+          "pattern": "^https?://[^ ]+$",
+          "maxLength": 2048,
+          "type": "string",
+          "description": "Topic URL, for example https://ntfy.sh/<random-topic>."
+        },
+        "token_env": {
+          "pattern": "^[A-Z_][A-Z0-9_]{0,127}$",
+          "type": "string",
+          "description": "Coordinator environment variable with an ntfy access token."
+        }
+      }
+    },
+    "paid": {
+      "description": "Submissions cost money. Human submissions must accept the estimate; agents may submit only when the project policy allows `jobs.submit_remote` on this target.",
+      "type": "boolean"
+    },
+    "created_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "updated_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    }
+  }
+}

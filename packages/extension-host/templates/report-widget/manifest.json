@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "id": "__ID__",
+  "version": "0.1.0",
+  "name": "__NAME__",
+  "description": "A report block that summarizes recent runs and saves a static snapshot into the report (it stays legible if the extension is removed).",
+  "host_api": "^1.0.0",
+  "contributes": [
+    {
+      "id": "block",
+      "point": "report.block",
+      "title": "__NAME__",
+      "entry": "ui/src/Block.tsx"
+    }
+  ],
+  "capabilities": ["project.runs.read"]
+}

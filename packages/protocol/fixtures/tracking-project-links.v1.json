@@ -1,0 +1,49 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "project_id": "demo",
+      "experiment_name": "ak/demo",
+      "imports": []
+    },
+    {
+      "schema_version": 1,
+      "project_id": "demo",
+      "experiment_name": "ak/demo",
+      "imports": [
+        {
+          "experiment_id": "7",
+          "name": "legacy-sweeps",
+          "linked_at": "2026-11-02T18:00:00Z"
+        }
+      ],
+      "experiment_id": "1"
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "missing imports",
+      "value": {
+        "schema_version": 1,
+        "project_id": "demo",
+        "experiment_name": "ak/demo"
+      }
+    },
+    {
+      "reason": "import extra field",
+      "value": {
+        "schema_version": 1,
+        "project_id": "demo",
+        "experiment_name": "ak/demo",
+        "imports": [
+          {
+            "experiment_id": "7",
+            "name": "x",
+            "linked_at": "2026-11-02T18:00:00Z",
+            "read_only": false
+          }
+        ]
+      }
+    }
+  ]
+}

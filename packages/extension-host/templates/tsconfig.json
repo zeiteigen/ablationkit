@@ -1,0 +1,18 @@
+{
+  "extends": "../../../tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "types": [],
+    "typeRoots": ["./../../extension-sdk/node_modules/@types"],
+    "paths": {
+      "@ablationkit/extension-sdk": ["./../../extension-sdk/src/index.ts"],
+      "@ablationkit/extension-sdk/react": ["./../../extension-sdk/src/react.tsx"],
+      "react": ["./../../extension-sdk/node_modules/@types/react"],
+      "react/jsx-runtime": ["./../../extension-sdk/node_modules/@types/react/jsx-runtime"],
+      "react-dom/client": ["./../../extension-sdk/node_modules/@types/react-dom/client"]
+    }
+  },
+  "include": ["*/ui/**/*", "../../../fixtures/extensions/*/ui/**/*"],
+  "exclude": []
+}

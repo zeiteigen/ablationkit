@@ -1,0 +1,654 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ablationkit:schema:extension-execution-record.v1",
+  "title": "ExtensionExecutionRecord",
+  "description": "One run of an approved Python contribution: exact code, lockfile and environment hashes, inputs, limits, enforcement, termination and the typed result.",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schema_version",
+    "execution_id",
+    "project_id",
+    "extension_id",
+    "build_id",
+    "contribution",
+    "entry",
+    "source_sha256",
+    "capability_sha256",
+    "environment",
+    "params_sha256",
+    "refs",
+    "status",
+    "created_by",
+    "created_at",
+    "limits",
+    "enforcement"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "type": "number"
+    },
+    "execution_id": {
+      "title": "ExtensionExecutionId",
+      "description": "Python extension execution ID, `xe-<id>`.",
+      "pattern": "^xe-[a-z0-9]{6,40}$",
+      "type": "string"
+    },
+    "project_id": {
+      "title": "ProjectId",
+      "description": "Stable project identifier (lowercase slug). Never a path; paths live in the local registry.",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,62}$",
+      "type": "string"
+    },
+    "extension_id": {
+      "title": "ExtensionId",
+      "description": "Extension ID: lowercase letters, digits and dashes, starting with a letter.",
+      "pattern": "^[a-z][a-z0-9-]{1,62}$",
+      "type": "string"
+    },
+    "build_id": {
+      "title": "ExtensionBuildId",
+      "description": "Content-derived build ID, `eb-<16 hex>`: the same source, lockfile and capabilities give the same build.",
+      "pattern": "^eb-[a-f0-9]{16}$",
+      "type": "string"
+    },
+    "contribution": {
+      "maxLength": 41,
+      "type": "string"
+    },
+    "entry": {
+      "maxLength": 300,
+      "type": "string"
+    },
+    "source_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "lockfile_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "capability_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "environment": {
+      "title": "ExecutionEnvironment",
+      "additionalProperties": false,
+      "type": "object",
+      "properties": {
+        "python_version": {
+          "maxLength": 40,
+          "type": "string"
+        },
+        "environment_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "type": "string"
+        }
+      }
+    },
+    "params_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "refs": {
+      "maxItems": 50,
+      "type": "array",
+      "items": {
+        "title": "ObjectRef",
+        "description": "A pointer to a research record, run, job, artifact or other object.",
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "id"
+        ],
+        "properties": {
+          "kind": {
+            "title": "RefKind",
+            "description": "Kind of object a reference points at. Compound IDs: variant `study/variant`, metric `run/key`, artifact `run/path`, prompt version `name/version`, golden set `gs-…/version` (or `gs-…` for the set).",
+            "anyOf": [
+              {
+                "const": "hypothesis",
+                "type": "string"
+              },
+              {
+                "const": "approach",
+                "type": "string"
+              },
+              {
+                "const": "note",
+                "type": "string"
+              },
+              {
+                "const": "report",
+                "type": "string"
+              },
+              {
+                "const": "decision",
+                "type": "string"
+              },
+              {
+                "const": "conversation",
+                "type": "string"
+              },
+              {
+                "const": "study",
+                "type": "string"
+              },
+              {
+                "const": "variant",
+                "type": "string"
+              },
+              {
+                "const": "job",
+                "type": "string"
+              },
+              {
+                "const": "attempt",
+                "type": "string"
+              },
+              {
+                "const": "run",
+                "type": "string"
+              },
+              {
+                "const": "metric",
+                "type": "string"
+              },
+              {
+                "const": "artifact",
+                "type": "string"
+              },
+              {
+                "const": "commit",
+                "type": "string"
+              },
+              {
+                "const": "dataset",
+                "type": "string"
+              },
+              {
+                "const": "evaluation",
+                "type": "string"
+              },
+              {
+                "const": "logged_model",
+                "type": "string"
+              },
+              {
+                "const": "model_version",
+                "type": "string"
+              },
+              {
+                "const": "trace",
+                "type": "string"
+              },
+              {
+                "const": "task",
+                "type": "string"
+              },
+              {
+                "const": "inference_session",
+                "type": "string"
+              },
+              {
+                "const": "inference_evidence",
+                "type": "string"
+              },
+              {
+                "const": "prompt_version",
+                "type": "string"
+              },
+              {
+                "const": "golden_set",
+                "type": "string"
+              },
+              {
+                "const": "llm_evaluation",
+                "type": "string"
+              },
+              {
+                "const": "llm_evidence",
+                "type": "string"
+              },
+              {
+                "const": "extension_execution",
+                "type": "string"
+              }
+            ]
+          },
+          "id": {
+            "minLength": 1,
+            "maxLength": 1024,
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 300,
+            "type": "string"
+          }
+        }
+      }
+    },
+    "status": {
+      "title": "ExtensionExecutionStatus",
+      "description": "`interrupted`: the coordinator stopped while it ran; it is never rerun and its outputs were not recorded.",
+      "anyOf": [
+        {
+          "const": "running",
+          "type": "string"
+        },
+        {
+          "const": "succeeded",
+          "type": "string"
+        },
+        {
+          "const": "failed",
+          "type": "string"
+        },
+        {
+          "const": "timed_out",
+          "type": "string"
+        },
+        {
+          "const": "oom_killed",
+          "type": "string"
+        },
+        {
+          "const": "cancelled",
+          "type": "string"
+        },
+        {
+          "const": "interrupted",
+          "type": "string"
+        }
+      ]
+    },
+    "created_by": {
+      "title": "ExtensionActor",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "anyOf": [
+            {
+              "const": "human",
+              "type": "string"
+            },
+            {
+              "const": "agent",
+              "type": "string"
+            },
+            {
+              "const": "system",
+              "type": "string"
+            }
+          ]
+        },
+        "id": {
+          "maxLength": 200,
+          "type": "string"
+        }
+      }
+    },
+    "created_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "finished_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "limits": {
+      "title": "ExecutionLimits",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "runtime_max_sec",
+        "memory_max_bytes",
+        "cpu_quota_percent",
+        "tasks_max",
+        "output_max_bytes"
+      ],
+      "properties": {
+        "runtime_max_sec": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "memory_max_bytes": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "cpu_quota_percent": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "tasks_max": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "output_max_bytes": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      }
+    },
+    "enforcement": {
+      "title": "ExecutionEnforcement",
+      "additionalProperties": false,
+      "description": "Limits: systemd scope with delegated controllers. Network: an empty network namespace (`unshare -rn`). Filesystem reads are never enforced in v1.0 (§7.11).",
+      "type": "object",
+      "required": [
+        "limits",
+        "network",
+        "reasons"
+      ],
+      "properties": {
+        "limits": {
+          "anyOf": [
+            {
+              "const": "enforced",
+              "type": "string"
+            },
+            {
+              "const": "advisory",
+              "type": "string"
+            }
+          ]
+        },
+        "network": {
+          "anyOf": [
+            {
+              "const": "enforced",
+              "type": "string"
+            },
+            {
+              "const": "advisory",
+              "type": "string"
+            }
+          ]
+        },
+        "reasons": {
+          "maxItems": 10,
+          "type": "array",
+          "items": {
+            "maxLength": 500,
+            "type": "string"
+          }
+        }
+      }
+    },
+    "termination": {
+      "title": "ExecutionTermination",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "duration_ms"
+      ],
+      "properties": {
+        "exit_code": {
+          "type": "integer"
+        },
+        "signal": {
+          "maxLength": 20,
+          "type": "string"
+        },
+        "unit_result": {
+          "maxLength": 40,
+          "type": "string"
+        },
+        "duration_ms": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      }
+    },
+    "progress": {
+      "title": "ExecutionProgress",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "percent"
+      ],
+      "properties": {
+        "percent": {
+          "minimum": 0,
+          "maximum": 100,
+          "type": "integer"
+        },
+        "message": {
+          "maxLength": 500,
+          "type": "string"
+        }
+      }
+    },
+    "result": {
+      "title": "ExtensionResult",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "status",
+        "summary",
+        "metrics",
+        "tables",
+        "warnings",
+        "errors",
+        "artifacts"
+      ],
+      "properties": {
+        "status": {
+          "anyOf": [
+            {
+              "const": "ok",
+              "type": "string"
+            },
+            {
+              "const": "error",
+              "type": "string"
+            }
+          ]
+        },
+        "summary": {
+          "maxLength": 2000,
+          "type": "string"
+        },
+        "metrics": {
+          "description": "At most 100 metrics.",
+          "type": "object",
+          "patternProperties": {
+            "^(.*)$": {
+              "pattern": "^-?[0-9]+([.][0-9]+)?([eE][-+]?[0-9]+)?$",
+              "maxLength": 40,
+              "description": "A metric value.",
+              "type": "string"
+            }
+          }
+        },
+        "tables": {
+          "maxItems": 10,
+          "type": "array",
+          "items": {
+            "title": "ExtensionTable",
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "title",
+              "columns",
+              "rows"
+            ],
+            "properties": {
+              "title": {
+                "maxLength": 200,
+                "type": "string"
+              },
+              "columns": {
+                "minItems": 1,
+                "maxItems": 50,
+                "type": "array",
+                "items": {
+                  "maxLength": 100,
+                  "type": "string"
+                }
+              },
+              "rows": {
+                "maxItems": 500,
+                "type": "array",
+                "items": {
+                  "maxItems": 50,
+                  "type": "array",
+                  "items": {
+                    "anyOf": [
+                      {
+                        "maxLength": 1000,
+                        "type": "string"
+                      },
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "boolean"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "warnings": {
+          "maxItems": 50,
+          "type": "array",
+          "items": {
+            "maxLength": 1000,
+            "type": "string"
+          }
+        },
+        "errors": {
+          "maxItems": 50,
+          "type": "array",
+          "items": {
+            "maxLength": 2000,
+            "type": "string"
+          }
+        },
+        "artifacts": {
+          "maxItems": 100,
+          "type": "array",
+          "items": {
+            "title": "ExtensionArtifact",
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "path",
+              "bytes",
+              "sha256",
+              "content_type"
+            ],
+            "properties": {
+              "path": {
+                "maxLength": 300,
+                "description": "Relative to the execution's output area.",
+                "type": "string"
+              },
+              "bytes": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "sha256": {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              "content_type": {
+                "maxLength": 100,
+                "type": "string"
+              }
+            }
+          }
+        },
+        "data": {
+          "description": "Bounded JSON for a paired React view (at most 256 KiB serialized).",
+          "type": "object",
+          "patternProperties": {
+            "^(.*)$": {}
+          }
+        }
+      }
+    },
+    "mlflow_run_id": {
+      "title": "MlflowRunId",
+      "description": "MLflow run ID, as MLflow returns it.",
+      "pattern": "^[A-Za-z0-9_-]{1,64}$",
+      "type": "string"
+    },
+    "error": {
+      "maxLength": 4000,
+      "type": "string"
+    },
+    "warm": {
+      "title": "ExecutionWarmWorker",
+      "description": "Run by a warm worker (`python.warm`, ADR 0047).",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "worker",
+        "reused"
+      ],
+      "properties": {
+        "worker": {
+          "maxLength": 200,
+          "description": "The warm worker's unit.",
+          "type": "string"
+        },
+        "reused": {
+          "description": "The worker had served an earlier run (its imports were warm).",
+          "type": "boolean"
+        }
+      }
+    },
+    "remote": {
+      "title": "ExtensionExecutionRemote",
+      "description": "A contribution run as a job on a compute target (ADR 0023 decision 26): the bundle carries the build's source, the request and the staged inputs; broker calls are answered from those inputs only. It survives a coordinator restart and is recorded once, when the attempt has synced.",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "target_id",
+        "job_id",
+        "request_sha256"
+      ],
+      "properties": {
+        "target_id": {
+          "pattern": "^[a-z][a-z0-9-]{0,39}$",
+          "type": "string"
+        },
+        "job_id": {
+          "title": "JobId",
+          "description": "AblationKit job identifier.",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "attempt_id": {
+          "title": "AttemptId",
+          "description": "Identifier of one attempt of a job.",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "request_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "note": {
+          "maxLength": 1000,
+          "type": "string"
+        }
+      }
+    }
+  }
+}

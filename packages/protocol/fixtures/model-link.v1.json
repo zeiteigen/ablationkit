@@ -1,0 +1,64 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "project_id": "custom-architecture-lab",
+      "model_id": "m-59c48f6bab2b4dfeb7eefdaadde2b9ed",
+      "name": "iris-logreg",
+      "experiment_id": "1",
+      "source_run_id": "1a12fc4ed043484abc166539e84f89cb",
+      "ref": "job-20261103-ab12cd-a1",
+      "job_id": "job-20261103-ab12cd",
+      "attempt_id": "job-20261103-ab12cd-a1",
+      "model_key": "0123456789abcdef",
+      "origin": "sdk",
+      "created_at": "2026-11-03T10:00:00Z"
+    },
+    {
+      "schema_version": 1,
+      "project_id": "custom-architecture-lab",
+      "model_id": "m-59c48f6bab2b4dfeb7eefdaadde2b9ed",
+      "name": "iris-logreg",
+      "experiment_id": "1",
+      "source_run_id": "1a12fc4ed043484abc166539e84f89cb",
+      "origin": "discovered",
+      "created_at": "2026-11-03T10:00:00Z"
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "a run ID is not a logged-model ID",
+      "value": {
+        "schema_version": 1,
+        "project_id": "custom-architecture-lab",
+        "model_id": "1a12fc4ed043484abc166539e84f89cb",
+        "name": "iris-logreg",
+        "experiment_id": "1",
+        "source_run_id": "1a12fc4ed043484abc166539e84f89cb",
+        "ref": "job-20261103-ab12cd-a1",
+        "job_id": "job-20261103-ab12cd",
+        "attempt_id": "job-20261103-ab12cd-a1",
+        "model_key": "0123456789abcdef",
+        "origin": "sdk",
+        "created_at": "2026-11-03T10:00:00Z"
+      }
+    },
+    {
+      "reason": "unknown origin",
+      "value": {
+        "schema_version": 1,
+        "project_id": "custom-architecture-lab",
+        "model_id": "m-59c48f6bab2b4dfeb7eefdaadde2b9ed",
+        "name": "iris-logreg",
+        "experiment_id": "1",
+        "source_run_id": "1a12fc4ed043484abc166539e84f89cb",
+        "ref": "job-20261103-ab12cd-a1",
+        "job_id": "job-20261103-ab12cd",
+        "attempt_id": "job-20261103-ab12cd-a1",
+        "model_key": "0123456789abcdef",
+        "origin": "guessed",
+        "created_at": "2026-11-03T10:00:00Z"
+      }
+    }
+  ]
+}

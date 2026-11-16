@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "id": "py-evaluator",
+  "version": "0.1.0",
+  "name": "Loss evaluator",
+  "description": "A Python-only evaluator and analyzer, plus probes the limit and isolation tests use.",
+  "host_api": "^1.0.0",
+  "contributes": [
+    {
+      "id": "evaluate",
+      "point": "run.evaluator",
+      "title": "Evaluate loss",
+      "entry": "python/evaluate.py:evaluate"
+    },
+    {
+      "id": "summarize",
+      "point": "project.analysis",
+      "title": "Summarize runs",
+      "entry": "python/evaluate.py:summarize"
+    },
+    {
+      "id": "denied",
+      "point": "project.analysis",
+      "title": "Ask for research (not granted)",
+      "entry": "python/evaluate.py:denied"
+    },
+    {
+      "id": "hog",
+      "point": "project.analysis",
+      "title": "Exceed memory",
+      "entry": "python/probes.py:hog"
+    },
+    {
+      "id": "spin",
+      "point": "project.analysis",
+      "title": "Exceed time",
+      "entry": "python/probes.py:spin"
+    },
+    {
+      "id": "probe",
+      "point": "project.analysis",
+      "title": "Probe isolation",
+      "entry": "python/probes.py:probe"
+    },
+    {
+      "id": "escape",
+      "point": "project.analysis",
+      "title": "Write outside outputs",
+      "entry": "python/probes.py:escape"
+    }
+  ],
+  "python": {
+    "requires_python": ">=3.10",
+    "project": "python",
+    "lockfile": "python/uv.lock",
+    "max_runtime_seconds": 8,
+    "max_memory_mb": 192,
+    "gpu": false,
+    "network": "none"
+  },
+  "capabilities": ["project.analysis.execute", "project.runs.read", "project.results.write"]
+}

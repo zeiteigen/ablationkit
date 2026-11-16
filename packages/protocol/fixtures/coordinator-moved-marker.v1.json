@@ -1,0 +1,35 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "moved_at": "2026-11-05T18:00:00Z",
+      "backup_id": "20261105T180000Z-move",
+      "archive": "/media/usb/lab-move.tar.gz",
+      "archive_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "hostname": "workstation"
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "short checksum",
+      "value": {
+        "schema_version": 1,
+        "moved_at": "2026-11-05T18:00:00Z",
+        "backup_id": "20261105T180000Z-move",
+        "archive": "/a.tgz",
+        "archive_sha256": "abc",
+        "hostname": "w"
+      }
+    },
+    {
+      "reason": "missing archive",
+      "value": {
+        "schema_version": 1,
+        "moved_at": "2026-11-05T18:00:00Z",
+        "backup_id": "20261105T180000Z-move",
+        "archive_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "hostname": "w"
+      }
+    }
+  ]
+}
