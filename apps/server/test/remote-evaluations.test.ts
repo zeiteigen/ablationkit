@@ -144,7 +144,18 @@ describe("Remote evaluations (criterion 9e, remote half)", () => {
     writeFileSync(join(repo, "data", "test.csv"), DATA);
     writeFileSync(join(repo, "train.py"), TRAIN);
     Bun.spawnSync(["git", "-C", repo, "add", "-A"]);
-    Bun.spawnSync(["git", "-C", repo, "commit", "-qm", "data"]);
+    Bun.spawnSync([
+      "git",
+      "-C",
+      repo,
+      "-c",
+      "user.email=t@t",
+      "-c",
+      "user.name=t",
+      "commit",
+      "-qm",
+      "data",
+    ]);
     expect(
       (await first.call("/api/v1/projects", { body: { path: repo, project_id: "ev" } })).status,
     ).toBe(201);
