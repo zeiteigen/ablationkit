@@ -366,6 +366,18 @@ describe("agent container sessions", () => {
     expect(existsSync(box)).toBe(false);
   });
 
+  test("an over-long first prompt is refused before anything starts, and no token is left behind", async () => {
+    const w = await setup();
+    const r = await w.start({ args: ["x".repeat(5000)] });
+    expect(r.status).toBe(400);
+    expect((r.body.error as Json)["message"]).toContain("ablationkit agent send");
+    const tokens = w.cl.c.services.tokens
+      .list()
+      .filter((t) => t.agent_session?.container_session && t.revoked_at === undefined);
+    expect(tokens).toEqual([]);
+    expect(w.cl.c.services.containers.list("lab")).toEqual([]);
+  });
+
   test("a runtime that is missing, or an image that is not built, is a refusal", async () => {
     const w = await setup({ podman: "/nonexistent/podman" });
     const r = await w.start();

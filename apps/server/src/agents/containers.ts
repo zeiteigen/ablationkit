@@ -559,7 +559,14 @@ export class ContainerService {
     const bun = this.bun();
     const sid = `c-${randomBytes(6).toString("hex")}`;
     const label = (input.label ?? `${input.harness} in a container`).slice(0, 200);
-    const args = [...(input.args ?? [])].slice(0, 64);
+    const given = input.args ?? [];
+    if (given.length > 64 || given.some((a) => typeof a !== "string" || a.length > 4096))
+      throw new HttpError(
+        400,
+        "invalid_request",
+        "`args`: at most 64 arguments of at most 4096 characters each. Give a longer first prompt with `ablationkit agent send` (or the executive's send) once it has started, or point it at a file in the checkout",
+      );
+    const args = [...given];
 
     // Directories: the session's record, the run directory (host-only and mounted), the agent's
     // home for this project and harness, and the project's environment volumes.
@@ -580,20 +587,6 @@ export class ContainerService {
     this.prepareHome(home, input);
     const loginSync = this.loginFor(input, sid, pid, checkout);
 
-    const minted = svc.agentSessions.begin({
-      project_id: pid,
-      harness: input.harness,
-      label,
-      cwd: checkout,
-      container_session: sid,
-    });
-    const mount = this.mountDir(sid);
-    writeFileSync(join(mount, "token"), `${minted.token}\n`, { mode: 0o600 });
-    writeFileSync(join(mount, "mcp.json"), `${JSON.stringify(claudeMcpConfig(), null, 2)}\n`, {
-      mode: 0o600,
-    });
-    writeFileSync(join(mount, "bin", "ablationkit"), cliWrapper(this.tree), { mode: 0o755 });
-
     const readOnly = cfg.read_only
       .map((p) => resolveConfigPath(checkout, p))
       .filter((p) => exists(p) && within(checkout, p));
@@ -603,49 +596,82 @@ export class ContainerService {
       for (const [k, v] of Object.entries(c.env))
         credEnv[k] = v.replaceAll("{url}", `http://127.0.0.1:${CREDENTIAL_PORT}/${c.name}`);
 
-    const now = this.o.now().toISOString();
-    let rec: ContainerSessionRecord = {
-      schema_version: 1,
-      session_id: sid,
+    const minted = svc.agentSessions.begin({
       project_id: pid,
-      token_id: minted.record.token_id,
       harness: input.harness,
       label,
-      args,
-      checkout,
-      container: `ak-agent-${sid}`,
-      image: cfg.image,
-      image_id: imageId.slice(0, 200),
-      ...(harnessBin ? this.harnessVersion(harnessBin) : {}),
-      config_revision: cfg.revision,
-      state: "starting",
-      started_by: by,
-      created_at: now,
-      supervisor: { mode: "direct" },
-      boundary: {
-        gpu: false,
-        network: "none",
-        egress: cfg.egress.mode,
-        hidden: masks.map((m) => m.path).slice(0, 128),
-        read_only: readOnly.slice(0, 128),
-        cpus: cfg.agent.cpus,
-        memory_mb: cfg.agent.memory_mb,
-        pids_max: cfg.agent.pids_max,
-      },
-      start: this.snapshot(checkout, dirs.env),
-      ...(loginSync
-        ? {
-            login: {
-              source: loginSync.source,
-              copied_at: now,
-              synced_back: 0,
-              synced_in: 0,
-            },
-          }
-        : {}),
-      control: [],
-    };
-    this.save(rec);
+      cwd: checkout,
+      container_session: sid,
+    });
+    // Until the record is saved nothing else knows this session: a failure here takes back its
+    // token and directories itself, and is audited.
+    let rec: ContainerSessionRecord;
+    try {
+      const mount = this.mountDir(sid);
+      writeFileSync(join(mount, "token"), `${minted.token}\n`, { mode: 0o600 });
+      writeFileSync(join(mount, "mcp.json"), `${JSON.stringify(claudeMcpConfig(), null, 2)}\n`, {
+        mode: 0o600,
+      });
+      writeFileSync(join(mount, "bin", "ablationkit"), cliWrapper(this.tree), { mode: 0o755 });
+
+      const now = this.o.now().toISOString();
+      rec = {
+        schema_version: 1,
+        session_id: sid,
+        project_id: pid,
+        token_id: minted.record.token_id,
+        harness: input.harness,
+        label,
+        args,
+        checkout,
+        container: `ak-agent-${sid}`,
+        image: cfg.image,
+        image_id: imageId.slice(0, 200),
+        ...(harnessBin ? this.harnessVersion(harnessBin) : {}),
+        config_revision: cfg.revision,
+        state: "starting",
+        started_by: by,
+        created_at: now,
+        supervisor: { mode: "direct" },
+        boundary: {
+          gpu: false,
+          network: "none",
+          egress: cfg.egress.mode,
+          hidden: masks.map((m) => m.path).slice(0, 128),
+          read_only: readOnly.slice(0, 128),
+          cpus: cfg.agent.cpus,
+          memory_mb: cfg.agent.memory_mb,
+          pids_max: cfg.agent.pids_max,
+        },
+        start: this.snapshot(checkout, dirs.env),
+        ...(loginSync
+          ? {
+              login: {
+                source: loginSync.source,
+                copied_at: now,
+                synced_back: 0,
+                synced_in: 0,
+              },
+            }
+          : {}),
+        control: [],
+      };
+      this.save(rec);
+    } catch (e) {
+      svc.tokens.revoke(minted.record.token_id, "agent container did not start");
+      rmSync(this.runDir(sid), { recursive: true, force: true });
+      rmSync(this.sessionDir(sid), { recursive: true, force: true });
+      svc.audit.record({
+        actor: { kind: "human", id: by },
+        listener: "human",
+        action: "agent.container.start",
+        outcome: "error",
+        project_id: pid,
+        target: sid,
+        reason: (e as Error).message.slice(0, 1024),
+      });
+      throw e;
+    }
 
     try {
       // The sockets are bound before the container starts: its init forwards to them.
