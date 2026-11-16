@@ -539,6 +539,14 @@ class TokenScope(ProtocolModel):
     )
 
 
+class ExecutiveSessionInfo(ProtocolModel):
+    """A human-API session minted for `ablationkit executive` (ADR 0064): an agent on the researcher's machine overseeing the research and running the agents. It may read and may only make the writes an executive makes (agent containers, agent sessions, directions); every other write is refused."""
+
+    harness: Annotated[str, StringConstraints(min_length=1, max_length=64)]
+    label: Annotated[str, StringConstraints(min_length=1, max_length=200)]
+    cwd: Annotated[str, StringConstraints(max_length=4096)]
+
+
 class AgentSessionInfo(ProtocolModel):
     """Agent tokens minted for an agent session (ADR 0040). Absent on agent tokens minted before it."""
 
@@ -595,6 +603,10 @@ class TokenRecord(ProtocolModel):
     purpose: Literal["upload", "launch"] | None = Field(
         default=None,
         description="Worker tokens only. `launch`: held by a remote worker for the whole job; it can only perform the handshake, which issues short-lived `upload` tokens (ADR 0023). Absent means `upload`.",
+    )
+    executive_session: ExecutiveSessionInfo | None = Field(
+        default=None,
+        description="A human-API session minted for `ablationkit executive` (ADR 0064): an agent on the researcher's machine overseeing the research and running the agents. It may read and may only make the writes an executive makes (agent containers, agent sessions, directions); every other write is refused.",
     )
     agent_session: AgentSessionInfo | None = Field(
         default=None,
@@ -2757,6 +2769,10 @@ class ResearchDirection(ProtocolModel):
     created_by: ResearchActor = Field(
         description="Who made a change: a human session, an agent token or the system. Work under a task links the task (`task:ID`)."
     )
+    via_executive: Annotated[str, StringConstraints(min_length=1, max_length=200)] | None = Field(
+        default=None,
+        description="Written on the researcher's behalf by their executive agent (ADR 0064): its session's label. Absent: the researcher wrote it.",
+    )
     updated_at: Timestamp = Field(
         description="RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds."
     )
@@ -4860,6 +4876,7 @@ __all__ = [
     "ExecutionProgress",
     "ExecutionTermination",
     "ExecutionWarmWorker",
+    "ExecutiveSessionInfo",
     "ExportDrift",
     "ExtensionActor",
     "ExtensionApproval",

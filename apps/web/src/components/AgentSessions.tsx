@@ -113,3 +113,89 @@ export function AgentSessions(props: { pid?: string }) {
     </section>
   );
 }
+
+interface ExecutiveSession {
+  token_id: string;
+  harness: string;
+  label: string;
+  cwd: string;
+  started_at: string;
+  live: boolean;
+  end_reason?: string;
+}
+
+/**
+ * Executive sessions (ADR 0064): `ablationkit executive`, an agent on this machine that reads the
+ * research and runs the agents but does no research itself. Ending one revokes its session.
+ */
+export function ExecutiveSessions() {
+  const list = useApi<{ sessions: ExecutiveSession[] }>("/api/v1/executive-sessions", {
+    pollMs: 30_000,
+  });
+  const end = useAction(async (id: string) => {
+    await api(`/api/v1/executive-sessions/${encodeURIComponent(id)}/end`, {
+      body: { reason: "ended in settings" },
+    });
+    list.reload();
+  });
+  return (
+    <section className="card" data-testid="executive-sessions">
+      <h2>Executive sessions</h2>
+      <p className="small muted">
+        An agent on this machine running <code>ablationkit executive</code> acts as your executive:
+        it reads every project's research and runs the agents (starts, prompts, pauses and stops
+        agent containers, ends agent sessions, writes directions marked as its own), but cannot
+        submit jobs, write notes or records, or change policy and configuration.
+      </p>
+      <ErrorBox error={list.error ?? end.error} />
+      {!list.data ? <Loading /> : null}
+      {list.data?.sessions.length === 0 ? (
+        <p className="faint small">No executive sessions yet.</p>
+      ) : null}
+      {list.data?.sessions.length ? (
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Session</th>
+                <th>Directory</th>
+                <th>Started</th>
+                <th>State</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {list.data.sessions.map((s) => (
+                <tr key={s.token_id}>
+                  <td>
+                    {s.label} <span className="faint small">{s.harness}</span>
+                    <div className="mono small faint">{s.token_id}</div>
+                  </td>
+                  <td className="mono small">{s.cwd}</td>
+                  <td className="small">{fmtTime(s.started_at)}</td>
+                  <td>
+                    <Badge tone={s.live ? "ok" : "neutral"}>
+                      {s.live ? "live" : `ended: ${s.end_reason ?? "expired"}`}
+                    </Badge>
+                  </td>
+                  <td>
+                    {s.live ? (
+                      <button
+                        type="button"
+                        className="small"
+                        disabled={end.busy}
+                        onClick={() => void end.run(s.token_id)}
+                      >
+                        End session
+                      </button>
+                    ) : null}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+    </section>
+  );
+}

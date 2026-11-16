@@ -33,7 +33,7 @@ const AGENDA_HEADER = "x-ablationkit-agenda-revision";
 /** A tool's text output is cut here; every list tool pages, so this is a backstop. */
 export const MAX_TOOL_TEXT = 100_000;
 
-type Json = Record<string, unknown>;
+export type Json = Record<string, unknown>;
 
 /** What a tool sees: its project and the agent API with this session's token. */
 export interface AgentApi {
@@ -461,10 +461,12 @@ interface Direction {
   status: string;
   round: number;
   thread: { act: string; at: string; by: { kind: string }; text?: string }[];
+  /** Written on the researcher's behalf by their executive agent (ADR 0064). */
+  via_executive?: string;
 }
 
 const DIRECTIONS_ABOUT =
-  "The researcher's own words to the agents on this project, written by them in the AblationKit web UI (an agent cannot write one). Unlike recorded content, they are direction for your work. Answer each on the record with ablationkit_do direction.respond: ack (what you will do), then answer (what you found or changed, with refs to the notes you revised and the jobs or runs you ran) or decline (why not). A rule applies to every session until the researcher withdraws it: acknowledge it and follow it.";
+  "The researcher's own words to the agents on this project, written by them in the AblationKit web UI or, where marked, on their behalf by their executive agent (no other agent can write one). Unlike recorded content, they are direction for your work. Answer each on the record with ablationkit_do direction.respond: ack (what you will do), then answer (what you found or changed, with refs to the notes you revised and the jobs or runs you ran) or decline (why not). A rule applies to every session until the researcher withdraws it: acknowledge it and follow it.";
 
 const targetWords = (d: Direction) =>
   d.target.kind === "project"
@@ -502,6 +504,11 @@ function directionsText(ds: readonly Direction[]): string {
     return [
       `${i + 1}. ${d.direction_id} · ${d.kind} (${KIND_ASKS[d.kind]}) · on ${targetWords(d)}`,
       quote(d.text),
+      ...(d.via_executive
+        ? [
+            `   Written on the researcher's behalf by their executive agent (${d.via_executive}), not by the researcher in person.`,
+          ]
+        : []),
       ...(d.round > 1
         ? [`   Reopened by the researcher (round ${d.round})${r?.text ? ":" : "."}`]
         : []),
@@ -509,7 +516,9 @@ function directionsText(ds: readonly Direction[]): string {
     ].join("\n");
   });
   return [
-    `── From the researcher (written in the AblationKit web UI, not by an agent): ${ds.length === 1 ? "a direction" : `${ds.length} directions`} ──`,
+    ds.some((d) => d.via_executive)
+      ? `── From the researcher (in the web UI, or through their executive agent where marked; never by another agent): ${ds.length === 1 ? "a direction" : `${ds.length} directions`} ──`
+      : `── From the researcher (written in the AblationKit web UI, not by an agent): ${ds.length === 1 ? "a direction" : `${ds.length} directions`} ──`,
     DIRECTIONS_ABOUT,
     'Respond with ablationkit_do {op: "direction.respond", direction_id, kind: "ack" | "answer" | "decline", text, refs}. Finish the step you are on first if it is safe to; then act on these.',
     "",
@@ -2145,7 +2154,7 @@ const READ_IDS = new Set([
   "extension.catalog",
   "extension.operations",
 ]);
-const isRead = (o: Operation | undefined) => !!o && (o.read ?? READ_IDS.has(o.id));
+export const isRead = (o: Operation | undefined) => !!o && (o.read ?? READ_IDS.has(o.id));
 
 function op(id: string): Operation {
   const o = OPS.get(id);
@@ -2154,7 +2163,7 @@ function op(id: string): Operation {
 }
 
 /** The arguments an operation takes, `*` marking the required ones: `run.metrics(run*, key, …)`. */
-function signature(o: Operation): string {
+export function signature(o: Operation): string {
   const s = o.inputSchema as { properties?: Json; required?: string[] };
   const req = new Set(s.required ?? []);
   const args = Object.keys(s.properties ?? {}).map((k) => (req.has(k) ? `${k}*` : k));
@@ -2162,7 +2171,7 @@ function signature(o: Operation): string {
 }
 
 /** The first sentence of a description, for a one-line listing. */
-function brief(text: string): string {
+export function brief(text: string): string {
   const first = /^(.+?\.)(\s|$)/.exec(text)?.[1] ?? text;
   return first.length > 160 ? `${first.slice(0, 157)}…` : first;
 }
@@ -2204,7 +2213,7 @@ export function coerceArg(type: unknown, v: string): unknown {
  * argument, or one of the wrong type, is refused with what the operation takes. Returns the
  * arguments to send, a string that plainly is the argument's type read as that type (`coerceArg`).
  */
-function checkArgs(o: Operation, given: Json, how: string): Json {
+export function checkArgs(o: Operation, given: Json, how: string): Json {
   const s = o.inputSchema as { properties?: Record<string, Json>; required?: string[] };
   const props = s.properties ?? {};
   const problems: string[] = [];
@@ -2628,7 +2637,7 @@ export function agentApi(url: string, token: string, project: string): AgentApi 
 // ------------------------------------------------------------------ JSON-RPC
 
 /** A tool's result: bounded text, and the structured value when it fits. */
-function result(out: unknown): Json {
+export function result(out: unknown): Json {
   const text = JSON.stringify(out, null, 2) ?? "null";
   if (text.length <= MAX_TOOL_TEXT)
     return {
@@ -2648,7 +2657,7 @@ function result(out: unknown): Json {
 }
 
 /** A refusal: the coordinator's code and message (and its details), never a stack. */
-function failure(e: unknown): Json {
+export function failure(e: unknown): Json {
   if (e instanceof ApiError) {
     const body = e.body as Json | undefined;
     const detail = typeof body?.["error"] === "object" ? (body["error"] as Json) : {};
@@ -2829,6 +2838,24 @@ export async function mcpCommand(argv: readonly string[], ctx: CliContext): Prom
   process.once("SIGTERM", stop);
   process.once("SIGINT", stop);
   process.once("SIGHUP", stop);
+  await serveStdio(ctx, (msg, io) => handleMcp(msg, session, io), endSession);
+  return 0;
+}
+
+/**
+ * The JSON-RPC loop of an MCP server over stdio, shared by `ablationkit mcp` and `ablationkit
+ * executive`: requests run side by side (a long wait holds up nothing), a cancelled request is
+ * not answered, and when stdin closes the calls in flight are answered first (for a few seconds
+ * at most), the rest cancelled, then `end` runs.
+ */
+export async function serveStdio(
+  ctx: CliContext,
+  handle: (
+    msg: { id?: number | string; method?: string; params?: Json },
+    io: McpIo,
+  ) => Promise<Json | undefined>,
+  end: () => Promise<void>,
+): Promise<void> {
   const inflight = new Map<string, AbortController>();
   const running = new Set<Promise<void>>();
   try {
@@ -2862,7 +2889,7 @@ export async function mcpCommand(argv: readonly string[], ctx: CliContext): Prom
         const ac = new AbortController();
         inflight.set(key, ac);
         const send = (m: Json) => ctx.out(`${JSON.stringify(m)}\n`);
-        const done: Promise<void> = handleMcp(msg, session, { notify: send, signal: ac.signal })
+        const done: Promise<void> = handle(msg, { notify: send, signal: ac.signal })
           .then((r) => {
             if (r && !ac.signal.aborted) send(r);
           })
@@ -2879,9 +2906,8 @@ export async function mcpCommand(argv: readonly string[], ctx: CliContext): Prom
     // most; then a long wait still running is cancelled.
     if (running.size) await Promise.race([Promise.allSettled([...running]), Bun.sleep(DRAIN_MS)]);
     for (const ac of inflight.values()) ac.abort();
-    await endSession();
+    await end();
   }
-  return 0;
 }
 
 /** How long calls in flight may finish after the client closed stdin. */

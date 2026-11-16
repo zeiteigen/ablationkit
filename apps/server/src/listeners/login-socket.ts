@@ -7,8 +7,13 @@
  * `ablationkit mcp` starts and ends its agent session here (ADR 0040): `POST /agent-sessions`
  * mints an agent token for one project and nothing else (never a human session, never a login
  * code); `POST /agent-sessions/end` ends the session whose token it is given.
+ *
+ * `ablationkit executive` starts and ends its executive session here (ADR 0064): `POST
+ * /executive-sessions` mints a human-API session restricted to an executive's reads and writes;
+ * `POST /executive-sessions/end` ends the one whose token it is given.
  */
 
+import { beginExecutive, endExecutive } from "../agents/executive.ts";
 import { HttpError, json, readJsonBody, safeNext, str, toErrorResponse } from "../http.ts";
 import type { Services } from "../services.ts";
 import { bearer } from "./common.ts";
@@ -85,6 +90,38 @@ export function loginSocketFetch(svc: Services): (req: Request) => Promise<Respo
           expires_at: record.expires_at,
           idle_timeout_sec: record.agent_session?.idle_timeout_sec,
         });
+      }
+      if (req.method === "POST" && url.pathname === "/executive-sessions") {
+        const body = await readJsonBody(req);
+        const harness = str(body, "harness");
+        if (!HARNESS_RE.test(harness))
+          throw new HttpError(
+            400,
+            "invalid_request",
+            "`harness` is a short lowercase name, e.g. claude-code or codex",
+          );
+        const cwd = str(body, "cwd");
+        if (!cwd.startsWith("/") || cwd.length > 4096)
+          throw new HttpError(400, "invalid_request", "`cwd` must be an absolute path");
+        const label = (str(body, "label", { optional: true }) ?? `${harness} executive`).slice(
+          0,
+          200,
+        );
+        const { token, record } = beginExecutive(svc, { harness, label, cwd });
+        return json(201, {
+          token,
+          token_id: record.token_id,
+          human_api: svc.urls.human,
+          expires_at: record.expires_at,
+        });
+      }
+      if (req.method === "POST" && url.pathname === "/executive-sessions/end") {
+        const token = bearer(req);
+        const record = token ? svc.tokens.verify(token, "session") : undefined;
+        if (!record?.executive_session)
+          throw new HttpError(401, "unauthenticated", "give the executive session's token");
+        endExecutive(svc, record.token_id, record.token_id, "ended");
+        return json(200, { token_id: record.token_id, ended: true });
       }
       if (req.method === "POST" && url.pathname === "/agent-sessions/end") {
         const token = bearer(req);

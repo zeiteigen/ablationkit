@@ -6,6 +6,7 @@
 import type { TokenRecord } from "@ablationkit/protocol";
 import { parseAfter } from "../events.ts";
 import { HttpError, json, readJsonBody, safeNext, str, toErrorResponse } from "../http.ts";
+import { executiveMay, endExecutive, listExecutive } from "../agents/executive.ts";
 import { type Route, Router } from "../router.ts";
 import type { Services } from "../services.ts";
 import { compact } from "../state/audit.ts";
@@ -30,7 +31,7 @@ import { RESEARCH_OPS } from "./research.ts";
 import { RUN_IMPORT_OPS } from "./run-import.ts";
 import { SHELL_ROUTES } from "./shell.ts";
 import { TASK_OPS } from "./tasks.ts";
-import { RUN_DESCRIPTION_OPS, TRACKING_ROUTES } from "./tracking.ts";
+import { AGENT_TRACKING_OPS, RUN_DESCRIPTION_OPS, TRACKING_ROUTES } from "./tracking.ts";
 import { VAULT_OPS } from "./vault.ts";
 
 export const SESSION_COOKIE = "ak_session";
@@ -324,6 +325,35 @@ export const HUMAN_ROUTES: readonly Route<HumanHandler>[] = [
   },
   {
     method: "GET",
+    path: "/api/v1/executive-sessions",
+    handler: {
+      auth: "session",
+      action: "auth.executive_session.list",
+      run: (c) => json(200, { sessions: listExecutive(c.svc) }),
+    },
+  },
+  {
+    method: "POST",
+    path: "/api/v1/executive-sessions/:id/end",
+    handler: {
+      auth: "session",
+      action: "auth.executive_session.end",
+      run: async (c) => {
+        const body = await readJsonBody(c.req);
+        const reason = (str(body, "reason", { optional: true }) ?? "ended by researcher").slice(
+          0,
+          500,
+        );
+        const id = c.params["id"] as string;
+        return json(200, {
+          token_id: id,
+          ended: endExecutive(c.svc, id, c.session.token_id, reason),
+        });
+      },
+    },
+  },
+  {
+    method: "GET",
     path: "/api/v1/coordinator/status",
     handler: {
       auth: "session",
@@ -599,6 +629,8 @@ export const HUMAN_ROUTES: readonly Route<HumanHandler>[] = [
     ...VAULT_OPS,
     ...AGENDA_OPS,
     ...RUN_DESCRIPTION_OPS,
+    // The project-scoped run reads agents use, for the executive's reads too (ADR 0064).
+    ...AGENT_TRACKING_OPS,
     ...LIFECYCLE_OPS,
     ...INFERENCE_OPS,
     ...BACKEND_OPS,
@@ -684,6 +716,22 @@ export function humanFetch(svc: Services, port: () => number): (req: Request) =>
       const session = raw ? svc.tokens.verify(raw, "session") : undefined;
       if (!session)
         throw new HttpError(401, "unauthenticated", "log in with `ablationkit login` first");
+      // An executive session (ADR 0064) reads, and writes only what an executive writes.
+      if (session.executive_session && !executiveMay(req.method, h.action)) {
+        svc.audit.record({
+          actor: { kind: "human", id: session.token_id },
+          listener: "human",
+          action: h.action,
+          outcome: "denied",
+          target: `${req.method} ${m.route.path}`,
+          reason: `executive session (${session.executive_session.label}): not an executive's write`,
+        });
+        throw new HttpError(
+          403,
+          "executive_forbidden",
+          `${h.action} is not an executive's to do: executives read, run the agents (agent containers, agent sessions) and write directions; the research itself (jobs, notes, records, tasks, runs) is the agents', and policy and configuration are the researcher's`,
+        );
+      }
 
       return await h.run({ ...base, session });
     } catch (e) {

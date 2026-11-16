@@ -154,6 +154,22 @@ export const AREAS: readonly Area[] = [
           "A session token is identity, not a boundary, except in an agent container (CTR-1). The socket answers any process running as the researcher, and the same socket's `/login` gives out a human login link: an agent that can reach `~/.ablationkit/run/login.sock` (or the CLI's saved session) can act as the researcher, which for an agent on the host is by design (ADR 0062). Only the harness's sandbox, denying the agent `~/.ablationkit`, stops an uncontained one (the opt-in agent guard, AUTH-10). Anyone holding a session's token is that session to AblationKit.",
       },
       {
+        id: "AUTH-11",
+        threat:
+          "The researcher's executive agent (`ablationkit executive`) does the research itself or changes policy: submits jobs, writes notes or records, raises a compute limit",
+        control:
+          "Its executive session (minted on the login socket, marked on the token) may make every GET and only an executive's writes (agent containers, agent sessions, directions, signing out); anything else is 403 `executive_forbidden`, audited with the route. Its directions record `via_executive` and are delivered and shown as written by the executive (ADR 0064)",
+        level: "authoritative",
+        proofs: [
+          unit(
+            "apps/cli/test/executive.test.ts",
+            "an executive session reads every project, runs no research, and its directions are marked",
+          ),
+        ],
+        limit:
+          "A role for the executive's token, not a boundary against the agent: on the researcher's machine it can still use the CLI as their operator (ADR 0062), and the agents' MCP server where that is registered. It reads everything the researcher can.",
+      },
+      {
         id: "AUTH-10",
         threat:
           "An uncontained agent the researcher does not want acting for them, working in a registered checkout, reads `~/.ablationkit` (the login socket, the CLI's saved session) or the coordinator-owned parts of the project's `.ablationkit/` and acts as the researcher",

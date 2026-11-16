@@ -181,6 +181,14 @@ export const ResearchDirection = Type.Object(
     ),
     created_at: Timestamp,
     created_by: ResearchActor,
+    via_executive: Type.Optional(
+      Type.String({
+        minLength: 1,
+        maxLength: 200,
+        description:
+          "Written on the researcher's behalf by their executive agent (ADR 0064): its session's label. Absent: the researcher wrote it.",
+      }),
+    ),
     updated_at: Timestamp,
     revision: Type.Integer({ minimum: 1 }),
   },

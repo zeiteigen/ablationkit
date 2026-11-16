@@ -845,6 +845,7 @@ Schema: [`research-direction.v1.schema.json`](../../packages/protocol/schemas/re
 | `deliveries` | array of object | yes | Which agent session was shown it, when, and in which round: shown once per session and round. |
 | `created_at` | `Timestamp` | yes | RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds. |
 | `created_by` | object | yes | Who made a change: a human session, an agent token or the system. Work under a task links the task (`task:ID`). |
+| `via_executive` | string | no | Written on the researcher's behalf by their executive agent (ADR 0064): its session's label. Absent: the researcher wrote it. |
 | `updated_at` | `Timestamp` | yes | RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds. |
 | `revision` | integer | yes |  |
 

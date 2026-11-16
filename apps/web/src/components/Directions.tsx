@@ -194,7 +194,10 @@ export function Thread(props: { d: DirectionView; store: DirectionStore; showTar
         <div className="dr-h">
           <span className={`dr-kind k-${d.kind}`}>{kindLabel(d.kind)}</span>
           {props.showTarget ? <TargetLink d={d} /> : null}
-          <span className="dr-when">you · {ago(d.created_at)}</span>
+          <span className="dr-when">
+            {d.via_executive ? `your executive agent (${d.via_executive})` : "you"} ·{" "}
+            {ago(d.created_at)}
+          </span>
           <span className={`dr-st st-${d.status}`}>
             {rule && !ended ? "in force" : STATUS_WORD[d.status]}
           </span>

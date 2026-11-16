@@ -12,6 +12,7 @@ import { agentCommand } from "./commands/agent.ts";
 import { coordinatorCommand } from "./commands/coordinator.ts";
 import { devBuild } from "./commands/dev-build.ts";
 import { devDoctor } from "./commands/dev-doctor.ts";
+import { executiveCommand } from "./commands/executive.ts";
 import { extensionCommand } from "./commands/extension.ts";
 import { loginCommand } from "./commands/login.ts";
 import { mcpCommand } from "./commands/mcp.ts";
@@ -75,6 +76,9 @@ commands:
   dev build [--check CMD…]           checks + a reviewable modified build (activate in the web UI)
   mcp [--project ID] [--label T]     agents: the MCP server their harness launches, one per session
                                      (claude mcp add ablationkit -- ablationkit mcp)
+  executive [--label T]              your agent on this machine as executive: the MCP server that reads
+                                     the research and runs the agents, but does no research (ADR 0064)
+                                     (claude mcp add ablationkit-executive -- ablationkit executive)
   agent start [--harness H] [-- ARGS] run your harness in an agent container (ADR 0061): rootless
                                      Podman, no GPU, egress allowlist, jobs in job containers
   agent attach | list | show | pause | resume | stop | screen | send | egress SESSION
@@ -108,6 +112,7 @@ export async function main(
     if (group === "remote") return await remoteCommand(argv.slice(1), ctx);
     if (group === "mcp") return await mcpCommand(argv.slice(1), ctx);
     if (group === "agent") return await agentCommand(argv.slice(1), ctx);
+    if (group === "executive") return await executiveCommand(argv.slice(1), ctx);
     if (group === "tracking") return await trackingCommand(argv.slice(1), ctx);
     if (group === "extension") return await extensionCommand(argv.slice(1), ctx);
     if (group === "backup") return await backupCommand(argv.slice(1), ctx);

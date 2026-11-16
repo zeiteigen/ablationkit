@@ -11,11 +11,21 @@ The coordinator serves three HTTP listeners and a unix login socket (ADR 0008). 
 | `POST /agent-sessions` `{project_id, harness, label?, cwd}` | 201 `{token, token_id, project_id, agent_api, expires_at, idle_timeout_sec}`: an agent token for one agent session (ADR 0040). Only ever an agent token, for a registered project (404 `project_not_found`); `harness` is a short lowercase name, `cwd` absolute (400 otherwise). Ends after 12 hours without a request or 7 days after it began. Audited `auth.agent_session.start` |
 | `POST /agent-sessions/end` with `Authorization: Bearer aka_…` | `{token_id, ended: true}`: the session ends with its own token (`ablationkit mcp` closing); 401 for a token that is not a live agent token. Audited `auth.agent_session.end` |
 
+| `POST /executive-sessions` `{harness, label?, cwd}` | 201 `{token, token_id, human_api, expires_at}`: a human-API session for `ablationkit executive` (ADR 0064), marked `executive_session` on the token: it may make every GET of the human API and only an executive's writes (below). Lives 7 days at most. Audited `auth.executive_session.start` |
+| `POST /executive-sessions/end` with `Authorization: Bearer aks_…` | `{token_id, ended: true}`: the executive session ends with its own token (the MCP server closing); 401 for a token that is not a live executive session. Audited `auth.executive_session.end` |
+
 Any process running as the researcher can reach the socket, and `/login` yields a human session: an agent session token is identity, not a boundary (ADR 0040).
 
 ## Human API (default `127.0.0.1:7420`)
 
 Auth is the `ak_session` cookie (browser) or `Authorization: Bearer aks_…` (CLI). Cookie writes need a trusted `Origin`. A request carrying an untrusted `Origin` is refused (403). An unknown `Host` gets 421.
+
+**Executive sessions** (ADR 0064; minted on the login socket for `ablationkit executive`) may make every `GET` and only these writes: `agent.container.start`, `.input`, `.pause`, `.resume`, `.stop`, `.allow` (the agent container routes below), `auth.agent_session.end`, `direction.create`, `.close`, `.reopen`, `.withdraw`, and `auth.session.revoke`. Any other write (a job, a note, a research record, a run description, a policy revision, configuration, extensions, backups, projects) is 403 `executive_forbidden`, audited with the route. A direction an executive session writes records `via_executive` (the session's label), shown to agents and in the web UI.
+
+| Route | Auth | Notes |
+| --- | --- | --- |
+| `GET /api/v1/executive-sessions` | session | `{sessions: [{token_id, harness, label, cwd, started_at, expires_at?, live, ended_at?, end_reason?}]}`, live first |
+| `POST /api/v1/executive-sessions/:id/end` `{reason?}` | session | `{token_id, ended}`: revokes it; 404 `executive_session_not_found`. Audited `auth.executive_session.end` |
 
 | Route | Auth | Notes |
 | --- | --- | --- |
@@ -44,7 +54,7 @@ overlapping filters.
 
 ### Tracking (Stage 4, ADR 0010)
 
-All `/api/v1/tracking/…` routes need a session; none exist on the agent or worker listeners (agents read their project's runs through the agent API's `/api/v1/projects/:id/runs` routes, ADR 0040). MLflow itself listens only on loopback and is never proxied wholesale. A run `:id` is an MLflow run ID or an AblationKit ref (the attempt ID, or `mr-…` for manual runs).
+All `/api/v1/tracking/…` routes need a session; none exist on the agent or worker listeners (agents read their project's runs through the `/api/v1/projects/:id/runs` routes, ADR 0040, which the human API serves too for executive sessions, ADR 0064). MLflow itself listens only on loopback and is never proxied wholesale. A run `:id` is an MLflow run ID or an AblationKit ref (the attempt ID, or `mr-…` for manual runs).
 
 Errors specific to tracking:
 
@@ -158,6 +168,11 @@ Session auth on the human API. The routes marked **agent** also exist, at the sa
 | `GET /api/v1/projects/:id/agenda[?since=N]` | **agent**. The researcher's agenda (ADR 0058). Human: `{revision, updated_at, updated_by, items: [{item_id, lane: now\|next\|parked\|dropped, note_id?, text?, reason?, added_at, moved_at, note?: {title, type, gist, standing?, archived?}, work: {tasks: [{task_id, title, status, outcome?}], jobs, running, edition?: {note_id, title, edition}}}], rules: [{rule_id, text, added_at}], sessions: [{token_id, label?, harness?, started_at, last_used_at?, seen_revision?, seen_at?}] (the live agent sessions and the revision each last read), checks: [{code: off_agenda\|parked_work\|not_on_agenda, message, item?, job?, task?, session?}], last_change: [sentence]}`. Agent: `{from, revision, updated_at, now: [line], rules: [line], next, parked, dropped, changed?: {since_revision, changes: [sentence]}, your_checks?, notice?}`; reading marks the session as having read the current revision (`agenda-seen.json`, event `agenda.read`), and `since` asks for the changes since that revision instead of since the session last read. While a session has not read the current revision, every agent API response (refusals included, beside `x-ablationkit-directions`) carries `x-ablationkit-agenda-revision: N` |
 | `PUT /api/v1/projects/:id/agenda` `{items?: [{item_id?, note_id?, text?, lane, reason?}], rules?: [{rule_id?, text}], if_revision?}` | human only. The researcher writes the agenda whole, items in priority order: a note (`note_id`, a live note of the vault) is `note:<id>`; a new line of text takes the next `L<n>`, a new rule the next `R<n>` → the view above with `changes` (what this revision changed) and `unchanged: true` when nothing did (the revision stays). 400 for an unknown note, item or rule, a line or rule over 300 characters, an item given twice; 409 `revision_conflict` `{revision}`. Event `agenda.updated` `{revision, changes}` |
 | `PUT /api/v1/projects/:id/runs/:run/description` `{summary?, notes?, set_aside?}` | **agent**. A run's description (ADR 0048): `summary` (≤2000; what it tests and why, then what came out) and `notes` (≤8000, Markdown) are its `ablationkit.summary` and `mlflow.note.content` tags; an empty string clears one → `{run}`. `set_aside` (≤1000, ADR 0056) is why the run is not reported, kept in the vault's `set-aside.json` by MLflow run ID (an empty string takes it back; audited `vault.run.set_aside`, event `vault.run.set_aside`) → `{mlflow_run_id, set_aside}` alone, or `{run, set_aside}` with the others. 409 `tracking_pending` until MLflow has the run, 409 `read_only_import` in an imported experiment, 404 for a run outside the project. Event `tracking.run.described` `{mlflow_run_id}` |
+| `GET /api/v1/projects/:id/runs?filter=&order_by=&max_results=&page_token=&view=` | **agent** (and executive reads, ADR 0064). the project's MLflow runs (its experiment and imports; `max_results` at most 200, default 50) and `pending_runs` (ADR 0040) |
+| `GET /api/v1/projects/:id/runs/:run` | **agent** (and executive reads, ADR 0064). one run by MLflow run ID or ref; a run outside the project's experiments is 404 |
+| `GET /api/v1/projects/:id/runs/:run/metrics?key=&max_results=&page_token=` | **agent** (and executive reads, ADR 0064). latest values (model and system), or one key's history paged; JSON only |
+| `GET /api/v1/projects/:id/runs/:run/artifacts?path=&page_token=` | **agent** (and executive reads, ADR 0064). one directory level |
+| `GET /api/v1/projects/:id/runs/:run/artifacts/text?path=&offset=&limit=` | **agent** (and executive reads, ADR 0064). `{run_id, path, size, offset, text, next_offset?}`: at most 256 KiB per read (default 64 KiB), ending on a UTF-8 boundary; 415 `not_text` for a file with NUL bytes |
 | `GET /api/v1/projects/:id/lineage?kind=&id=` | **agent**. `{subject, steps: [{step, label, status: subject\|linked\|missing\|unavailable, reason?, items: [{ref, label, status?, exists}], more}], backlinks: [{ref, label, status?}]}`; steps hypothesis, study, variant (`study/variant`), job, attempt, run, evaluation, logged_model, model_version, inference |
 
 `POST /api/v1/projects` also returns `research_import: {imported, problems, note}`: an existing export in the checkout is imported once.
@@ -473,11 +488,6 @@ Once a delivered attempt's provider resources outlive the job (a pod that could 
 | `POST /api/v1/projects/:id/directions/deliver` `{all?: true}` | `{directions, total}`: the directions in force not yet shown to this session (rules first), recorded as delivered to it; `all` returns every one in force (the start of a session) |
 | `POST /api/v1/projects/:id/directions/:did/respond` `{kind: ack\|answer\|decline, text, refs?: [{kind: note\|run\|job\|study\|task\|work, id}]}` | `{direction}`. `ack` (what it will do) → `acknowledged`; `answer` (with the refs of what it changed) → `answered`; `decline` (why) → `declined`. `text` is required (400). A ref that does not resolve is 400 `unresolved_ref`. 409 `direction_state` when it is not in force (answered, declined, closed or withdrawn) or when answering a rule (a rule is acknowledged or declined) |
 | model lifecycle reads (Stage 12) | the routes marked **agent** in the Stage 12 table: datasets, logged models, registry, resolve, evaluations, MLproject. No registry changes, downloads or launches |
-| `GET /api/v1/projects/:id/runs?filter=&order_by=&max_results=&page_token=&view=` | the project's MLflow runs (its experiment and imports; `max_results` at most 200, default 50) and `pending_runs` (ADR 0040) |
-| `GET /api/v1/projects/:id/runs/:run` | one run by MLflow run ID or ref; a run outside the project's experiments is 404 |
-| `GET /api/v1/projects/:id/runs/:run/metrics?key=&max_results=&page_token=` | latest values (model and system), or one key's history paged; JSON only |
-| `GET /api/v1/projects/:id/runs/:run/artifacts?path=&page_token=` | one directory level |
-| `GET /api/v1/projects/:id/runs/:run/artifacts/text?path=&offset=&limit=` | `{run_id, path, size, offset, text, next_offset?}`: at most 256 KiB per read (default 64 KiB), ending on a UTF-8 boundary; 415 `not_text` for a file with NUL bytes |
 
 ## Worker API (default `127.0.0.1:7422`)
 

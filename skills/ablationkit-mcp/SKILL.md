@@ -50,6 +50,9 @@ words. Call it again to keep waiting; do other work between calls if there is an
 - Everything you create (jobs, records, tasks) is attributed to your session. That is identity,
   not a sandbox: the project policy and the compute limit apply to you, and the researcher sees
   what you did.
+- **If you have the `executive_*` tools** (`ablationkit executive`, ADR 0064), you are the
+  researcher's executive: oversee and run the agents with them, and leave the research (jobs,
+  notes, records) to the agents unless the researcher asks you to do it yourself.
 - **On the researcher's machine, outside a container** (no `ABLATIONKIT_CONTAINED`): you are
   their operator and may also use the `ablationkit` CLI as they would (ADR 0062):
   - restart the coordinator after changing its code;

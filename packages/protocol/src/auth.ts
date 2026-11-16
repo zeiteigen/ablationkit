@@ -72,6 +72,21 @@ export const AgentSessionInfo = Type.Object(
 );
 export type AgentSessionInfo = Static<typeof AgentSessionInfo>;
 
+export const ExecutiveSessionInfo = Type.Object(
+  {
+    harness: Type.String({ minLength: 1, maxLength: 64 }),
+    label: Type.String({ minLength: 1, maxLength: 200 }),
+    cwd: Type.String({ maxLength: 4096 }),
+  },
+  {
+    title: "ExecutiveSessionInfo",
+    description:
+      "A human-API session minted for `ablationkit executive` (ADR 0064): an agent on the researcher's machine overseeing the research and running the agents. It may read and may only make the writes an executive makes (agent containers, agent sessions, directions); every other write is refused.",
+    additionalProperties: false,
+  },
+);
+export type ExecutiveSessionInfo = Static<typeof ExecutiveSessionInfo>;
+
 export const TokenRecord = Type.Object(
   {
     token_id: TokenId,
@@ -94,6 +109,7 @@ export const TokenRecord = Type.Object(
           "Worker tokens only. `launch`: held by a remote worker for the whole job; it can only perform the handshake, which issues short-lived `upload` tokens (ADR 0023). Absent means `upload`.",
       }),
     ),
+    executive_session: Type.Optional(ExecutiveSessionInfo),
     agent_session: Type.Optional(
       describe(
         AgentSessionInfo,

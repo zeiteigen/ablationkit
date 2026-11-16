@@ -83,6 +83,14 @@ Tests marked with a script name need that script (`bun run test:web`, `bun run t
 - `mcp.test.ts`: the stdio server ends its session when the harness closes stdin
 - `mcp.test.ts`: the token stays inside; ending it revokes it
 
+### AUTH-11: The researcher's executive agent (`ablationkit executive`) does the research itself or changes policy: submits jobs, writes notes or records, raises a compute limit
+
+**Control:** Its executive session (minted on the login socket, marked on the token) may make every GET and only an executive's writes (agent containers, agent sessions, directions, signing out); anything else is 403 `executive_forbidden`, audited with the route. Its directions record `via_executive` and are delivered and shown as written by the executive (ADR 0064). **Level:** authoritative.
+
+**Limit:** A role for the executive's token, not a boundary against the agent: on the researcher's machine it can still use the CLI as their operator (ADR 0062), and the agents' MCP server where that is registered. It reads everything the researcher can.
+
+- `executive.test.ts`: an executive session reads every project, runs no research, and its directions are marked
+
 ### AUTH-10: An uncontained agent the researcher does not want acting for them, working in a registered checkout, reads `~/.ablationkit` (the login socket, the CLI's saved session) or the coordinator-owned parts of the project's `.ablationkit/` and acts as the researcher
 
 **Control:** The agent guard (ADR 0041), opt-in since ADR 0062 (agents on the host are the researcher's operators; execution agents belong in agent containers, CTR-1): `ablationkit project guard` and `scripts/setup.sh --guard` merge Claude Code deny rules and sandbox entries into the checkout's `.claude/settings.local.json` and add a Codex permission profile (`ablationkit-guard`, the default) to `.codex/config.toml`, both denying the coordinator home and the coordinator-owned parts of `.ablationkit/` (`project.json`, `research/`, `conversations/`, `llm/`; extension source stays open, ADR 0044). Existing settings are kept; a Codex config that already chose a sandbox is reported, not edited; created files go in `.git/info/exclude`. **Level:** advisory.

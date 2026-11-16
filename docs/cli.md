@@ -44,6 +44,7 @@ Settings for remote compute: `worker.host: "tailscale"`, `remote.worker_url`, an
 | Give an agent AblationKit | register the checkout (`ablationkit project add PATH`), then add the MCP server to the harness: Claude Code `claude mcp add ablationkit -- ablationkit mcp`; Codex an `[mcp_servers.ablationkit]` table with `command = "ablationkit"` and `args = ["mcp"]` |
 | Options | `ablationkit mcp [--project ID] [--label TEXT] [--harness NAME]`: the project defaults to the checkout's `.ablationkit/project.json` in the directory it starts in or a parent; one process is one agent session |
 | See and end sessions | Settings → Agent sessions in the web UI (harness, label, directory, last use, what each recorded, End session) |
+| Give your agent on this machine the executive's role | `claude mcp add --scope user ablationkit-executive -- ablationkit executive` (Codex: `codex mcp add ablationkit-executive -- ablationkit executive`; `scripts/setup.sh` does both): it reads every project and runs the agents, but cannot submit jobs, write notes or records, or change policy ([your executive agent](autonomy/executive.md), ADR 0064). `ablationkit executive [--label TEXT] [--harness NAME]` |
 | The tools | [agent-first work: the tools](autonomy/agent-first.md#the-tools); the Agent Skills in [`skills/`](../skills/README.md) teach the workflow |
 
 An agent's jobs need a time limit and count against the project's compute limit; its deployments are decided by the policy ([deployment gates](autonomy/deployment-gates.md)).

@@ -8,6 +8,7 @@
 import { readJson, writeJsonAtomic } from "@ablationkit/core";
 import {
   type AgentSessionInfo,
+  type ExecutiveSessionInfo,
   type TokenKind,
   type TokenRecord,
   type TokenScope,
@@ -45,6 +46,8 @@ export interface MintOptions {
   ttlMs?: number;
   /** Worker tokens: `launch` may only perform the remote handshake. */
   purpose?: "upload" | "launch";
+  /** Human sessions minted for `ablationkit executive` (ADR 0064): restricted to an executive's routes. */
+  executiveSession?: ExecutiveSessionInfo;
   /** Agent tokens minted for one agent session (ADR 0040). */
   agentSession?: Pick<AgentSessionInfo, "harness" | "label" | "cwd" | "container_session">;
 }
@@ -121,6 +124,8 @@ export class TokenStore {
       throw new TokenScopeError("only worker tokens have a purpose");
     if (options.agentSession !== undefined && kind !== "agent")
       throw new TokenScopeError("only agent tokens belong to an agent session");
+    if (options.executiveSession !== undefined && kind !== "session")
+      throw new TokenScopeError("only human sessions are executive sessions");
     const record: TokenRecord = {
       token_id: tokenId,
       kind,
@@ -130,6 +135,9 @@ export class TokenStore {
       ...(options.label === undefined ? {} : { label: options.label }),
       scope: { ...scope },
       ...(options.purpose === "launch" ? { purpose: "launch" as const } : {}),
+      ...(options.executiveSession === undefined
+        ? {}
+        : { executive_session: { ...options.executiveSession } }),
       ...(options.agentSession === undefined
         ? {}
         : {

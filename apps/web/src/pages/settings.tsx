@@ -8,7 +8,7 @@
 import { useState } from "react";
 import { api, useApi } from "../api.ts";
 import { AgentContainers } from "../components/AgentContainers.tsx";
-import { AgentSessions } from "../components/AgentSessions.tsx";
+import { AgentSessions, ExecutiveSessions } from "../components/AgentSessions.tsx";
 import { Badge, ErrorBox, KV, Loading, Page, Tabs, useAction } from "../components/ui.tsx";
 import { fmtTime } from "../lib/format.ts";
 import {
@@ -50,6 +50,7 @@ export function SettingsPage(props: { tab: SettingsTab }) {
     >
       {tab.id === "agents" ? (
         <div className="stack">
+          <ExecutiveSessions />
           <AgentSessions />
           <AgentContainers />
         </div>

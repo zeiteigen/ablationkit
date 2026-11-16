@@ -124,6 +124,33 @@
               }
             ]
           },
+          "executive_session": {
+            "title": "ExecutiveSessionInfo",
+            "description": "A human-API session minted for `ablationkit executive` (ADR 0064): an agent on the researcher's machine overseeing the research and running the agents. It may read and may only make the writes an executive makes (agent containers, agent sessions, directions); every other write is refused.",
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "harness",
+              "label",
+              "cwd"
+            ],
+            "properties": {
+              "harness": {
+                "minLength": 1,
+                "maxLength": 64,
+                "type": "string"
+              },
+              "label": {
+                "minLength": 1,
+                "maxLength": 200,
+                "type": "string"
+              },
+              "cwd": {
+                "maxLength": 4096,
+                "type": "string"
+              }
+            }
+          },
           "agent_session": {
             "title": "AgentSessionInfo",
             "description": "Agent tokens minted for an agent session (ADR 0040). Absent on agent tokens minted before it.",

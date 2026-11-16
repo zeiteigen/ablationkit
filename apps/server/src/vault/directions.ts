@@ -285,6 +285,7 @@ export class DirectionService {
     svc.registry.require(pid);
     if (actor.kind !== "human")
       throw new HttpError(403, "researcher_only", "directions are the researcher's to write");
+    const executive = actor.id ? svc.tokens.get(actor.id)?.executive_session : undefined;
     const kind = input.kind as DirectionKind;
     if (!DIRECTION_KINDS.includes(kind))
       throw new HttpError(
@@ -324,6 +325,8 @@ export class DirectionService {
       deliveries: [],
       created_at: now.toISOString(),
       created_by: actor,
+      // Written by the researcher's executive agent on their behalf (ADR 0064): said so.
+      ...(executive ? { via_executive: executive.label.slice(0, 200) } : {}),
       updated_at: now.toISOString(),
       revision: 1,
     });

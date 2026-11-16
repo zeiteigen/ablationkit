@@ -214,7 +214,7 @@ export const CONTAINER_ROUTES: readonly Route<HumanHandler>[] = [
   {
     method: "POST",
     path: "/api/v1/projects/:id/agent-containers/allow",
-    handler: session("agent.container.config.set", async (c) => {
+    handler: session("agent.container.allow", async (c) => {
       const pid = c.params["id"] as string;
       const body = await readJsonBody(c.req);
       const hosts = strings(body["hosts"], "hosts", 64);

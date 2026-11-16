@@ -6,7 +6,7 @@
 #                                          register the MCP server
 #   sh scripts/setup.sh --prefix DIR       launcher goes in DIR/bin (default ~/.local)
 #   sh scripts/setup.sh --no-deps          skip bun install / uv sync
-#   sh scripts/setup.sh --no-mcp           don't register the MCP server
+#   sh scripts/setup.sh --no-mcp           don't register the MCP servers (agents' and executive's)
 #   sh scripts/setup.sh --guard            also apply the agent guard to registered projects (opt-in)
 #   sh scripts/setup.sh --claude-config D  also set up the Claude Code config in D (CLAUDE_CONFIG_DIR)
 #   sh scripts/setup.sh --force            replace an ablationkit launcher or MCP entry this script
@@ -81,18 +81,22 @@ for cfg in $claude_cfgs; do skill_dirs="$skill_dirs $(cfg_skills "$cfg")"; done
 codex_home="${CODEX_HOME:-$HOME/.codex}"
 [ -d "$codex_home" ] && skill_dirs="$skill_dirs $codex_home/skills"
 
-# The command an existing `ablationkit` MCP entry runs ("" when there is none). Read from the
-# config file, not `claude mcp get`, whose health check would start (and mint) an agent session.
+# The MCP servers: the agents' (`ablationkit mcp`, ADR 0040) and the executive's on this
+# machine (`ablationkit executive`, ADR 0064), as name:subcommand.
+mcp_servers="ablationkit:mcp ablationkit-executive:executive"
+
+# The command an existing MCP entry named $2 runs ("" when there is none). Read from the config
+# file, not `claude mcp get`, whose health check would start (and mint) a session.
 claude_mcp_command() {
   f=$(cfg_json "$1")
   [ -f "$f" ] || return 0
   bun_bin=$(command -v bun || true)
   [ -n "$bun_bin" ] || return 0
-  "$bun_bin" -e 'try{const j=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));const s=j.mcpServers&&j.mcpServers.ablationkit;if(s)console.log(s.command??"?")}catch{}' "$f"
+  "$bun_bin" -e 'try{const j=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));const s=j.mcpServers&&j.mcpServers[process.argv[2]];if(s)console.log(s.command??"?")}catch{}' "$f" "$2"
 }
 # `codex mcp get` only reads the config (no health check).
 codex_mcp_command() {
-  codex mcp get ablationkit 2>/dev/null | sed -n 's/^ *command: //p' | head -n 1
+  codex mcp get "$1" 2>/dev/null | sed -n 's/^ *command: //p' | head -n 1
 }
 
 # A launcher is ours when it carries the marker or execs this checkout's CLI.
@@ -117,17 +121,20 @@ if [ "$uninstall" = 1 ]; then
       esac
     done
   done
-  if command -v claude >/dev/null 2>&1; then
-    for cfg in $claude_cfgs; do
-      if [ "$(claude_mcp_command "$cfg")" = "$launcher" ]; then
-        claude_in "$cfg" mcp remove --scope user ablationkit >/dev/null 2>&1 \
-          && echo "removed the ablationkit MCP server from $(cfg_label "$cfg")"
-      fi
-    done
-  fi
-  if command -v codex >/dev/null 2>&1 && [ "$(codex_mcp_command)" = "$launcher" ]; then
-    codex mcp remove ablationkit >/dev/null 2>&1 && echo "removed the ablationkit MCP server from Codex"
-  fi
+  for entry in $mcp_servers; do
+    name=${entry%%:*}
+    if command -v claude >/dev/null 2>&1; then
+      for cfg in $claude_cfgs; do
+        if [ "$(claude_mcp_command "$cfg" "$name")" = "$launcher" ]; then
+          claude_in "$cfg" mcp remove --scope user "$name" >/dev/null 2>&1 \
+            && echo "removed the $name MCP server from $(cfg_label "$cfg")"
+        fi
+      done
+    fi
+    if command -v codex >/dev/null 2>&1 && [ "$(codex_mcp_command "$name")" = "$launcher" ]; then
+      codex mcp remove "$name" >/dev/null 2>&1 && echo "removed the $name MCP server from Codex"
+    fi
+  done
   exit 0
 fi
 
@@ -202,44 +209,50 @@ for dir in $skill_dirs; do
   echo "skills linked in $dir"
 done
 
-# MCP server: agents use AblationKit only through `ablationkit mcp` (ADR 0040), at user scope so
-# it works in every registered project (it finds the project from the directory it starts in).
+# MCP servers, at user scope so they work in every registered project (they find the project
+# from the directory they start in): `ablationkit mcp` for agents doing the research (ADR 0040),
+# `ablationkit executive` for an agent on this machine overseeing it and running the agents (ADR
+# 0064).
 registered=0
 if [ "$mcp" = 1 ]; then
-  if command -v claude >/dev/null 2>&1; then
-    for cfg in $claude_cfgs; do
-      label=$(cfg_label "$cfg")
-      current=$(claude_mcp_command "$cfg")
-      if [ "$current" = "$launcher" ]; then
-        echo "MCP server already registered in $label"
-        continue
-      elif [ -n "$current" ]; then
-        if [ "$force" != 1 ]; then
-          echo "skipped $label: its ablationkit MCP server runs $current; pass --force to replace it"
+  for entry in $mcp_servers; do
+    name=${entry%%:*}
+    sub=${entry#*:}
+    if command -v claude >/dev/null 2>&1; then
+      for cfg in $claude_cfgs; do
+        label=$(cfg_label "$cfg")
+        current=$(claude_mcp_command "$cfg" "$name")
+        if [ "$current" = "$launcher" ]; then
+          echo "$name MCP server already registered in $label"
           continue
+        elif [ -n "$current" ]; then
+          if [ "$force" != 1 ]; then
+            echo "skipped $label: its $name MCP server runs $current; pass --force to replace it"
+            continue
+          fi
+          claude_in "$cfg" mcp remove --scope user "$name" >/dev/null 2>&1 || true
         fi
-        claude_in "$cfg" mcp remove --scope user ablationkit >/dev/null 2>&1 || true
-      fi
-      claude_in "$cfg" mcp add --scope user ablationkit -- "$launcher" mcp >/dev/null
-      echo "registered the ablationkit MCP server in $label"
-      registered=$((registered + 1))
-    done
-  else
-    echo "note: claude not found; register the MCP server later: claude mcp add --scope user ablationkit -- $launcher mcp"
-  fi
-  if [ -d "$codex_home" ] && command -v codex >/dev/null 2>&1; then
-    current=$(codex_mcp_command)
-    if [ "$current" = "$launcher" ]; then
-      echo "MCP server already registered in Codex"
-    elif [ -n "$current" ] && [ "$force" != 1 ]; then
-      echo "skipped Codex: its ablationkit MCP server runs $current; pass --force to replace it"
+        claude_in "$cfg" mcp add --scope user "$name" -- "$launcher" "$sub" >/dev/null
+        echo "registered the $name MCP server in $label"
+        registered=$((registered + 1))
+      done
     else
-      [ -n "$current" ] && codex mcp remove ablationkit >/dev/null 2>&1
-      codex mcp add ablationkit -- "$launcher" mcp >/dev/null
-      echo "registered the ablationkit MCP server in Codex"
-      registered=$((registered + 1))
+      echo "note: claude not found; register the MCP server later: claude mcp add --scope user $name -- $launcher $sub"
     fi
-  fi
+    if [ -d "$codex_home" ] && command -v codex >/dev/null 2>&1; then
+      current=$(codex_mcp_command "$name")
+      if [ "$current" = "$launcher" ]; then
+        echo "$name MCP server already registered in Codex"
+      elif [ -n "$current" ] && [ "$force" != 1 ]; then
+        echo "skipped Codex: its $name MCP server runs $current; pass --force to replace it"
+      else
+        [ -n "$current" ] && codex mcp remove "$name" >/dev/null 2>&1
+        codex mcp add "$name" -- "$launcher" "$sub" >/dev/null
+        echo "registered the $name MCP server in Codex"
+        registered=$((registered + 1))
+      fi
+    fi
+  done
 fi
 
 # Agent guard, on request (--guard): project-scoped rules that keep agents out of the

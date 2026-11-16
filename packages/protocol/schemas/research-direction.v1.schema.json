@@ -363,6 +363,12 @@
         }
       }
     },
+    "via_executive": {
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Written on the researcher's behalf by their executive agent (ADR 0064): its session's label. Absent: the researcher wrote it.",
+      "type": "string"
+    },
     "updated_at": {
       "title": "Timestamp",
       "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",

@@ -216,6 +216,13 @@ args = ["mcp"]</code></pre>
       </p>
      </div>
      <p>
+      For an agent on this machine that should oversee the research rather than do it, add the executive's server instead:
+      <code>
+       claude mcp add ablationkit-executive -- ablationkit executive
+      </code>
+      . It reads every project and runs the agents (starts, prompts, waits on, pauses and stops contained agents, and writes directions marked as its own), but cannot submit jobs, write notes or change policy.
+     </p>
+     <p>
       Set
       <a href="operations.html#permissions">
        agent permissions and compute limits
