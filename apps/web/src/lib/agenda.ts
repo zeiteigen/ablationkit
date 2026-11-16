@@ -67,6 +67,7 @@ export class AgendaStore {
   version = 0;
   private readonly listeners = new Set<() => void>();
   private loading: Promise<void> | undefined;
+  private stale = false;
 
   constructor(readonly pid: string) {}
 
@@ -85,7 +86,13 @@ export class AgendaStore {
   }
 
   load(): Promise<void> {
-    this.loading ??= api<AgendaView>(this.path)
+    // A change that lands while a read is in flight may postdate it: read once more after.
+    if (this.loading) {
+      this.stale = true;
+      return this.loading;
+    }
+    this.stale = false;
+    const read = api<AgendaView>(this.path)
       .then(
         (d) => {
           this.data = d;
@@ -99,6 +106,7 @@ export class AgendaStore {
         this.loading = undefined;
         this.bump();
       });
+    this.loading = read.then(() => (this.stale ? this.load() : undefined));
     return this.loading;
   }
 

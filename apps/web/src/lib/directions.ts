@@ -59,6 +59,7 @@ export class DirectionStore {
   composing: string | undefined;
   private subs = new Set<() => void>();
   private loading: Promise<void> | undefined;
+  private stale = false;
 
   constructor(readonly pid: string) {}
 
@@ -73,7 +74,13 @@ export class DirectionStore {
   }
 
   load(): Promise<void> {
-    this.loading ??= api<Listing>(`/api/v1/projects/${encodeURIComponent(this.pid)}/directions`)
+    // A change that lands while a read is in flight may postdate it: read once more after.
+    if (this.loading) {
+      this.stale = true;
+      return this.loading;
+    }
+    this.stale = false;
+    const read = api<Listing>(`/api/v1/projects/${encodeURIComponent(this.pid)}/directions`)
       .then(
         (d) => {
           this.data = d;
@@ -87,6 +94,7 @@ export class DirectionStore {
         this.loading = undefined;
         this.emit();
       });
+    this.loading = read.then(() => (this.stale ? this.load() : undefined));
     return this.loading;
   }
 

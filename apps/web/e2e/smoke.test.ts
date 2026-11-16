@@ -1607,7 +1607,15 @@ void mountReact(Demo);
     await go(`${proj()}/models/demos`);
     const d = page.frameLocator('iframe[title="x-demo: x playground"]');
     await d.getByRole("button", { name: "Predict" }).click();
-    await d.getByTestId("out").waitFor();
+    await d
+      .getByTestId("out")
+      .waitFor()
+      .catch((e: unknown) => {
+        // Name what the bridge saw (each call and its status) before failing.
+        const detail = svc.extensions.detail(stack.projectId, "x-demo") as { console?: unknown };
+        console.error("x-demo console:", JSON.stringify(detail.console, null, 1));
+        throw e;
+      });
     await d.getByRole("button", { name: "Save" }).click();
     const dialog = page.getByRole("dialog", { name: "Save this result as evidence?" });
     await dialog.getByText("x demo prediction").waitFor();

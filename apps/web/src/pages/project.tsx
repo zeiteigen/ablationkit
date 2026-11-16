@@ -34,7 +34,6 @@ import type { JobView } from "../lib/types.ts";
 import { cap, edDay, edName, fmtDay, plainLinks } from "../lib/vault.ts";
 import { useVaultStore } from "../lib/vault-store.ts";
 import { MODELS_TABS, RUNS_TABS, TASK_PROFILES } from "../nav.ts";
-import { navigate } from "../router.ts";
 import {
   ExtensionActions,
   ExtensionPanelLinks,
@@ -539,9 +538,8 @@ function RemoveProject(props: { pid: string }) {
   );
   const remove = useAction(async () => {
     await api(`/api/v1/projects/${encodeURIComponent(props.pid)}`, { method: "DELETE" });
-    // The sidebar and project switcher read the registry on load.
-    navigate("/");
-    location.reload();
+    // The sidebar and project switcher read the registry on load: one full navigation home.
+    location.assign("/");
   });
   const close = () => {
     setConfirming(false);
