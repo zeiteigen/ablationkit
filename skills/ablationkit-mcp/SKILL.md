@@ -40,6 +40,13 @@ when `timeout_sec` passes (default 600, at most 3600; keep it under your harness
 timeout) with what each job is doing, or at once when the researcher writes to you, with their
 words. Call it again to keep waiting; do other work between calls if there is any.
 
+**Off the GPU is not off the record.** When you may not use the GPU yet (the researcher, a
+direction or the agent that started you says to wait, or another job needs it to itself), hold
+your GPU jobs, and keep working through jobs with `gpu: "none"`: tests, checks, data preparation
+and analysis run beside the GPU job without touching it. Do not run the project's code in your
+own shell instead, on the CPU or with the GPU hidden (`CUDA_VISIBLE_DEVICES=`): nothing records it,
+and nothing counts it against the compute limit.
+
 ## The session
 
 - One MCP server process is one **agent session**: started when your harness connects, ended when

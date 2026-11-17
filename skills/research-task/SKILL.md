@@ -183,7 +183,10 @@ result that exists only in your chat reply is not recorded.
    (`bears_on` the claim). Pass `task_id` on every note you write under the task. Look for prior
    work on the claim and the questions before you design the runs (*Build on prior work* above),
    and come back to it whenever you are stuck.
-3. **Run.** `ablationkit_job submit` with `command` (argv), `runtime_max_sec`, `description` (what
+3. **Run.** Everything that runs the project's code is a job, tests and quick checks included:
+   `gpu: "none"` for work that needs no GPU, which also runs while you may not use the GPU yet
+   (hold GPU jobs until you may; never run the code in your shell instead).
+   `ablationkit_job submit` with `command` (argv), `runtime_max_sec`, `description` (what
    this run tests and why) and `run_name`; `target_id` for a remote target the policy allows;
    `study_id` and `variant_id` when the run belongs to a study; `metrics_file` (with
    `metrics_format` when its step and time keys have other names) for a script without the SDK;

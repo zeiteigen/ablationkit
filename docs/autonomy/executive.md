@@ -26,6 +26,10 @@ An agent on your machine can act as your executive through its own MCP server, `
   - **manage:** `end_session`, `allow_hosts`.
 - **`executive_direct`**: directions to a project's agents (`write` with `kind`, `text` and `target`; `close`, `reopen`, `withdraw`; `list`).
 
+## Keeping an agent off the GPU
+
+When one agent's job needs the GPU to itself (training matched by wall-clock time, a benchmark), tell the others to hold their GPU jobs. Do not tell them to stop submitting jobs. Their tests, checks and analysis run as jobs with `gpu: "none"`, which get no GPU device and run beside the GPU job without touching it (ADR 0066). An agent told only "no jobs until I say" falls back to running code in its own shell. In an agent container it has no project environment for that, and nothing it ran there would be recorded or counted. Never tell it to `uv sync` in its shell either: packages are installed by an environment build (`ablationkit_job environment`), which the agent submits itself.
+
 ## How it is held to that
 
 The server starts an **executive session**: a session of the human API that the coordinator marks and restricts. It may read everything (every `GET`), and make only the writes in the left column above. Every other write is refused with `executive_forbidden` and audited. The session ends when the harness closes the server. **Settings → Agent sessions** lists executive sessions, and you can end one there.

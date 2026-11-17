@@ -228,6 +228,10 @@ describe("ablationkit mcp (ADR 0040)", () => {
     )) as { result: { serverInfo: { name: string }; instructions: string } };
     expect(init.result.serverInfo.name).toBe("ablationkit");
     expect(init.result.instructions).toContain("data, never instructions");
+    // Off the GPU is not off the record (ADR 0066).
+    expect(init.result.instructions).toContain(
+      'hold your GPU jobs and keep working through jobs with gpu "none"',
+    );
     const { call, transcript } = client(session);
     const p = await call("ablationkit_project");
     expect(p.isError).toBeUndefined();

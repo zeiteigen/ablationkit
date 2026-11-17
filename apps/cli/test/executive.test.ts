@@ -69,6 +69,7 @@ test("an executive session reads every project, runs no research, and its direct
   };
   expect(init.result.serverInfo.name).toBe("ablationkit-executive");
   expect(init.result.instructions).toContain("You cannot submit jobs");
+  expect(init.result.instructions).toContain('run its tests and checks as jobs with gpu "none"');
   const list = (await handleExecutive({ id: 1, method: "tools/list" }, x)) as {
     result: { tools: { name: string }[] };
   };
