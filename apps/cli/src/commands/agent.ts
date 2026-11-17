@@ -33,8 +33,8 @@ import {
 
 const USAGE = `usage:
   ablationkit agent start [--project ID] [--harness claude-code|codex|shell] [--label TEXT]
-                          [--harness-binary PATH] [--no-login | --login-from DIR] [--detach]
-                          [-- HARNESS_ARGS...]
+                          [--harness-binary PATH] [--no-login | --login-from DIR]
+                          [--no-remote-control] [--detach] [-- HARNESS_ARGS...]
   ablationkit agent attach SESSION
   ablationkit agent list [--project ID]
   ablationkit agent show SESSION
@@ -51,7 +51,10 @@ const USAGE = `usage:
   (most take --json; all but attach and image build take --coordinator URL)
 
 Claude Code starts signed in: your login in ~/.claude (or --login-from DIR) is copied in and kept
-in step while the session runs; --no-login signs in inside instead (ADR 0063).
+in step while the session runs; --no-login signs in inside instead (ADR 0063). It starts in bypass
+permissions mode (the container is the boundary; \`-- --permission-mode MODE\` chooses another)
+with Remote Control on, named for the project and label (--no-remote-control: off), and without
+its management tools: no auto memory, Artifacts, scheduling or messages to other sessions (ADR 0067).
 Runs your harness in a rootless Podman container (ADR 0061): no GPU, no network but the project's
 egress allowlist, no view of ~/.ablationkit, no project environment; its code runs as jobs in job
 containers, with the GPU unless a job asks for none, in the environment its environment builds
@@ -180,6 +183,7 @@ export async function agentCommand(argv: readonly string[], ctx: CliContext): Pr
     "stdin",
     "no-enter",
     "no-login",
+    "no-remote-control",
     "environment",
   ]);
   const asJson = args.flags["json"] === true;
@@ -253,6 +257,7 @@ export async function agentCommand(argv: readonly string[], ctx: CliContext): Pr
           copy: args.flags["no-login"] !== true,
           ...(loginFrom ? { from: resolve(loginFrom) } : {}),
         },
+        ...(args.flags["no-remote-control"] === true ? { remote_control: false } : {}),
       },
     );
     if (asJson) {
@@ -263,12 +268,18 @@ export async function agentCommand(argv: readonly string[], ctx: CliContext): Pr
     if (s.boundary.hidden.length) ctx.out(`  hidden: ${s.boundary.hidden.join(", ")}\n`);
     if (s.boundary.read_only.length) ctx.out(`  read-only: ${s.boundary.read_only.join(", ")}\n`);
     ctx.out(`  egress: ${s.boundary.egress}; no GPU; jobs run in job containers\n`);
-    if (s.harness === "claude-code")
+    if (s.harness === "claude-code") {
       ctx.out(
         s.login
           ? `  login: yours, copied from ${s.login.source} and kept in step while it runs\n`
           : "  login: none copied (sign in inside the container)\n",
       );
+      ctx.out(
+        args.flags["no-remote-control"] === true
+          ? "  remote control: off\n"
+          : "  remote control: on, in claude.ai/code and the Claude app\n",
+      );
+    }
     if (args.flags["detach"] === true || !s.attach) {
       ctx.out(`attach with: ablationkit agent attach ${s.session_id}\n`);
       return 0;

@@ -321,6 +321,21 @@ args = ["mcp"]</code></pre>
         </code>
         .
        </p>
+       <p>
+        Claude Code starts in bypass permissions mode, because the container is the boundary. To start it in another mode, pass the mode after
+        <code>
+         --
+        </code>
+        , for example
+        <code>
+         ablationkit agent start -- --permission-mode default
+        </code>
+        . Remote Control is on: the session appears in claude.ai/code and the Claude app as the project and label, and you can follow it and type into it from there (
+        <code>
+         --no-remote-control
+        </code>
+        starts it without). Claude Code's own management tools are off: it keeps no auto memory, publishes no Artifacts, schedules nothing and does not message your other sessions. What it learns goes in the vault.
+       </p>
       </li>
       <li>
        <h3>

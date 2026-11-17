@@ -33,6 +33,12 @@ In a registered checkout, `ablationkit agent start` starts Claude Code; `--harne
 - what changed in the project's environment;
 - the shell commands the harness's transcript holds.
 
+**How Claude Code starts in a container** (ADR 0067):
+
+- **Bypass permissions.** It asks no permissions, since the container is the boundary. To start it in another mode, pass the mode as a harness argument: `ablationkit agent start -- --permission-mode default`.
+- **Remote Control on.** The session is listed in claude.ai/code and the Claude app as `PROJECT · LABEL`, and you can follow and type into it from there. `--no-remote-control` starts it without. What you type there is in the harness's transcript; unlike `agent send`, it is not audited by the coordinator.
+- **No management tools.** Claude Code's managed settings, mounted read-only at `/etc/claude-code/managed-settings.json`, turn off auto memory and Artifacts, and deny the tools that schedule work (cron jobs, wake-ups, cloud routines), reach the account's other sessions, or publish Artifacts and design systems. What an agent learns goes in the vault; it waits for its jobs with `ablationkit_wait`. The shell, files, the web, subagents and skills stay.
+
 ## The environment and jobs
 
 The agent container has no project environment (ADR 0066). It has no `uv` or `pip` either: stand-ins with those names say what to do instead. The checkout's own `.venv` is hidden from it. Everything that runs the project's code is a job, so it is recorded and counted:
@@ -97,6 +103,8 @@ These do not hold:
 - Hidden paths inside the checkout stay in Git history.
 - A protected evaluation runs the agent's code with the data mounted; that code could encode what it read in the metrics it logs.
 - Remote targets run jobs where they always did.
+- Claude Code, not the container, enforces the barred tools and the absence of memory. The agent cannot change the managed settings, but its shell can still write notes to itself anywhere in its home, which is kept between sessions; they are no longer loaded as memory.
+- With Remote Control on, Claude Code also sends its usage reporting. Reporting to Anthropic's hosts goes through. Its Datadog host is not on the allowlist, so it shows as a refused host in the session's egress.
 - Your Claude Code login is in the container while it runs, readable by the agent. A renewal it makes is carried back to `~/.claude`, so a hostile agent could replace your login with a broken one; a backup is kept. Use `--no-login` to keep a separate login.
 - The checkout is bind-mounted, so the files a session changed include your own edits made meanwhile.
 - HTTPS egress is recorded by host only.

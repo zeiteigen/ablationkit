@@ -19,7 +19,14 @@
  * Python installs and the environment allowlist.
  */
 import type { ContainerHarness } from "@ablationkit/protocol";
-import { HARNESSES, harnessArgv } from "./harness.ts";
+import {
+  CLAUDE_MANAGED_SETTINGS,
+  CLAUDE_MANAGED_SETTINGS_FILE,
+  HARNESSES,
+  type HarnessDefaults,
+  harnessArgv,
+  harnessEnv,
+} from "./harness.ts";
 import { CONTAINER, CONTAINER_PATH, EGRESS_PORT } from "./paths.ts";
 
 export { CONTAINER, CONTAINER_PATH, CREDENTIAL_PORT, EGRESS_PORT } from "./paths.ts";
@@ -51,6 +58,8 @@ export interface AgentContainerInput {
   readonly readOnly: readonly string[];
   readonly harness: ContainerHarness;
   readonly args: readonly string[];
+  /** Claude Code: start Remote Control under this name (ADR 0067); none, not at all. */
+  readonly remoteControl?: string;
   /** More environment: credential routes, the harness's own. */
   readonly env: Readonly<Record<string, string>>;
 }
@@ -183,6 +192,7 @@ function envDirs(dirs: JobContainerInput["dirs"], build: boolean): string[] {
 /** `podman run …` for one agent container session, attached to a terminal. */
 export function agentContainerArgs(i: AgentContainerInput): string[] {
   const h = HARNESSES[i.harness];
+  const defaults: HarnessDefaults = i.remoteControl ? { remoteControl: i.remoteControl } : {};
   return [
     "run",
     ...common(`ak-agent-${i.sessionId}`),
@@ -212,7 +222,7 @@ export function agentContainerArgs(i: AgentContainerInput): string[] {
       ABLATIONKIT_PROJECT: i.projectId,
       ABLATIONKIT_AGENT_SOCKET: `${CONTAINER.run}/agent.sock`,
       ABLATIONKIT_AGENT_TOKEN_FILE: `${CONTAINER.run}/token`,
-      ...h.env,
+      ...harnessEnv(i.harness, defaults),
       ...i.env,
     }),
     ...bind(i.checkout, i.checkout, "rw"),
@@ -224,6 +234,11 @@ export function agentContainerArgs(i: AgentContainerInput): string[] {
       ? bind(i.tools.harness, `${CONTAINER.bin}/${h.binary}`, "ro")
       : []),
     ...bind(i.dirs.run, CONTAINER.run, "ro"),
+    // Claude Code's managed settings (ADR 0067), from the run directory: read-only, above the
+    // settings in the agent's home and the checkout.
+    ...(i.harness === "claude-code"
+      ? bind(`${i.dirs.run}/${CLAUDE_MANAGED_SETTINGS_FILE}`, CLAUDE_MANAGED_SETTINGS, "ro")
+      : []),
     ...bind(i.dirs.home, CONTAINER.home, "rw"),
     "--workdir",
     i.checkout,
@@ -231,7 +246,7 @@ export function agentContainerArgs(i: AgentContainerInput): string[] {
     `${CONTAINER.bin}/bun`,
     initScript(i.tree),
     "--",
-    ...harnessArgv(i.harness, i.args),
+    ...harnessArgv(i.harness, i.args, defaults),
   ];
 }
 

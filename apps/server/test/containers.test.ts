@@ -254,14 +254,27 @@ describe("agent container sessions", () => {
     expect(joined).toContain(`${w.repo}/data:${w.repo}/data:ro`);
     expect(joined).toContain(`${w.mount(s.session_id)}:/run/ablationkit:ro`);
     expect(joined).not.toContain(join(w.cl.c.services.paths.home, "run", "login.sock"));
-    // The researcher's arguments (a first prompt among them) before the variadic --mcp-config.
-    expect(args.slice(-5)).toEqual([
+    // Bypass permissions and Remote Control (named for the project and label) by default, then
+    // the researcher's arguments (a first prompt among them) before the variadic --mcp-config.
+    expect(args.slice(-9)).toEqual([
+      "--permission-mode",
+      "bypassPermissions",
+      "--remote-control",
+      "lab · sweep",
       "--model",
       "opus",
       "--mcp-config",
       "/run/ablationkit/mcp.json",
       "--strict-mcp-config",
     ]);
+    // Claude Code's management tools barred by managed settings it reads first (ADR 0067).
+    const managed = join(w.mount(s.session_id), "claude-managed-settings.json");
+    expect(JSON.parse(readFileSync(managed, "utf8"))).toMatchObject({
+      autoMemoryEnabled: false,
+      enableArtifact: false,
+      permissions: { deny: expect.arrayContaining(["RemoteTrigger", "Artifact"]) },
+    });
+    expect(joined).toContain(`${managed}:/etc/claude-code/managed-settings.json:ro`);
     expect(s.boundary).toMatchObject({ gpu: false, network: "none", egress: "allowlist" });
     expect(s.boundary.hidden).toContain(`${w.repo}/eval`);
     // Listed for the researcher, with the runtime's report.
@@ -379,6 +392,16 @@ describe("agent container sessions", () => {
     const own = (await w.start({ login: { copy: false } })).body;
     expect(own.login).toBeUndefined();
     expect(existsSync(box)).toBe(false);
+  });
+
+  test("remote_control: false starts Claude Code without Remote Control (ADR 0067)", async () => {
+    const w = await setup();
+    const s = (await w.start({ remote_control: false, label: "quiet" })).body;
+    const argsFile = join(w.f.dir, `ak-agent-${s.session_id}.args`);
+    await w.until("podman run", () => existsSync(argsFile));
+    const args = readFileSync(argsFile, "utf8").trimEnd().split("\n");
+    expect(args).not.toContain("--remote-control");
+    expect(args).toContain("bypassPermissions");
   });
 
   test("an over-long first prompt is refused before anything starts, and no token is left behind", async () => {

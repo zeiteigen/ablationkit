@@ -3,7 +3,10 @@ import { validateContainerConfig } from "@ablationkit/protocol";
 import {
   agentContainerArgs,
   agentToolShims,
+  CLAUDE_MANAGED_SETTINGS,
+  CLAUDE_MANAGED_SETTINGS_FILE,
   CONTAINER,
+  claudeManagedSettings,
   commandsInTranscriptLine,
   commandsInTranscripts,
   configProblems,
@@ -14,6 +17,7 @@ import {
   environmentAllow,
   environmentBuildArgv,
   filesChanged,
+  harnessArgv,
   hostAllowed,
   isPublicAddress,
   jobContainerArgs,
@@ -23,6 +27,7 @@ import {
   parseNameStatus,
   parsePattern,
   parsePorcelain,
+  remoteControlName,
   resolveConfigPath,
   shellQuote,
   within,
@@ -209,12 +214,81 @@ describe("podman command lines", () => {
     ]);
     expect(a.slice(i + 4)).toEqual([
       "/opt/ablationkit/bin/claude",
+      "--permission-mode",
+      "bypassPermissions",
       "--model",
       "opus",
       "--mcp-config",
       "/run/ablationkit/mcp.json",
       "--strict-mcp-config",
     ]);
+  });
+
+  test("Claude Code: bypass permissions and Remote Control by default, its management tools barred (ADR 0067)", () => {
+    const a = agentContainerArgs({ ...base, args: ["--", "go"], remoteControl: "demo · sweep" });
+    const s = a.join(" ");
+    // Managed settings from the run directory, read-only, where Claude Code reads them first.
+    expect(s).toContain(
+      `${base.dirs.run}/${CLAUDE_MANAGED_SETTINGS_FILE}:${CLAUDE_MANAGED_SETTINGS}:ro`,
+    );
+    expect(s).toContain("CLAUDE_CODE_DISABLE_AUTO_MEMORY=1");
+    expect(s).toContain("CLAUDE_CODE_DISABLE_ARTIFACT=1");
+    expect(s).toContain("CLAUDE_CODE_DISABLE_CRON=1");
+    // Remote Control needs Claude Code's feature flags: the narrower switches stand in.
+    expect(s).not.toContain("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC");
+    expect(s).toContain("DISABLE_AUTOUPDATER=1");
+    expect(s).toContain("DISABLE_ERROR_REPORTING=1");
+    // The name always follows --remote-control, so it never takes the first prompt for one.
+    const i = a.indexOf("/opt/ablationkit/bin/claude");
+    expect(a.slice(i + 1, i + 7)).toEqual([
+      "--permission-mode",
+      "bypassPermissions",
+      "--remote-control",
+      "demo · sweep",
+      "--",
+      "go",
+    ]);
+    const settings = claudeManagedSettings();
+    expect(settings).toMatchObject({
+      skipDangerousModePermissionPrompt: true,
+      autoMemoryEnabled: false,
+      autoDreamEnabled: false,
+      enableArtifact: false,
+    });
+    const deny = (settings["permissions"] as { deny: string[] }).deny;
+    for (const t of ["CronCreate", "ScheduleWakeup", "RemoteTrigger", "SendMessage", "Artifact"])
+      expect(deny).toContain(t);
+    // Work tools stay.
+    for (const t of ["Bash", "Edit", "Write", "Read", "Agent", "Skill", "WebFetch"])
+      expect(deny).not.toContain(t);
+  });
+
+  test("Claude Code: the researcher's own permission mode and Remote Control name win", () => {
+    expect(harnessArgv("claude-code", ["--permission-mode", "plan"])).not.toContain(
+      "bypassPermissions",
+    );
+    expect(harnessArgv("claude-code", ["--permission-mode=default"])).not.toContain(
+      "bypassPermissions",
+    );
+    expect(harnessArgv("claude-code", ["--dangerously-skip-permissions"])).not.toContain(
+      "--permission-mode",
+    );
+    const own = harnessArgv("claude-code", ["--rc", "mine"], { remoteControl: "demo · x" });
+    expect(own.filter((x) => x === "--remote-control" || x === "--rc")).toEqual(["--rc"]);
+    expect(own).not.toContain("demo · x");
+    // Off: no Remote Control. Other harnesses get neither, nor the managed settings.
+    expect(harnessArgv("claude-code", [])).not.toContain("--remote-control");
+    expect(harnessArgv("codex", [], { remoteControl: "demo · x" })).not.toContain(
+      "--remote-control",
+    );
+    const codex = agentContainerArgs({
+      ...base,
+      harness: "codex",
+      tools: { ...base.tools, harness: "/host/codex" },
+    }).join(" ");
+    expect(codex).not.toContain(CLAUDE_MANAGED_SETTINGS);
+    expect(remoteControlName("demo", "  a\n  sweep ")).toBe("demo · a sweep");
+    expect(remoteControlName("demo", "x".repeat(300))).toHaveLength(120);
   });
 
   test("codex is registered with -c overrides", () => {

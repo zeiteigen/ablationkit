@@ -86,6 +86,7 @@ export const CONTAINER_ROUTES: readonly Route<HumanHandler>[] = [
           binaries: { ...(harnessBin ? { harness: harnessBin } : {}) },
           git: { ...(name ? { name } : {}), ...(email ? { email } : {}) },
           login: { copy: login["copy"] !== false, ...(loginFrom ? { from: loginFrom } : {}) },
+          remote_control: body["remote_control"] !== false,
         },
         by(c),
       );

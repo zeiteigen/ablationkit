@@ -48,7 +48,9 @@ import {
   agentContainerArgs,
   agentToolShims,
   CONTAINER,
+  CLAUDE_MANAGED_SETTINGS_FILE,
   CREDENTIAL_PORT,
+  claudeManagedSettings,
   claudeMcpConfig,
   cliWrapper,
   commandsInTranscripts,
@@ -67,6 +69,7 @@ import {
   parseDistInfo,
   parseNameStatus,
   parsePorcelain,
+  remoteControlName,
   resolveConfigPath,
   shellQuote,
   within,
@@ -152,6 +155,11 @@ export interface StartInput {
    * Claude Code configuration directory (default `~/.claude`), or `copy: false` to sign in inside.
    */
   readonly login?: { readonly copy?: boolean; readonly from?: string };
+  /**
+   * Claude Code only (ADR 0067): start Remote Control, named for the project and the label, so
+   * the researcher can follow and drive the session from claude.ai or the Claude app. Default on.
+   */
+  readonly remote_control?: boolean;
 }
 
 export interface ContainerAccount {
@@ -668,6 +676,12 @@ export class ContainerService {
       writeFileSync(join(mount, "mcp.json"), `${JSON.stringify(claudeMcpConfig(), null, 2)}\n`, {
         mode: 0o600,
       });
+      if (input.harness === "claude-code")
+        writeFileSync(
+          join(mount, CLAUDE_MANAGED_SETTINGS_FILE),
+          `${JSON.stringify(claudeManagedSettings(), null, 2)}\n`,
+          { mode: 0o600 },
+        );
       writeFileSync(join(mount, "bin", "ablationkit"), cliWrapper(this.tree), { mode: 0o755 });
       for (const [name, text] of Object.entries(agentToolShims()))
         writeFileSync(join(mount, "bin", name), text, { mode: 0o755 });
@@ -747,6 +761,9 @@ export class ContainerService {
         readOnly,
         harness: input.harness,
         args,
+        ...(input.harness === "claude-code" && input.remote_control !== false
+          ? { remoteControl: remoteControlName(pid, label) }
+          : {}),
         env: credEnv,
       };
       const argv = [rt.binary, ...agentContainerArgs(plan)];
