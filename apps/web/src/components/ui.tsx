@@ -44,6 +44,8 @@ export function attemptTone(state: string | undefined): Tone {
     case "running":
     case "starting":
       return "info";
+    case "queued":
+      return "warn";
     case "failed":
     case "oom_killed":
     case "timed_out":

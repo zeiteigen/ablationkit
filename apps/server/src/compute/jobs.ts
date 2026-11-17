@@ -33,6 +33,7 @@ import {
   type EventEnvelope,
   type IngestState,
   type JobLimits,
+  type JobPlacement,
   type JobRecord,
   type MetricsFormat,
   TERMINAL_ATTEMPT_STATES,
@@ -120,6 +121,20 @@ export interface SubmitInput {
   readonly container?: JobRecord["container"];
   /** No GPU (ADR 0066): none in a job container; `CUDA_VISIBLE_DEVICES` empty outside one. */
   readonly gpu?: "none";
+  /**
+   * An agent's job (ADR 0068): queued, then placed by AblationKit on a target of the project's
+   * pool with a free slot; `local_only` for protected evaluations and environment builds.
+   */
+  readonly queue?: { readonly local_only?: boolean };
+}
+
+/** Where agents' jobs may run and how many at once (ADR 0068): the compute limit service. */
+export interface JobPlacementSource {
+  /** The project's pool, in the order targets are tried: `local` first, then remote targets. */
+  pool(projectId: string): readonly { readonly target_id: string; readonly slots: number }[];
+  /** How many jobs needing a GPU run on a target at once. */
+  slotsOf(targetId: string): number;
+  weightOf(targetId: string): number;
 }
 
 export interface JobServiceOptions {
@@ -157,6 +172,8 @@ export interface JobServiceOptions {
   readonly remote?: () => RemoteService | undefined;
   /** Job containers for jobs a contained agent session submits (ADR 0061). */
   readonly containers?: () => JobContainers | undefined;
+  /** Agents' jobs: their pool and the targets' slots (ADR 0068). */
+  readonly placement?: () => JobPlacementSource | undefined;
 }
 
 /** What the job runner asks of the agent containers service (ADR 0061). */
@@ -227,6 +244,8 @@ export class JobService {
   private readonly drains = new Map<string, number>();
   private probeResult: SupervisorProbe | undefined;
   private watchdog: ReturnType<typeof setInterval> | undefined;
+  private placing = false;
+  private placeAgain = false;
   readonly loadProblems: string[] = [];
 
   constructor(private readonly o: JobServiceOptions) {}
@@ -480,6 +499,36 @@ export class JobService {
   }
 
   submit(input: SubmitInput): { job: JobRecord; attempt: AttemptRecord } {
+    if (input.queue) throw new Error("a queued job goes through enqueue()");
+    const job = this.build(input);
+    const attempt = this.launchAttempt(job);
+    return { job: this.require(job.job_id), attempt };
+  }
+
+  /**
+   * An agent's job (ADR 0068): queued, and placed at once when a target of its pool has a free
+   * slot. Returns the job as it is after that: `queued`, or started.
+   */
+  enqueue(input: SubmitInput & { readonly queue: { readonly local_only?: boolean } }): JobRecord {
+    if (input.target_id !== undefined)
+      throw new HttpError(400, "invalid_request", "a queued job is placed, not given a target");
+    const job = this.build(input);
+    // What would stop it on this machine is a refusal now, not a failure once placed.
+    if (
+      this.o
+        .placement?.()
+        ?.pool(job.project_id)
+        .some((t) => t.target_id === "local")
+    )
+      this.preflightLocal(job);
+    this.saveJob(job);
+    this.publishJob(job);
+    this.placeQueued();
+    return this.require(job.job_id);
+  }
+
+  /** The job record a submission makes, checked; nothing is saved or started. */
+  private build(input: SubmitInput): JobRecord {
     const project = this.o.registry.require(input.project_id);
     if (input.command.length === 0 || input.command.some((c) => typeof c !== "string"))
       throw new HttpError(400, "invalid_request", "`command` must be a non-empty array of strings");
@@ -580,18 +629,219 @@ export class JobService {
       ...(input.via_extension ? { via_extension: input.via_extension } : {}),
       ...(input.container ? { container: { ...input.container } } : {}),
       ...(input.gpu === "none" ? { gpu: "none" as const } : {}),
-      state: "starting",
+      ...(input.queue
+        ? {
+            placement: {
+              queued_at: ts,
+              ...(input.queue.local_only ? { local_only: true as const } : {}),
+            },
+          }
+        : {}),
+      state: input.queue ? "queued" : "starting",
       attempts: [],
       created_at: ts,
       updated_at: ts,
     };
     validateJobRecord(job);
-    const attempt = this.launchAttempt(job);
-    return { job: this.require(job.job_id), attempt };
+    return job;
+  }
+
+  /**
+   * What must hold for a job to start on this machine: a contained session's job needs a job
+   * container (runtime, image, a built and current environment). Returns whether it runs in one.
+   */
+  private preflightLocal(job: JobRecord): boolean {
+    const containers = this.o.containers?.();
+    const inContainer = containers?.contained(job) === true;
+    if (job.container && !inContainer)
+      throw new HttpError(
+        503,
+        "container_runtime_unavailable",
+        "this job came from an agent container session and runs only in a job container, which this coordinator cannot start",
+      );
+    if (inContainer) containers?.checkJob(job);
+    return inContainer;
+  }
+
+  // ------------------------------------------------------------------ placement (ADR 0068)
+
+  /** Place queued jobs soon (an attempt ended, a slot or the policy changed). */
+  schedule(): void {
+    queueMicrotask(() => {
+      try {
+        this.placeQueued();
+      } catch (e) {
+        this.o.log(`job placement failed: ${(e as Error).message}`);
+      }
+    });
+  }
+
+  /** Jobs needing a GPU live on each target: `local`, or a remote target's ID. */
+  occupancy(): Map<string, number> {
+    const busy = new Map<string, number>();
+    for (const a of this.attempts.values()) {
+      if (isTerminal(a.state)) continue;
+      const job = this.jobs.get(a.job_id);
+      if (!job) continue;
+      const key = a.remote ? job.target_id : job.gpu === "none" ? undefined : "local";
+      if (key) busy.set(key, (busy.get(key) ?? 0) + 1);
+    }
+    return busy;
+  }
+
+  /** Queued jobs, oldest first. */
+  queued(projectId?: string): JobRecord[] {
+    return [...this.jobs.values()]
+      .filter((j) => j.state === "queued" && (!projectId || j.project_id === projectId))
+      .sort((a, b) => a.created_at.localeCompare(b.created_at) || a.job_id.localeCompare(b.job_id));
+  }
+
+  /**
+   * Where a queued job goes now, or what it waits for. In pool order, the first target with a
+   * free slot; a job without a GPU runs on this machine without one.
+   */
+  private choose(
+    job: JobRecord,
+    src: JobPlacementSource,
+    busy: ReadonlyMap<string, number>,
+  ): { target: string; slot: boolean } | { waiting: string } {
+    const pool = src
+      .pool(job.project_id)
+      .filter((t) => !job.placement?.local_only || t.target_id === "local");
+    if (!pool.length)
+      return {
+        waiting: job.placement?.local_only
+          ? "this machine is not in the project's pool (the policy's jobs.run_local denies it): the researcher allows it in Project settings → Agent permissions"
+          : "the project's pool is empty (the policy allows agents no target): the researcher allows local jobs or remote targets in Project settings → Agent permissions",
+      };
+    for (const t of pool) {
+      if (t.target_id === "local" && job.gpu === "none") return { target: "local", slot: false };
+      if ((busy.get(t.target_id) ?? 0) < t.slots) return { target: t.target_id, slot: true };
+    }
+    return {
+      waiting: `every slot in the pool is busy (${pool
+        .map((t) => `${t.target_id} ${busy.get(t.target_id) ?? 0}/${t.slots}`)
+        .join(", ")})`,
+    };
+  }
+
+  /** Place what can be placed, oldest first; the rest wait, saying what for. */
+  private placeQueued(): void {
+    if (this.placing) {
+      this.placeAgain = true;
+      return;
+    }
+    const src = this.o.placement?.();
+    if (!src) return;
+    this.placing = true;
+    try {
+      do {
+        this.placeAgain = false;
+        const busy = this.occupancy();
+        for (const job of this.queued()) {
+          if (!this.o.registry.get(job.project_id)) continue;
+          const c = this.choose(job, src, busy);
+          if ("waiting" in c) {
+            if (job.placement?.waiting !== c.waiting) {
+              const next: JobRecord = {
+                ...job,
+                placement: { ...(job.placement as JobPlacement), waiting: c.waiting },
+              };
+              this.saveJob(next);
+              this.publishJob(next);
+            }
+            continue;
+          }
+          if (c.slot) busy.set(c.target, (busy.get(c.target) ?? 0) + 1);
+          this.place(job, c.target, src.weightOf(c.target));
+        }
+      } while (this.placeAgain);
+    } finally {
+      this.placing = false;
+    }
+  }
+
+  /** Start a queued job on `target`; one that cannot start there fails, saying why. */
+  private place(job: JobRecord, target: string, weight: number): void {
+    const ts = this.o.now().toISOString();
+    const { waiting: _w, ...rest } = job.placement as JobPlacement;
+    const placed: JobRecord = {
+      ...job,
+      ...(target === "local" ? {} : { target_id: target }),
+      ...(job.submitted_by.kind === "agent" ? { compute_weight_hundredths: weight } : {}),
+      placement: { ...rest, placed_at: ts, target },
+      updated_at: ts,
+    };
+    try {
+      if (target !== "local")
+        this.requireRemote().check(target, {
+          // The researcher's policy put a paid target in the pool: that is the cost accepted.
+          acceptCost: true,
+          ...(job.limits.runtime_max_sec ? { runtimeSec: job.limits.runtime_max_sec } : {}),
+        });
+      this.saveJob(placed);
+      this.launchAttempt(placed);
+    } catch (e) {
+      const error = `could not start on ${target}: ${(e as Error).message}`.slice(0, 2000);
+      const failed: JobRecord = {
+        ...placed,
+        state: "failed",
+        placement: { ...(placed.placement as JobPlacement), error },
+        updated_at: ts,
+      };
+      this.saveJob(failed);
+      this.publishJob(failed);
+      this.o.log(`job ${job.job_id}: ${error}`);
+    }
+    this.o.audit.record({
+      actor: { kind: "system" },
+      listener: "internal",
+      action: "job.place",
+      outcome: this.require(job.job_id).state === "failed" ? "error" : "allowed",
+      project_id: job.project_id,
+      target: job.job_id,
+      details: {
+        target,
+        waited_sec: Math.round((Date.parse(ts) - Date.parse(job.created_at)) / 1000),
+      },
+    });
+  }
+
+  /** Take a queued job out of the queue: it ends `cancelled`, never having run. */
+  dequeue(jobId: string): JobRecord {
+    const job = this.require(jobId);
+    if (job.state !== "queued")
+      throw new HttpError(409, "not_queued", `job ${jobId} is ${job.state}, not queued`);
+    const { waiting: _w, ...rest } = job.placement as JobPlacement;
+    const done: JobRecord = {
+      ...job,
+      state: "cancelled",
+      placement: rest,
+      updated_at: this.o.now().toISOString(),
+    };
+    this.saveJob(done);
+    this.publishJob(done);
+    return done;
+  }
+
+  private publishJob(job: JobRecord): void {
+    this.o.events.publish(
+      job.project_id,
+      "job.state",
+      compact({
+        job_id: job.job_id,
+        state: job.state,
+        target: job.placement?.target,
+        waiting: job.placement?.waiting,
+        error: job.placement?.error,
+      }),
+    );
   }
 
   retry(jobId: string, opts: { acceptCost?: boolean } = {}): AttemptRecord {
     const job = this.require(jobId);
+    if (job.state === "queued")
+      throw new HttpError(409, "queued", `job ${jobId} is queued: it starts when a slot is free`);
     if (job.target_id)
       this.requireRemote().check(job.target_id, {
         acceptCost: opts.acceptCost === true,
@@ -610,6 +860,12 @@ export class JobService {
 
   cancel(jobId: string): AttemptRecord {
     const job = this.require(jobId);
+    if (job.state === "queued")
+      throw new HttpError(
+        409,
+        "queued",
+        `job ${jobId} is queued: take it out of the queue instead`,
+      );
     const a = this.latestAttempt(job);
     if (!a || isTerminal(a.state))
       throw new HttpError(409, "not_running", `job ${jobId} has no running attempt`);
@@ -695,14 +951,7 @@ export class JobService {
     // A contained session's job (ADR 0061): its job container is planned before anything starts,
     // so a missing runtime, image or GPU is a refusal, not a failed attempt.
     const containers = job.target_id ? undefined : this.o.containers?.();
-    const inContainer = containers?.contained(job) === true;
-    if (job.container && !job.target_id && !inContainer)
-      throw new HttpError(
-        503,
-        "container_runtime_unavailable",
-        "this job came from an agent container session and runs only in a job container, which this coordinator cannot start",
-      );
-    if (inContainer) containers?.checkJob(job);
+    const inContainer = job.target_id ? false : this.preflightLocal(job);
     // Tracking first: a full outbox is backpressure, and nothing has started yet.
     try {
       this.o.tracking.startRun(
@@ -987,6 +1236,8 @@ export class JobService {
     this.o.tokens.markJobTerminal(a.job_id, this.o.now());
     this.closeConsole(a.attempt_id);
     if (a.supervisor.container) this.o.containers?.()?.attemptEnded(done, this.jobs.get(a.job_id));
+    // A slot may be free.
+    this.schedule();
     return done;
   }
 
@@ -1645,12 +1896,15 @@ export class JobService {
       }
     }
     this.reconcile();
+    this.schedule();
     this.watchdog = setInterval(() => {
       try {
         this.reconcile();
       } catch (e) {
         this.o.log(`job reconcile failed: ${(e as Error).message}`);
       }
+      // A policy, a slot count or a target changed: queued jobs may be placeable.
+      this.schedule();
     }, this.o.watchdogMs ?? WATCHDOG_MS);
   }
 

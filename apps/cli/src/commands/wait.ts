@@ -224,14 +224,21 @@ async function status(
   // "running", "starting, staging", "running (job ended (worker exit 75))": the provider's word
   // only when it adds something.
   const provider = r?.provider_state;
+  const placement = (j as { placement?: { target?: string; waiting?: string; error?: string } })
+    .placement;
   const where = r
     ? `${state}${r.staging && r.staging !== "submitted" ? `, ${r.staging}` : ""}${provider && !provider.startsWith(state) ? ` (${provider})` : ""}`
-    : state;
+    : state === "queued" && placement?.waiting
+      ? `queued (${placement.waiting})`
+      : placement?.error && !a
+        ? `${state} (${placement.error})`
+        : state;
   const view: Json = {
     job_id: j.job_id,
     ...(j.run_name ? { run_name: j.run_name } : {}),
     state,
     ready,
+    ...(placement ? { placement } : {}),
     ...(results ? { results } : {}),
     ...(a
       ? {

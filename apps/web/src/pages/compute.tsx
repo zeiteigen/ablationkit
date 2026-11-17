@@ -609,6 +609,15 @@ interface WeightRow {
   kind: string;
   weight: number;
   default: boolean;
+  /** Jobs needing a GPU at once there (ADR 0068). */
+  slots: number;
+  slots_default: boolean;
+}
+
+/** A slot count as typed: a whole number from 1 to 64, or an error to show. */
+function parseSlotsInput(v: string): number | { error: string } {
+  const n = Number(v.trim());
+  return Number.isInteger(n) && n >= 1 && n <= 64 ? n : { error: "a whole number from 1 to 64" };
 }
 
 interface ComputeOverview {
@@ -619,7 +628,7 @@ interface ComputeOverview {
 
 function useOverview() {
   const o = useApi<ComputeOverview>("/api/v1/compute");
-  useEvents(() => o.reload(), { types: ["job.attempt.state", "policy.revised"] });
+  useEvents(() => o.reload(), { types: ["job.state", "job.attempt.state", "policy.revised"] });
   return o;
 }
 
@@ -632,7 +641,8 @@ function AgentCompute() {
       <h2>Agent compute</h2>
       <p className="faint small">
         Weighted hours of agent-submitted jobs against each project's limit. Running jobs reserve
-        the rest of their time limit. Raise a limit in the project's settings.
+        the rest of their time limit, and queued ones all of it. Raise a limit in the project's
+        settings.
       </p>
       <ErrorBox error={o.error} />
       {!o.data ? <Loading /> : null}
@@ -668,7 +678,10 @@ function AgentCompute() {
                     ) : null}
                   </td>
                   <td className="nowrap">{fmtWeightedHours(u.used_hours)} h</td>
-                  <td className="nowrap">{fmtWeightedHours(u.reserved_hours)} h</td>
+                  <td className="nowrap">
+                    {fmtWeightedHours(u.reserved_hours)} h
+                    {u.queued ? <span className="faint small"> · {u.queued} queued</span> : null}
+                  </td>
                   <td className="nowrap">{u.limit_hours} h</td>
                   <td>
                     <ComputeMeter
@@ -688,13 +701,23 @@ function AgentCompute() {
   );
 }
 
-/** Machine-wide weights: an hour on a target counts as its weight against agent limits. */
+/**
+ * Machine-wide weights (an hour on a target counts as its weight against agent limits) and slots
+ * (how many jobs needing a GPU run there at once; agents' jobs queue for a free one, ADR 0068).
+ */
 function Weights() {
   const o = useOverview();
   const [draft, setDraft] = useState<Record<string, string>>({});
+  const [slotDraft, setSlotDraft] = useState<Record<string, string>>({});
   const errors = Object.fromEntries(
     Object.entries(draft).flatMap(([k, v]) => {
       const p = parseWeightInput(v);
+      return typeof p === "number" ? [] : [[k, p.error]];
+    }),
+  );
+  const slotErrors = Object.fromEntries(
+    Object.entries(slotDraft).flatMap(([k, v]) => {
+      const p = parseSlotsInput(v);
       return typeof p === "number" ? [] : [[k, p.error]];
     }),
   );
@@ -702,23 +725,31 @@ function Weights() {
     const weights = Object.fromEntries(
       Object.entries(draft).map(([k, v]) => [k, parseWeightInput(v) as number]),
     );
-    await api("/api/v1/compute/weights", { method: "PUT", body: { weights } });
+    const slots = Object.fromEntries(
+      Object.entries(slotDraft).map(([k, v]) => [k, parseSlotsInput(v) as number]),
+    );
+    await api("/api/v1/compute/weights", { method: "PUT", body: { weights, slots } });
     setDraft({});
+    setSlotDraft({});
     o.reload();
   });
-  const dirty = Object.keys(draft).length > 0;
+  const dirty = Object.keys(draft).length > 0 || Object.keys(slotDraft).length > 0;
+  const invalid = Object.keys(errors).length > 0 || Object.keys(slotErrors).length > 0;
   return (
     <details className="fold" data-testid="compute-weights">
       <summary className="fold-head">
-        <h2>Compute weights</h2>
+        <h2>Compute weights and slots</h2>
         <span className="faint small">
-          How much an hour on each target counts against the agent compute limits.
+          How much an hour on each target counts against the agent compute limits, and how many GPU
+          jobs run there at once.
         </span>
       </summary>
       <section className="card">
         <p className="faint small">
-          For example 1 for this workstation and 3 for an A100. A job keeps the weight it was
-          submitted with.
+          Weights: for example 1 for this workstation and 3 for an A100; an agent's job counts at
+          the weight of the target it was placed on. Slots: how many jobs needing a GPU run on a
+          target at once (1 by default, 2 for Colab); agents' jobs wait in a queue for a free one,
+          and jobs without a GPU run on this workstation beside them.
         </p>
         <ErrorBox error={o.error ?? save.error} />
         {!o.data ? (
@@ -743,9 +774,17 @@ function Weights() {
                     onChange={(e) => setDraft((d) => ({ ...d, [w.target_id]: e.target.value }))}
                   />
                   <span className="small">×</span>
-                  {errors[w.target_id] ? (
+                  <input
+                    aria-label={`Slots on ${w.target_id}`}
+                    inputMode="numeric"
+                    style={{ width: 56 }}
+                    value={slotDraft[w.target_id] ?? String(w.slots)}
+                    onChange={(e) => setSlotDraft((d) => ({ ...d, [w.target_id]: e.target.value }))}
+                  />
+                  <span className="small">{w.slots === 1 ? "slot" : "slots"}</span>
+                  {errors[w.target_id] || slotErrors[w.target_id] ? (
                     <span className="small" style={{ color: "var(--err)" }}>
-                      {errors[w.target_id]}
+                      {errors[w.target_id] ?? slotErrors[w.target_id]}
                     </span>
                   ) : null}
                 </div>
@@ -757,16 +796,23 @@ function Weights() {
                   ? `Last changed ${fmtTime(o.data.updated_at)}`
                   : "All weights are 1."}
               </span>
-              <button type="button" disabled={!dirty} onClick={() => setDraft({})}>
+              <button
+                type="button"
+                disabled={!dirty}
+                onClick={() => {
+                  setDraft({});
+                  setSlotDraft({});
+                }}
+              >
                 Discard
               </button>
               <button
                 type="button"
                 className="primary"
-                disabled={!dirty || Object.keys(errors).length > 0 || save.busy}
+                disabled={!dirty || invalid || save.busy}
                 onClick={() => void save.run()}
               >
-                Save weights
+                Save
               </button>
             </div>
           </>

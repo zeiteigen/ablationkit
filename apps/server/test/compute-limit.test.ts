@@ -216,7 +216,9 @@ describe("admission at agent submission", () => {
     // Exactly the limit fits.
     expect((await submit(3600)).status).toBe(201);
     const u = await usage();
-    expect(u).toMatchObject({ limit_hours: 2, jobs: 2, live: 2 });
+    // The researcher's own job holds this machine's one slot: both wait in the queue (ADR 0068),
+    // each holding its whole time limit.
+    expect(u).toMatchObject({ limit_hours: 2, jobs: 2, live: 0, queued: 2 });
     close(u.reserved_hours + u.used_hours, 2);
 
     const refused = await submit<Refusal>(60);
@@ -279,7 +281,8 @@ describe("admission at agent submission", () => {
       compute: { limit_hours: 2 },
     });
     await human("/api/v1/compute/weights", { method: "PUT", body: { weights: { gpu: 3 } } });
-    const r = await submit<Refusal>(3600, { target_id: "gpu" });
+    // The agent names no target: its job is held at the heaviest weight of its pool (ADR 0068).
+    const r = await submit<Refusal>(3600);
     expect(r.status).toBe(403);
     expect(r.body.error).toMatchObject({
       code: "compute_limit_reached",

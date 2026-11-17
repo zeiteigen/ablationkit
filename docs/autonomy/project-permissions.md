@@ -26,8 +26,8 @@ Every gate has a `decision`, `allow` or `deny`. There is no `ask`, because there
 
 | Field | Meaning | Default (revision 0) |
 | --- | --- | --- |
-| `jobs.run_local` | An agent may submit jobs that run on this machine | `allow` |
-| `jobs.submit_remote` | An agent may submit jobs to the remote targets in `allowed_targets` | `deny`, no targets |
+| `jobs.run_local` | Agents' jobs may be placed on this machine | `allow` |
+| `jobs.submit_remote` | Agents' jobs may be placed on the remote targets in `allowed_targets` | `deny`, no targets |
 | `deployments.preview_local` | An agent may start a loopback preview (an inference session on this machine) | `allow` |
 | `deployments.remote_research` | An agent may start a research endpoint on a remote target | `deny` |
 | `deployments.persistent` | Persistent endpoints. They are gated, but AblationKit never launches one | `deny` |
@@ -37,6 +37,17 @@ Every gate has a `decision`, `allow` or `deny`. There is no `ask`, because there
 - **`allowed_targets`** entries are either a target kind (`ssh`, `slurm`, `runpod`, `colab`; `slurm` allows every SLURM target) or a configured target's ID (`ablationkit target add`). `local` is not a remote target: that is `jobs.run_local`.
 - **Deployment gates** may also carry an `exposure` (`loopback`, `tailnet`, `public`), their own `allowed_targets` and `max_runtime_minutes`. See [deployment-gates.md](deployment-gates.md).
 - **Unknown actions and a missing policy** are `deny`.
+
+### The pool: where agents' jobs run
+
+An agent never chooses where its job runs (ADR 0068); it cannot name a target (400 `target_not_agents`). The two job gates together are the project's **pool**: this machine when `jobs.run_local` allows it, then each configured target `jobs.submit_remote` allows, in that order. AblationKit places each agent job on the first of them with a free slot:
+
+- **Slots.** Each target has a number of slots: how many jobs needing a GPU run there at once. It is 1 by default, and 2 for a Colab target, whose account runs two runtimes. You set slots beside the weights on the Compute page (`PUT /api/v1/compute/weights` with `slots`). Every live GPU job counts, yours included, though your own jobs never wait.
+- **The queue.** A job with no free slot in its pool is `queued`. Its `placement.waiting` says why, for example `every slot in the pool is busy (local 1/1, colab 2/2)`. Jobs are placed oldest first when a slot frees, when you add slots or change the policy, and every 15 seconds. A job that cannot start where it was placed fails, with `placement.error`.
+- **Jobs without a GPU.** A job with `gpu: "none"` (tests, checks) runs on this machine at once, without a slot, when this machine is in the pool.
+- **This machine only.** Protected evaluations and environment builds run only here; they need `jobs.run_local`.
+- **An empty pool** refuses every agent job with 403 `policy_denied`.
+- **What you see.** The Jobs page shows a queued job's state and what it waits for. Agent permissions in Project settings shows the pool with its busy slots. The agent reads the same in `ablationkit_project`.
 
 ### An example revision
 
@@ -105,15 +116,15 @@ A reduction takes effect at the next request. There are no pending approvals for
 - **Hours used** are, for every attempt of every agent-submitted job (retries included, even a researcher's retry), the attempt's wall time × the job's recorded weight.
   - A remote attempt counts the start and end times its worker or its import reports.
   - Usage never resets.
-- **Hours reserved:** a live attempt also holds the rest of its time limit × the weight.
+- **Hours reserved:** a live attempt also holds the rest of its time limit × the weight. A queued job holds its whole time limit × the heaviest weight in its pool; once placed, it counts at the weight of the target it was placed on.
 - **Available hours** = limit − used − reserved, never below 0.
 
 ### Admission
 
-The coordinator checks an agent's job when it is submitted, locally or to a remote target, after the policy allows it:
+The coordinator checks an agent's job when it is submitted, after the policy gives it a non-empty pool:
 
 1. **A time limit is required.** Without `limits.runtime_max_sec` (`runtime_max_sec` on the `ablationkit_job submit` MCP tool), the job is refused with 400 `time_limit_required`.
-2. **The job must fit.** It is admitted only if used + reserved + its time limit × its target's weight ≤ `compute.limit_hours`.
+2. **The job must fit.** It is admitted only if used + reserved + its time limit × the heaviest weight in its pool ≤ `compute.limit_hours`.
 
    Otherwise it is refused with 403 `compute_limit_reached`. The response carries the hours used, reserved, the limit, the hours available, the hours needed, the target and the weight. The refusal is audited.
 

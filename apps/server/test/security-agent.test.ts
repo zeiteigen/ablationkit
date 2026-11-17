@@ -64,7 +64,13 @@ describe("prompt injection", () => {
         },
       },
     );
-    expect([remote.status, remote.body.error.code]).toEqual([403, "policy_denied"]);
+    // An agent names no target at all (ADR 0068); the pool is still this machine alone.
+    expect([remote.status, remote.body.error.code]).toEqual([400, "target_not_agents"]);
+    const compute = await w.agentAs<{ targets: { target_id: string }[] }>(
+      token,
+      `/api/v1/projects/${w.project}/compute`,
+    );
+    expect(compute.body.targets.map((x) => x.target_id)).toEqual(["local"]);
   });
 
   test("every Agent Skill that reads recorded content says it is data, not instructions", () => {

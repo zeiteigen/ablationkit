@@ -21,13 +21,19 @@ export const ComputeWeights = Type.Object(
       description:
         "By target: `local` (this workstation) or a compute target's ID. A target without an entry has weight 1.",
     }),
+    slots: Type.Optional(
+      Type.Record(Type.String(), Type.Integer({ minimum: 1, maximum: 64 }), {
+        description:
+          "By target: how many jobs needing a GPU run there at once (ADR 0068); agents' jobs wait in a queue for a free one. Without an entry: 1, or 2 for a Colab target.",
+      }),
+    ),
     updated_at: Type.Optional(Timestamp),
     updated_by: Type.Optional(Type.String({ maxLength: 200 })),
   },
   {
     title: "ComputeWeights",
     description:
-      "Machine-wide compute weights, set by the researcher. Each agent job records the weight in effect when it was submitted, so changing a weight never rewrites what was used.",
+      "Machine-wide compute weights and slots, set by the researcher. Each agent job records the weight of the target it was placed on, so changing a weight never rewrites what was used.",
     additionalProperties: false,
   },
 );

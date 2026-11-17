@@ -10,9 +10,9 @@ Each row is an operation and the tool that reaches it: `ablationkit_read run.met
 
 | Call | Arguments | Returns / notes |
 | --- | --- | --- |
-| `ablationkit_project` | none | The researcher's agenda (Now, rules, Next, Parked, Dropped), then the project, `directions_from_the_researcher` (`rules` and `open`, each with `direction_id`, `kind`, `asks`, `on`, `text`, `status`), your session, policy summary, compute limit with the targets you may use. Call first. |
+| `ablationkit_project` | none | The researcher's agenda (Now, rules, Next, Parked, Dropped), then the project, `directions_from_the_researcher` (`rules` and `open`, each with `direction_id`, `kind`, `asks`, `on`, `text`, `status`), your session, policy summary, compute limit with the pool your jobs are placed on. Call first. |
 | `ablationkit_read agenda` | `since` (a revision) | The researcher's agenda whole: `now`, `rules`, `next`, `parked`, `dropped` as `ID: text` lines, `changed` (what changed since this session last read it, or since `since`) and `your_checks` (`off_agenda`, `parked_work`, `not_on_agenda`). Only the researcher writes it. Reading it marks it read for your session. |
-| `ablationkit_read compute` | none | `limit_hours`, `used_hours`, `reserved_hours`, `available_hours`, live attempts, the last refusal, and `targets`: each target you may use with its `weight` and `limits` (`enforced`, `advisory` with the reason, or `reported_per_attempt` on a remote target). Check before planning jobs. |
+| `ablationkit_read compute` | none | `limit_hours`, `used_hours`, `reserved_hours`, `available_hours`, live attempts, `queued` (jobs waiting for a slot), the last refusal, and `targets`: the pool AblationKit places your jobs on, in the order it tries them, each with its `weight`, `slots`, `busy` and `limits` (`enforced`, `advisory` with the reason, or `reported_per_attempt` on a remote target). Check before planning jobs. |
 
 ## The researcher's directions
 
@@ -38,7 +38,7 @@ tool result of your session.
 
 | Call | Arguments | Returns / notes |
 | --- | --- | --- |
-| `ablationkit_job submit` | **`command`** (argv), **`runtime_max_sec`**, **`description`** (what the run tests and why; it starts the run's summary), `run_name`, `task_id`, `agenda_item` (the agenda item it serves; else its task's), `study_id`, `variant_id`, `target_id` (remote; omit for this machine), `cwd`, `environment` (`uv` default with a `uv.lock`, or `none`), `metrics_file`, `metrics_format` (`{step_keys, timestamp_key}`), `artifact_paths`, `input_paths`, `env`, `memory_max_bytes`, `cpu_quota_percent` | The job. The policy, then the compute limit, decide. `metrics_file` lines are JSON objects, nested values flattened to `a/b`; `metrics_format` names the step keys (first match wins) and the time key (ms, or s below 1e11). `input_paths` files are recorded as `inputs/…` artifacts as the job starts (local jobs, ≤16 MiB each). |
+| `ablationkit_job submit` | **`command`** (argv), **`runtime_max_sec`**, **`description`** (what the run tests and why; it starts the run's summary), `run_name`, `task_id`, `agenda_item` (the agenda item it serves; else its task's), `study_id`, `variant_id`, `gpu` (`none`: on this machine beside the others, no slot), `cwd`, `environment` (`uv` default with a `uv.lock`, or `none`), `metrics_file`, `metrics_format` (`{step_keys, timestamp_key}`), `artifact_paths`, `input_paths`, `env`, `memory_max_bytes`, `cpu_quota_percent` | The job, `queued` until a target of the pool has a free slot (`placement.waiting` says why), then started there (`placement.target`); you never name a target. An empty pool is `policy_denied`; the compute limit decides at the pool's heaviest weight. `metrics_file` lines are JSON objects, nested values flattened to `a/b`; `metrics_format` names the step keys (first match wins) and the time key (ms, or s below 1e11). `input_paths` files are recorded as `inputs/…` artifacts as the job starts (local jobs, ≤16 MiB each). |
 | `ablationkit_read job.list` | `limit` | Newest first: state, target, submitter, MLflow run. |
 | `ablationkit_read job.show` | **`job_id`** | Attempts, state, exit, compute, MLflow run. |
 | `ablationkit_read job.log` | **`job_id`**, `attempt_id`, `tail`, or `after` + `limit`, `stream` (`stdout`, `stderr`) | Console lines; `next_after` continues, `done` says it ended. |
@@ -175,7 +175,7 @@ Path parameters by name, then `query` (strings) for reads or `body` for writes.
 | `ablationkit_do extension.validate` | **`extension_id`** | Diagnostics with fixes. |
 | `ablationkit_do extension.build` | **`extension_id`** | A build; a ready build is enabled at once (unless the coordinator requires approval, or the researcher disabled the extension). |
 | `ablationkit_read extension.diff` | **`extension_id`**, **`build_id`**, `against` | What a build changes against the approved one. |
-| `ablationkit_do extension.run` | **`extension_id`**, **`contribution`**, `params`, `refs`, `target_id` | An execution (`xe-…`) of an approved Python contribution. |
+| `ablationkit_do extension.run` | **`extension_id`**, **`contribution`**, `params`, `refs` | An execution (`xe-…`) of an approved Python contribution. |
 | `ablationkit_do extension.action` | **`extension_id`**, **`contribution`** | Run an approved `project.action`. |
 | `ablationkit_read extension.executions` | `extension` | Executions. |
 | `ablationkit_read extension.execution` | **`execution_id`** | Status, progress, typed result, enforcement labels, MLflow run. Poll until not `running`. |

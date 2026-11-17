@@ -134,14 +134,19 @@ lineage ─▶ research links + job records + attempt→run mapping (no MLflow c
 reports/generate ─▶ MLflow runs of the study + attempt snapshots ─▶ evidence items + summary
 ```
 
-## Agent job path (ADR 0037)
+## Agent job path (ADRs 0037, 0068)
 
 ```text
-agent (its harness's session and sandbox) ── ablationkit_job submit (ablationkit mcp) ──► agent API (session token: project)
-agent API ── decide(policy rev N, jobs.run_local | jobs.submit_remote + allowed_targets) ──► deny (403 policy_denied, audited)
-          └► allow ── time limit? (400 time_limit_required) ── used + reserved + limit × weight ≤ compute.limit_hours?
-                        ├► no  ──► 403 compute_limit_reached (audited, notification.raised once per burst, inbox)
-                        └► yes ──► JobService (submitted_by: agent, compute_weight_hundredths recorded)
+agent (its harness's session and sandbox) ── ablationkit_job submit (ablationkit mcp, no target) ──► agent API (session token: project)
+agent API ── target_id given? ──► 400 target_not_agents
+          └► pool = policy rev N: local if jobs.run_local, then remote targets jobs.submit_remote allows
+               ├► empty ──► 403 policy_denied (audited)
+               └► time limit? (400 time_limit_required) ── used + reserved + limit × heaviest pool weight ≤ compute.limit_hours?
+                    ├► no  ──► 403 compute_limit_reached (audited, notification.raised once per burst, inbox)
+                    └► yes ──► JobService.enqueue: state queued (placement.queued_at), reserves its whole time limit
+JobService.placeQueued (on submit, attempt end, slot change, every 15 s): oldest first, the first pool target
+   whose busy GPU jobs < its slots (compute-weights.json `slots`; gpu "none" takes none, on local) ──► launchAttempt
+   there (placement.target, compute_weight_hundredths = that target's weight); else placement.waiting says why
 Git, worktrees and the agent's sandbox are the harness's: AblationKit runs only read-only Git (core/git.ts).
 ```
 

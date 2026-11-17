@@ -195,13 +195,13 @@ Tests marked with a script name need that script (`bun run test:web`, `bun run t
 
 ### POL-3: An agent starts a job or a deployment the project policy does not allow
 
-**Control:** Every agent job submission and deployment request is decided by the project policy (ADR 0037): remote targets and deployments are denied by default, and a refusal names the field. **Level:** authoritative.
+**Control:** Every agent job submission and deployment request is decided by the project policy (ADR 0037): remote targets and deployments are denied by default, and a refusal names the field. An agent never names a job's target: the coordinator places it on a target of the pool the policy allows (ADR 0068). **Level:** authoritative.
 
 **Limit:** The policy covers what an agent asks AblationKit to do. What the agent does in its own session (edits, shell commands, Git) is the user's harness's to sandbox and approve.
 
 - `policy.test.ts`: remote jobs need allow and an allowed target
 - `agent-policy.test.ts`: denied when the policy says so, naming the field
-- `agent-policy.test.ts`: only allowed targets pass the policy
+- `agent-policy.test.ts`: the agent never picks a target; the pool is what the policy allows
 - `deployments.test.ts`: never a persistent or public endpoint
 
 ### POL-5: An agent session's token used on another project, its tasks, its runs, or another session's jobs

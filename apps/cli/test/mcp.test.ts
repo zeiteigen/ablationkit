@@ -350,7 +350,8 @@ describe("ablationkit mcp (ADR 0040)", () => {
       runtime_max_sec: 60,
       target_id: "gpu-box",
     });
-    expect(remote.out.error.code).toBe("policy_denied");
+    // Where a job runs is the researcher's (ADR 0068): the tool takes no target.
+    expect(remote.out.error.code).toBe("invalid_request");
     const closed = await call("ablationkit_job", {
       action: "submit",
       command: ["true"],

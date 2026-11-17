@@ -40,9 +40,11 @@ when `timeout_sec` passes (default 600, at most 3600; keep it under your harness
 timeout) with what each job is doing, or at once when the researcher writes to you, with their
 words. Call it again to keep waiting; do other work between calls if there is any.
 
-**Off the GPU is not off the record.** When you may not use the GPU yet (the researcher, a
-direction or the agent that started you says to wait, or another job needs it to itself), hold
-your GPU jobs, and keep working through jobs with `gpu: "none"`: tests, checks, data preparation
+**Off the GPU is not off the record.** Jobs that need a GPU wait in AblationKit's queue for a
+free slot on a target of the pool, so you never share a GPU by accident: submit them and let the
+queue order them. When you may not use the GPU at all yet (the researcher, a direction or the
+agent that started you says to wait), hold your GPU jobs, and keep working through jobs with
+`gpu: "none"`: tests, checks, data preparation
 and analysis run beside the GPU job without touching it. Do not run the project's code in your
 own shell instead, on the CPU or with the GPU hidden (`CUDA_VISIBLE_DEVICES=`): nothing records it,
 and nothing counts it against the compute limit.
@@ -221,8 +223,9 @@ don't retry it unchanged and don't work around it.
 | --- | --- | --- |
 | `policy_denied` | The project policy does not allow this (it names the field, e.g. `jobs.submit_remote`) | Tell the researcher which field; they change the policy if they want to |
 | `time_limit_required` | A job without `runtime_max_sec` | Add a realistic time limit |
+| `target_not_agents` | A job that names `target_id` | Leave it out: AblationKit places your jobs on the project's pool, which the researcher sets |
 | `unknown_agenda_item` | `agenda_item` names nothing on the agenda (the message lists what it has) | Use an ID from `ablationkit_read agenda`, or leave `agenda_item` out |
-| `compute_limit_reached` | Time limit × target weight exceeds `available_hours` | Shorten the run, use a lighter target, or ask the researcher to raise the limit |
+| `compute_limit_reached` | Time limit × the pool's heaviest weight exceeds `available_hours` | Shorten the run, or ask the researcher to raise the limit |
 | `evidence_required` | `supported`/`not_supported` with a notebook none of whose notes cites a run (or a report that cites none) | Give the findings their `evidence`, or complete as `inconclusive` |
 | `notebook_required` | `notebook_id` is not a notebook of the vault | Write the session's edition (a `notebook` note with `edition`) and pass its ID |
 | `note_exists` | A note with that ID is already there | `ablationkit_read note.show` it, then update it; choose another ID only for a different idea |

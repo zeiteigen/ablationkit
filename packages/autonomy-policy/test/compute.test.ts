@@ -1,5 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { admit, computeUsage, parseWeight, roundHours, weightValue } from "../src/index.ts";
+import {
+  admit,
+  computeUsage,
+  defaultSlots,
+  parseWeight,
+  roundHours,
+  weightValue,
+} from "../src/index.ts";
 
 const T0 = Date.parse("2026-11-10T10:00:00Z");
 const at = (min: number) => new Date(T0 + min * 60_000).toISOString();
@@ -83,5 +90,22 @@ describe("admission", () => {
     expect(admit({ used_hours: 0, reserved_hours: 0 }, 10, 36_000, 100).ok).toBe(true);
     expect(admit({ used_hours: 0, reserved_hours: 0 }, 0, 1, 100).ok).toBe(false);
     expect(admit({ used_hours: 12, reserved_hours: 0 }, 10, 1, 1).available_hours).toBe(0);
+  });
+});
+
+describe("the queue (ADR 0068)", () => {
+  test("a queued job holds its whole time limit at its weight; a Colab target has two slots", () => {
+    const u = computeUsage(
+      [
+        { weight_hundredths: 300, runtime_max_sec: 3600, attempts: [], queued: true },
+        { weight_hundredths: 100, runtime_max_sec: 3600, attempts: [] },
+      ],
+      Date.parse("2026-11-17T12:00:00Z"),
+    );
+    expect(u.reserved_hours).toBe(3);
+    expect(u.used_hours).toBe(0);
+    expect(defaultSlots("local")).toBe(1);
+    expect(defaultSlots("colab")).toBe(2);
+    expect(defaultSlots("ssh")).toBe(1);
   });
 });

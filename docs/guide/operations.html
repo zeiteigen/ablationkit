@@ -64,6 +64,13 @@
       . Review the action policy for local jobs, remote jobs, and deployments, and the agent sessions that reported into the project. Preview changes before saving a new policy revision. Set the project's agent compute limit in weighted hours.
      </p>
      <p>
+      Where agents' jobs run is yours, never the agent's. The two job settings together are the project's pool: this workstation if local jobs are allowed, then the remote targets you tick. AblationKit queues each agent job and starts it on the first target of the pool with a free slot. Until one frees, the Jobs page shows the job as
+      <code>
+       queued
+      </code>
+      , with what it waits for, and Cancel takes it out of the queue. Jobs that need no GPU, such as tests and checks, run on this workstation at once without a slot. Agent permissions shows the pool and its busy slots. An agent cannot name a target, and an empty pool refuses its jobs.
+     </p>
+     <p>
       On
       <strong>
        Compute
@@ -72,7 +79,7 @@
       <strong>
        Compute weights
       </strong>
-      to set per-target weights. The weights determine how execution time counts toward the agent limit; they are not a currency price. A session identifies the agent and attributes its work. Its Git access and sandbox come from the harness, unless you run it in an
+      to set per-target weights and slots. The weights determine how execution time counts toward the agent limit; they are not a currency price. The slots are how many jobs needing a GPU run on a target at once: 1 by default, so agents' GPU jobs on this workstation take turns, and 2 for a Colab target. Your own jobs never wait, but they take a slot while they run. A session identifies the agent and attributes its work. Its Git access and sandbox come from the harness, unless you run it in an
       <a href="getting-started.html#agent-containers">
        agent container
       </a>
@@ -104,7 +111,11 @@
       <code>
        ablationkit help
       </code>
-      for target-specific setup. Once configured, choose the remote target when submitting a job.
+      for target-specific setup. Once configured, choose the remote target when you submit a job yourself. Agents' jobs go to targets you allow in the project's pool (see
+      <a href="#permissions">
+       agent permissions
+      </a>
+      ).
      </p>
      <p>
       A remote attempt executes a staged bundle of a pinned commit and uploads results. Use Compute and job details to follow it. Offline reconciliation may be needed after a connection interruption; a remote drain delivers the leftover spool and does not rerun the experiment.
@@ -119,7 +130,7 @@
       <code>
        colab
       </code>
-      ): it allocates the runtime, uploads the job's bundle, starts it, brings results back while it runs and after it ends, and stops the runtime. Agents can submit to it like any other target once the project allows it, so nobody has to open a notebook.
+      ): it allocates the runtime, uploads the job's bundle, starts it, brings results back while it runs and after it ends, and stops the runtime. Once the project allows it, agents' jobs are placed on it like on any target of the pool, so nobody has to open a notebook.
      </p>
      <ol>
       <li>
@@ -167,11 +178,11 @@ ablationkit target doctor colab</code></pre>
        <code>
         colab
        </code>
-       to the allowed targets. Set its weight on
+       to the allowed targets: it joins the project's pool, after this workstation. Set its weight on
        <strong>
         Compute
        </strong>
-       so a Colab hour counts as you want against the agents' compute limit.
+       so a Colab hour counts as you want against the agents' compute limit, and its slots to the number of runtimes your account may run at once (2 by default).
       </li>
      </ol>
      <p>

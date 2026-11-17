@@ -47,6 +47,66 @@ export const AttemptState = Type.Union(
 );
 export type AttemptState = Static<typeof AttemptState>;
 
+export const JobState = Type.Union(
+  [
+    Type.Literal("queued"),
+    Type.Literal("starting"),
+    Type.Literal("running"),
+    Type.Literal("succeeded"),
+    Type.Literal("failed"),
+    Type.Literal("cancelled"),
+    Type.Literal("timed_out"),
+    Type.Literal("oom_killed"),
+    Type.Literal("unknown"),
+  ],
+  {
+    title: "JobState",
+    description:
+      "The state of a job's latest attempt, or `queued`: an agent's job waiting for a free slot on a target of its project's pool, with no attempt yet (ADR 0068).",
+  },
+);
+export type JobState = Static<typeof JobState>;
+
+export const JobPlacement = Type.Object(
+  {
+    queued_at: Timestamp,
+    placed_at: Type.Optional(Timestamp),
+    target: Type.Optional(
+      Type.String({
+        minLength: 1,
+        maxLength: 100,
+        description:
+          "Where AblationKit placed it: `local` (this machine) or a compute target's ID.",
+      }),
+    ),
+    local_only: Type.Optional(
+      Type.Literal(true, {
+        description:
+          "It runs only on this machine: a protected evaluation or an environment build (ADR 0066).",
+      }),
+    ),
+    waiting: Type.Optional(
+      Type.String({
+        maxLength: 500,
+        description: "While queued: what it is waiting for.",
+      }),
+    ),
+    error: Type.Optional(
+      Type.String({
+        maxLength: 2000,
+        description: "Why it could not be started once placed (the job then failed).",
+      }),
+    ),
+  },
+  {
+    title: "JobPlacement",
+    description:
+      "An agent's job is placed by AblationKit, never by the agent (ADR 0068): queued until a target in the project's pool (this machine if the policy allows local jobs, then the remote targets it allows) has a free slot, then started there.",
+    additionalProperties: false,
+  },
+);
+export type JobPlacement = Static<typeof JobPlacement>;
+
 export const TERMINAL_ATTEMPT_STATES: readonly AttemptState[] = [
   "succeeded",
   "failed",
@@ -171,13 +231,14 @@ export const JobRecord = Type.Object(
       }),
     ),
     container: Type.Optional(JobContainer),
+    placement: Type.Optional(JobPlacement),
     gpu: Type.Optional(
       Type.Literal("none", {
         description:
           "The job asked for no GPU (ADR 0066). In a job container it gets no GPU device; on this machine outside one, `CUDA_VISIBLE_DEVICES` is empty (advisory).",
       }),
     ),
-    state: describe(AttemptState, "State of the latest attempt."),
+    state: describe(JobState, "State of the latest attempt, or `queued` before the first."),
     attempts: Type.Array(AttemptId, { description: "Attempt IDs, oldest first." }),
     created_at: Timestamp,
     updated_at: Timestamp,

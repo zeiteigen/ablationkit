@@ -11,6 +11,7 @@
  */
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { decide } from "@ablationkit/autonomy-policy";
 import type { AttemptRecord, JobLimits, JobRecord, MetricsFormat } from "@ablationkit/protocol";
 import { HttpError, intParam, json, readJsonBody } from "../http.ts";
 import type { Route } from "../router.ts";
@@ -233,7 +234,13 @@ export const JOB_ROUTES: readonly Route<HumanHandler>[] = [
     method: "POST",
     path: "/api/v1/jobs/:id/cancel",
     handler: session("job.cancel", (c) => {
-      const a = c.svc.jobs.cancel(c.params["id"] as string);
+      const id = c.params["id"] as string;
+      if (c.svc.jobs.require(id).state === "queued") {
+        const done = c.svc.jobs.dequeue(id);
+        audit(c, "job.cancel", done.project_id, done.job_id);
+        return json(202, c.svc.jobs.jobView(done, false));
+      }
+      const a = c.svc.jobs.cancel(id);
       audit(c, "job.cancel", a.project_id, a.attempt_id);
       return json(202, c.svc.jobs.attemptView(a));
     }),
@@ -358,11 +365,12 @@ function environmentBuildBody(
 }
 
 /**
- * Job submission and reading for agents (ADR 0037). Submitting checks the project policy: allowed
- * proceeds, denied is refused (403 `policy_denied`) with the field that denies it; then the compute
- * limit (400 `time_limit_required` without a time limit, 403 `compute_limit_reached` when it does
- * not fit). A paid target the policy allows counts as the researcher's cost acceptance; the agent
- * cannot accept cost itself.
+ * Job submission and reading for agents (ADRs 0037, 0068). An agent never picks a target: its job
+ * is queued and AblationKit places it on a target of the project's pool (what the policy allows:
+ * this machine, then the allowed remote targets) with a free slot. Submitting checks that the pool
+ * holds a target (403 `policy_denied` otherwise), then the compute limit at the heaviest weight of
+ * the pool (400 `time_limit_required` without a time limit, 403 `compute_limit_reached` when it
+ * does not fit). A paid target in the pool counts as the researcher's cost acceptance.
  */
 export const AGENT_JOB_ROUTES: readonly Route<AgentHandler>[] = [
   {
@@ -388,6 +396,12 @@ export const AGENT_JOB_ROUTES: readonly Route<AgentHandler>[] = [
           "evaluation_needs_container",
           "protected evaluations run only for agents in an agent container (ADR 0061): outside one, the data they protect is not hidden from you",
         );
+      if (raw["target_id"] !== undefined)
+        throw new HttpError(
+          400,
+          "target_not_agents",
+          "where an agent's job runs is the researcher's (ADR 0068): give no `target_id`. AblationKit queues the job and starts it on a target of the project's pool (ablationkit_project lists it) as soon as one has a free slot",
+        );
       const build = raw["build_environment"] === true;
       if (raw["build_environment"] !== undefined && raw["build_environment"] !== true)
         throw new HttpError(400, "invalid_request", "`build_environment` is true or absent");
@@ -412,12 +426,6 @@ export const AGENT_JOB_ROUTES: readonly Route<AgentHandler>[] = [
             404,
             "evaluation_not_found",
             `the project has no protected evaluation ${evaluation}`,
-          );
-        if (raw["target_id"] !== undefined)
-          throw new HttpError(
-            400,
-            "invalid_request",
-            "a protected evaluation runs on this machine",
           );
         const keep = [
           "run_name",
@@ -454,15 +462,36 @@ export const AGENT_JOB_ROUTES: readonly Route<AgentHandler>[] = [
       if (given.task_id) c.svc.tasks.requireOpen(pid, given.task_id);
       // The agenda item it serves, by its canonical ID (ADR 0058); an unknown one is refused.
       const input = withAgendaItem(c.svc, given);
-      const targetId = input.target_id;
-      const target = targetId ? c.svc.targets.get(targetId) : undefined;
+      // Protected evaluations and environment builds run only on this machine (ADRs 0061, 0066).
+      const localOnly = build || evaluation !== undefined;
+      const pool = c.svc.compute
+        .pool(pid)
+        .filter((t) => !localOnly || t.target_id === "local")
+        .map((t) => t.target_id);
       let weight: number;
       try {
-        c.svc.policy.requireAgent(
-          pid,
-          targetId ? "jobs.submit_remote" : "jobs.run_local",
-          targetId ? { target: targetId, ...(target ? { targetKind: target.kind } : {}) } : {},
-        );
+        // The pool is what the policy allows: an empty one is the policy's refusal.
+        if (!pool.length) {
+          const policy = c.svc.policy.current(pid);
+          const reasons = [
+            ...decide(policy, "jobs.run_local").reasons,
+            ...(localOnly
+              ? []
+              : policy.jobs.submit_remote.decision === "allow"
+                ? ["jobs.submit_remote.allowed_targets matches no configured compute target"]
+                : decide(policy, "jobs.submit_remote").reasons),
+          ];
+          throw new HttpError(
+            403,
+            "policy_denied",
+            `${localOnly ? "this runs only on this machine" : "the project's pool is empty"}: ${reasons.join("; ")}. The researcher changes it in Project settings → Agent permissions`,
+            {
+              action: localOnly ? "jobs.run_local" : "jobs.submit_remote",
+              policy_revision: policy.revision,
+              reasons,
+            },
+          );
+        }
         // The compute limit (ADR 0037) is held through each attempt's time limit.
         const runtime = input.limits?.runtime_max_sec;
         if (runtime === undefined)
@@ -471,14 +500,14 @@ export const AGENT_JOB_ROUTES: readonly Route<AgentHandler>[] = [
             "time_limit_required",
             "an agent's job needs a time limit (`limits.runtime_max_sec`; `runtime_max_sec` on the `ablationkit_job submit` tool): it is how the project's compute limit is held",
           );
-        weight = c.svc.compute.admit(pid, targetId ?? "local", runtime);
+        weight = c.svc.compute.admit(pid, pool, runtime);
       } catch (e) {
         if (e instanceof HttpError) {
           agentAudit(
             c,
             "job.submit",
             "denied",
-            targetId ?? "local",
+            pool.join(",") || "none",
             { command: input.command[0], code: e.code, ...e.extra },
             e.message,
           );
@@ -486,14 +515,15 @@ export const AGENT_JOB_ROUTES: readonly Route<AgentHandler>[] = [
         }
         throw e;
       }
-      const { job } = c.svc.jobs.submit({
+      const job = c.svc.jobs.enqueue({
         ...input,
-        ...(targetId && target?.paid ? { accept_cost: true } : {}),
         compute_weight_hundredths: weight,
+        queue: localOnly ? { local_only: true } : {},
       });
       agentAudit(c, "job.submit", "allowed", job.job_id, {
-        target: targetId ?? "local",
-        policy: targetId ? "jobs.submit_remote" : "jobs.run_local",
+        pool,
+        state: job.state,
+        ...(job.placement?.target ? { placed: job.placement.target } : {}),
         compute_weight: weight / 100,
       });
       return json(201, c.svc.jobs.jobView(job));
@@ -531,6 +561,11 @@ export const AGENT_JOB_ROUTES: readonly Route<AgentHandler>[] = [
       const j = ownJob(c);
       if (j.submitted_by.kind !== "agent" || j.submitted_by.id !== c.token.token_id)
         throw new HttpError(403, "forbidden_scope", "an agent cancels only the jobs it submitted");
+      if (j.state === "queued") {
+        const done = c.svc.jobs.dequeue(j.job_id);
+        agentAudit(c, "job.cancel", "allowed", j.job_id, { queued: true });
+        return json(202, c.svc.jobs.jobView(done, false));
+      }
       const a = c.svc.jobs.cancel(j.job_id);
       agentAudit(c, "job.cancel", "allowed", a.attempt_id);
       return json(202, c.svc.jobs.attemptView(a));

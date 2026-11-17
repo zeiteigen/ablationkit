@@ -316,8 +316,9 @@ Schema: [`job-record.v1.schema.json`](../../packages/protocol/schemas/job-record
 | `compute_weight_hundredths` | integer | no | Agent jobs (ADR 0037): the weight of the job's target when it was submitted, in hundredths. Every attempt's wall time times this weight counts against the project's `compute.limit_hours`; changing the target's weight later does not change it. |
 | `via_extension` | string | no | Submitted through this extension backend's broker (`compute.remote`, ADR 0024); only it may read or cancel the job there. |
 | `container` | object | no | Set on jobs a contained agent session submits (ADR 0061): each local attempt runs in a job container of its own. |
+| `placement` | object | no | An agent's job is placed by AblationKit, never by the agent (ADR 0068): queued until a target in the project's pool (this machine if the policy allows local jobs, then the remote targets it allows) has a free slot, then started there. |
 | `gpu` | `"none"` | no | The job asked for no GPU (ADR 0066). In a job container it gets no GPU device; on this machine outside one, `CUDA_VISIBLE_DEVICES` is empty (advisory). |
-| `state` | `AttemptState` | yes | State of the latest attempt. |
+| `state` | `JobState` | yes | State of the latest attempt, or `queued` before the first. |
 | `attempts` | array of `AttemptId` | yes | Attempt IDs, oldest first. |
 | `created_at` | `Timestamp` | yes | RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds. |
 | `updated_at` | `Timestamp` | yes | RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds. |
@@ -441,7 +442,7 @@ Schema: [`compute-target.v1.schema.json`](../../packages/protocol/schemas/comput
 
 ## ComputeWeights (v1)
 
-Machine-wide compute weights, set by the researcher. Each agent job records the weight in effect when it was submitted, so changing a weight never rewrites what was used.
+Machine-wide compute weights and slots, set by the researcher. Each agent job records the weight of the target it was placed on, so changing a weight never rewrites what was used.
 
 Schema: [`compute-weights.v1.schema.json`](../../packages/protocol/schemas/compute-weights.v1.schema.json)
 
@@ -449,6 +450,7 @@ Schema: [`compute-weights.v1.schema.json`](../../packages/protocol/schemas/compu
 | --- | --- | --- | --- |
 | `schema_version` | `1` | yes |  |
 | `weights` | object | yes | By target: `local` (this workstation) or a compute target's ID. A target without an entry has weight 1. |
+| `slots` | object | no | By target: how many jobs needing a GPU run there at once (ADR 0068); agents' jobs wait in a queue for a free one. Without an entry: 1, or 2 for a Colab target. |
 | `updated_at` | `Timestamp` | no | RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds. |
 | `updated_by` | string | no |  |
 
@@ -1438,7 +1440,9 @@ Schema: [`source-build-record.v1.schema.json`](../../packages/protocol/schemas/s
 | `JobGates` | object |  | Jobs an agent submits: on this machine, or to a remote compute target. |
 | `JobId` | string | `^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$` | AblationKit job identifier. |
 | `JobLimits` | object |  | CPU, memory, time and task limits for one attempt. |
+| `JobPlacement` | object |  | An agent's job is placed by AblationKit, never by the agent (ADR 0068): queued until a target in the project's pool (this machine if the policy allows local jobs, then the remote targets it allows) has a free slot, then started there. |
 | `JobSettings` | object |  | Local job runner and collector settings. |
+| `JobState` | undefined |  | State of the latest attempt, or `queued` before the first. |
 | `ListenerSettings` | object |  | Worker upload API. Default 127.0.0.1:7422. Host `tailscale` binds the machine's Tailscale IPv4 address (remote workers). |
 | `LlmActor` | object |  |  |
 | `LlmCapturePolicy` | object |  |  |

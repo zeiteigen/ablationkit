@@ -79,16 +79,17 @@ change it. It leads `ablationkit_project`, and `ablationkit_read agenda` shows i
   fetch it.
 - **Git is your harness's business.** Commit, branch and push as your harness and the researcher
   allow; AblationKit does not broker Git.
-- **The project policy decides what you may ask AblationKit to do.** Local jobs
-  (`jobs.run_local`), remote jobs on the targets it lists (`jobs.submit_remote`), deployments. A
+- **The project policy decides what you may ask AblationKit to do.** Where your jobs may run
+  (`jobs.run_local`, `jobs.submit_remote` and its targets: together the project's pool, which you
+  never choose among), deployments. A
   refusal (`policy_denied`) names the policy field: tell the researcher instead of working around
   it. Nothing is queued for approval; a refusal is final until the researcher saves a new policy
   revision.
 - **Your jobs spend the project's agent compute limit.** It is counted in weighted hours (an hour
   on a target counts that target's weight, set by the researcher) and never resets. Every job
-  needs `runtime_max_sec` (without it: `time_limit_required`), and its time limit × its target's
-  weight must fit in what is left after the hours used and the hours running jobs still hold
-  (`compute_limit_reached` otherwise). Check `ablationkit_read compute` (`limit_hours`,
+  needs `runtime_max_sec` (without it: `time_limit_required`), and its time limit × the heaviest
+  weight in the pool must fit in what is left after the hours used and the hours running and
+  queued jobs still hold (`compute_limit_reached` otherwise). Check `ablationkit_read compute` (`limit_hours`,
   `used_hours`, `reserved_hours`, `available_hours`) before you plan runs. Only the researcher can
   raise the limit (Project settings → Agent permissions); ask, don't retry.
 - **Never invent.** Every result, number and standing comes from a recorded run; every description
@@ -184,14 +185,19 @@ result that exists only in your chat reply is not recorded.
    work on the claim and the questions before you design the runs (*Build on prior work* above),
    and come back to it whenever you are stuck.
 3. **Run.** Everything that runs the project's code is a job, tests and quick checks included:
-   `gpu: "none"` for work that needs no GPU, which also runs while you may not use the GPU yet
-   (hold GPU jobs until you may; never run the code in your shell instead).
+   `gpu: "none"` for work that needs no GPU: it runs on this machine at once, beside the GPU jobs
+   (never run the code in your shell instead).
    `ablationkit_job submit` with `command` (argv), `runtime_max_sec`, `description` (what
-   this run tests and why) and `run_name`; `target_id` for a remote target the policy allows;
+   this run tests and why) and `run_name`;
    `study_id` and `variant_id` when the run belongs to a study; `metrics_file` (with
    `metrics_format` when its step and time keys have other names) for a script without the SDK;
-   `input_paths` for configs Git does not hold. A remote job runs the commit your checkout is at,
-   so commit (and push, if your harness does) the code it needs first; the project's
+   `input_paths` for configs Git does not hold. You never say where a job runs: AblationKit queues
+   it and starts it on a target of the project's pool (`compute.targets` in `ablationkit_project`:
+   this machine and the remote targets the researcher allows, each with its slots) as soon as one
+   has a free slot. Until then it is `queued`, and its `placement.waiting` says why; submit what
+   you need and let the queue order it, rather than holding jobs back yourself. Write each job so
+   that it runs on any target of the pool. A job placed on a remote target runs the commit your
+   checkout is at, so commit (and push, if your harness does) the code it needs first; the project's
    `.ablationkit/` exports never block a remote job. A remote job runs on its own, Colab included:
    the coordinator stages it, collects its results while it runs and after, and frees the
    runtime, so do not ask the researcher to run anything. Its attempt's `remote` shows staging,

@@ -3,10 +3,11 @@
  * the hours their live attempts still hold, and the admission decision for a new job. Pure
  * functions; the coordinator's `ComputeLimitService` feeds them jobs and attempts.
  *
- * A job's weight is the weight of its target when it was submitted (machine-wide, set by the
- * researcher; 1 by default), kept in hundredths. Every attempt counts, retries included: its wall
- * time × the job's weight. A live attempt also reserves the rest of its time limit × the weight,
- * so the limit holds as long as each attempt's time limit does.
+ * A job's weight is the weight of the target it runs on (machine-wide, set by the researcher; 1 by
+ * default), kept in hundredths: while it is queued, the heaviest of its pool (ADR 0068). Every
+ * attempt counts, retries included: its wall time × the job's weight. A live attempt also reserves
+ * the rest of its time limit × the weight, and a queued job its whole time limit, so the limit
+ * holds as long as each attempt's time limit does.
  */
 
 /** This workstation, as a compute target. */
@@ -14,6 +15,11 @@ export const LOCAL_TARGET = "local";
 /** A target without a weight of its own counts 1 hour per hour. */
 export const DEFAULT_WEIGHT_HUNDREDTHS = 100;
 export const MAX_WEIGHT_HUNDREDTHS = 100_000;
+
+/** Slots a target has without an entry of its own (ADR 0068): a Colab account runs two runtimes. */
+export function defaultSlots(kind: string): number {
+  return kind === "colab" ? 2 : 1;
+}
 
 /**
  * A weight as the researcher writes it (`1`, `0.5`, `3`, `"1.25"`), in hundredths. At most two
@@ -50,6 +56,8 @@ export interface UsageJob {
   /** The job's time limit per attempt (agent jobs always have one since ADR 0037). */
   readonly runtime_max_sec?: number | undefined;
   readonly attempts: readonly UsageAttempt[];
+  /** Waiting for a slot (ADR 0068): it reserves its whole time limit. */
+  readonly queued?: boolean | undefined;
 }
 
 export interface ComputeUsage {
@@ -73,6 +81,7 @@ export function computeUsage(jobs: readonly UsageJob[], now: number): ComputeUsa
   let live = 0;
   for (const j of jobs) {
     const w = (j.weight_hundredths ?? DEFAULT_WEIGHT_HUNDREDTHS) / 100;
+    if (j.queued && j.runtime_max_sec !== undefined) reservedSec += j.runtime_max_sec * w;
     for (const a of j.attempts) {
       attempts++;
       const start = ms(a.started_at);

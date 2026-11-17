@@ -193,6 +193,15 @@ export interface JobView {
   task_id?: string;
   target_id?: string;
   submitted_by: { kind: string; id: string };
+  /** An agent's job, placed by AblationKit on a target of its project's pool (ADR 0068). */
+  placement?: {
+    queued_at: string;
+    placed_at?: string;
+    target?: string;
+    local_only?: boolean;
+    waiting?: string;
+    error?: string;
+  };
   state: string;
   attempts: string[];
   created_at: string;

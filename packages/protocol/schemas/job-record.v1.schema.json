@@ -345,15 +345,63 @@
         }
       }
     },
+    "placement": {
+      "title": "JobPlacement",
+      "description": "An agent's job is placed by AblationKit, never by the agent (ADR 0068): queued until a target in the project's pool (this machine if the policy allows local jobs, then the remote targets it allows) has a free slot, then started there.",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "queued_at"
+      ],
+      "properties": {
+        "queued_at": {
+          "title": "Timestamp",
+          "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+          "type": "string"
+        },
+        "placed_at": {
+          "title": "Timestamp",
+          "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+          "type": "string"
+        },
+        "target": {
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Where AblationKit placed it: `local` (this machine) or a compute target's ID.",
+          "type": "string"
+        },
+        "local_only": {
+          "description": "It runs only on this machine: a protected evaluation or an environment build (ADR 0066).",
+          "const": true,
+          "type": "boolean"
+        },
+        "waiting": {
+          "maxLength": 500,
+          "description": "While queued: what it is waiting for.",
+          "type": "string"
+        },
+        "error": {
+          "maxLength": 2000,
+          "description": "Why it could not be started once placed (the job then failed).",
+          "type": "string"
+        }
+      }
+    },
     "gpu": {
       "description": "The job asked for no GPU (ADR 0066). In a job container it gets no GPU device; on this machine outside one, `CUDA_VISIBLE_DEVICES` is empty (advisory).",
       "const": "none",
       "type": "string"
     },
     "state": {
-      "title": "AttemptState",
-      "description": "State of the latest attempt.",
+      "title": "JobState",
+      "description": "State of the latest attempt, or `queued` before the first.",
       "anyOf": [
+        {
+          "const": "queued",
+          "type": "string"
+        },
         {
           "const": "starting",
           "type": "string"

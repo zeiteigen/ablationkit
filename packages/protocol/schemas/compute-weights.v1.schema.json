@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:ablationkit:schema:compute-weights.v1",
   "title": "ComputeWeights",
-  "description": "Machine-wide compute weights, set by the researcher. Each agent job records the weight in effect when it was submitted, so changing a weight never rewrites what was used.",
+  "description": "Machine-wide compute weights and slots, set by the researcher. Each agent job records the weight of the target it was placed on, so changing a weight never rewrites what was used.",
   "additionalProperties": false,
   "type": "object",
   "required": [
@@ -22,6 +22,17 @@
           "minimum": 1,
           "maximum": 100000,
           "description": "A compute weight in hundredths (100 is a weight of 1, 50 is 0.5, 300 is 3): an hour on the target counts as weight hours.",
+          "type": "integer"
+        }
+      }
+    },
+    "slots": {
+      "description": "By target: how many jobs needing a GPU run there at once (ADR 0068); agents' jobs wait in a queue for a free one. Without an entry: 1, or 2 for a Colab target.",
+      "type": "object",
+      "patternProperties": {
+        "^(.*)$": {
+          "minimum": 1,
+          "maximum": 64,
           "type": "integer"
         }
       }

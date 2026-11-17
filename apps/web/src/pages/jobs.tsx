@@ -40,6 +40,7 @@ export function JobsPage(props: { pid: string; base: string }) {
   useEvents(() => jobs.reload(), {
     project: props.pid,
     types: [
+      "job.state",
       "job.attempt.state",
       "tracking.run.sync",
       "job.attempt.remote",
@@ -56,7 +57,8 @@ export function JobsPage(props: { pid: string; base: string }) {
         </button>
         <span className="faint small">
           Agents submit jobs through <code>ablationkit mcp</code>, within the project policy and its
-          compute limit.
+          compute limit. AblationKit places each on a target of the pool the policy allows, queued
+          until one has a free slot.
         </span>
       </div>
       <ErrorBox error={jobs.error} onRetry={jobs.reload} />
@@ -90,7 +92,15 @@ export function JobsPage(props: { pid: string; base: string }) {
                       ) : null}
                     </td>
                     <td>
-                      <Badge tone={attemptTone(j.state)}>{j.state}</Badge>
+                      <Badge tone={attemptTone(j.state)} title={j.placement?.waiting}>
+                        {j.state}
+                      </Badge>
+                      {j.state === "queued" && j.placement?.waiting ? (
+                        <span className="faint small"> · {j.placement.waiting}</span>
+                      ) : null}
+                      {j.placement?.error && !a ? (
+                        <span className="faint small"> · {j.placement.error}</span>
+                      ) : null}
                       {a?.remote ? (
                         <span className="faint small" title={a.remote.provider_state}>
                           {" "}
@@ -330,6 +340,7 @@ export function JobDetail(props: { pid: string; base: string; jobId: string }) {
     {
       project: props.pid,
       types: [
+        "job.state",
         "job.attempt.state",
         "job.artifact.uploaded",
         "tracking.run.sync",
@@ -355,7 +366,8 @@ export function JobDetail(props: { pid: string; base: string; jobId: string }) {
   const job = j.data;
   const attempts = job.attempt_details ?? [];
   const a = attempts.find((x) => x.attempt_id === attemptSel) ?? job.latest_attempt;
-  const active = a ? ACTIVE.has(a.state) : false;
+  const queued = job.state === "queued";
+  const active = queued || (a ? ACTIVE.has(a.state) : false);
   const runRef = a?.tracking.mlflow_run_id ?? a?.attempt_id;
 
   const name = job.run_name ?? job.job_id;
@@ -408,7 +420,22 @@ export function JobDetail(props: { pid: string; base: string; jobId: string }) {
         <div className="mono small faint">{job.command.join(" ")}</div>
         <div className="small faint" data-testid="job-submitted-by">
           submitted by {who.actor(job.submitted_by)}
+          {job.placement?.target
+            ? ` · placed on ${job.placement.target === "local" ? "this machine" : job.placement.target}`
+            : ""}
         </div>
+        {queued ? (
+          <div className="small" data-testid="job-queued">
+            Queued since {fmtTime(job.placement?.queued_at ?? job.created_at)}
+            {job.placement?.waiting ? `: ${job.placement.waiting}` : ""}. It starts on a target of
+            the project's pool as soon as one has a free slot; Cancel takes it out of the queue.
+          </div>
+        ) : null}
+        {job.placement?.error ? (
+          <div className="small" data-testid="job-placement-error">
+            {job.placement.error}
+          </div>
+        ) : null}
         <ErrorBox error={cancel.error ?? retry.error} />
       </header>
       {attempts.length > 1 ? (

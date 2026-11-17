@@ -350,7 +350,7 @@ export const AREAS: readonly Area[] = [
         id: "POL-3",
         threat: "An agent starts a job or a deployment the project policy does not allow",
         control:
-          "Every agent job submission and deployment request is decided by the project policy (ADR 0037): remote targets and deployments are denied by default, and a refusal names the field",
+          "Every agent job submission and deployment request is decided by the project policy (ADR 0037): remote targets and deployments are denied by default, and a refusal names the field. An agent never names a job's target: the coordinator places it on a target of the pool the policy allows (ADR 0068)",
         level: "authoritative",
         proofs: [
           unit(
@@ -358,7 +358,7 @@ export const AREAS: readonly Area[] = [
             "remote jobs need allow and an allowed target",
           ),
           srv("agent-policy", "denied when the policy says so, naming the field"),
-          srv("agent-policy", "only allowed targets pass the policy"),
+          srv("agent-policy", "the agent never picks a target; the pool is what the policy allows"),
           srv("deployments", "never a persistent or public endpoint"),
         ],
         limit:

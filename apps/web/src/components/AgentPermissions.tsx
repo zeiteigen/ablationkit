@@ -29,6 +29,10 @@ export interface AgentUsage {
   attempts: number;
   live: number;
   over_limit: boolean;
+  /** Agents' jobs waiting for a slot (ADR 0068). */
+  queued?: number;
+  /** The pool: where AblationKit places agents' jobs, in the order it tries them. */
+  targets?: { target_id: string; label: string; slots: number; busy: number; weight: number }[];
   refused?: { at: string; count: number; message: string };
 }
 
@@ -203,6 +207,19 @@ export function AgentPermissions(props: { pid: string }) {
               </label>
             ))}
           </Row>
+          <p className="faint small" data-testid="agent-pool">
+            Together these are the project's pool. Agents never choose where a job runs: AblationKit
+            queues it and starts it on the first target here with a free slot, this workstation
+            first (slots are set on the Compute page).{" "}
+            {usage.data?.targets?.length
+              ? `Pool now: ${usage.data.targets
+                  .map(
+                    (t) =>
+                      `${t.target_id === "local" ? "this workstation" : t.label} (${t.busy}/${t.slots} ${t.slots === 1 ? "slot" : "slots"} busy)`,
+                  )
+                  .join(", then ")}${usage.data.queued ? `; ${usage.data.queued} queued` : ""}.`
+              : "The pool is empty: agents' jobs are refused."}
+          </p>
           <Row title="Start local previews" hint="An inference session on this workstation only.">
             <Choice
               label="Start local previews"

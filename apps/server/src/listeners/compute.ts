@@ -56,17 +56,31 @@ export const COMPUTE_ROUTES: readonly Route<HumanHandler>[] = [
       action: "compute.weights.set",
       run: async (c) => {
         const body = await readJsonBody(c.req);
-        const out = c.svc.compute.setWeights(body["weights"], `human:${c.session.token_id}`);
+        const out = c.svc.compute.setWeights(
+          body["weights"],
+          `human:${c.session.token_id}`,
+          body["slots"],
+        );
         c.svc.audit.record(
           compact({
             actor: { kind: "human" as const, id: c.session.token_id },
             listener: "human" as const,
             action: "compute.weights.set",
             outcome: "allowed" as const,
-            details: out.changes.length ? { changes: out.changes } : undefined,
+            details:
+              out.changes.length || out.slot_changes.length
+                ? compact({
+                    changes: out.changes.length ? out.changes : undefined,
+                    slot_changes: out.slot_changes.length ? out.slot_changes : undefined,
+                  })
+                : undefined,
           }),
         );
-        return json(200, { ...c.svc.compute.weights(), changes: out.changes });
+        return json(200, {
+          ...c.svc.compute.weights(),
+          changes: out.changes,
+          slot_changes: out.slot_changes,
+        });
       },
     },
   },

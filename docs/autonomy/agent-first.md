@@ -10,7 +10,7 @@ AblationKit does not start, drive or talk to agents. You run Claude Code, Codex 
 
 AblationKit is what the agent reports into, and what you read:
 
-- **jobs** it runs here or on remote targets, within the [project policy](project-permissions.md) and the [compute limit](project-permissions.md#the-agent-compute-limit);
+- **jobs**, which AblationKit places here or on remote targets from the project's pool, within the [project policy](project-permissions.md) and the [compute limit](project-permissions.md#the-agent-compute-limit);
 - the **MLflow runs** those jobs log;
 - **research records**: hypotheses, approaches, notes, reports, decisions, studies, conversation links;
 - **tasks** that group its work.
@@ -167,7 +167,7 @@ What an agent writes is held against what the coordinator recorded on its own (A
 - **Records.** Create and update the project's research records, studies and conversation links; generate reports from a study's runs.
 - **Historical runs.** Import a run that happened before the project used AblationKit from its files in the checkout: a labelled MLflow run (`import`), no job and no compute.
 - **Jobs and runs.** Submit jobs and read them. Read the project's MLflow runs, metrics and text artifacts. Cancel the jobs its own session submitted.
-  - Each submission is decided by the policy (`jobs.run_local`, `jobs.submit_remote`), then by the compute limit.
+  - Each submission goes to the project's pool, the targets the policy allows (`jobs.run_local`, `jobs.submit_remote`). The agent never names a target: AblationKit queues the job and places it on the first target with a free slot ([the pool](project-permissions.md#the-pool-where-agents-jobs-run)). Then the compute limit decides.
   - A job needs a time limit (`runtime_max_sec`). Without one it gets 400 `time_limit_required`.
   - A refusal is 403 `policy_denied` or 403 `compute_limit_reached`.
 - **Deployments.** Request them; the policy decides ([deployment-gates.md](deployment-gates.md)).

@@ -1,8 +1,8 @@
 /**
  * Criterion 33 (policy integrity) and the project action policy (ADR 0037) at the agent's API:
- * version 1 revisions read as version 2, revisions with their diff, and agent job submission
- * decided by `jobs.run_local` and `jobs.submit_remote` with its allowed targets. A refusal names
- * the policy field and is audited.
+ * version 1 revisions read as version 2, revisions with their diff, and agent job submission:
+ * the pool `jobs.run_local` and `jobs.submit_remote` allow, where AblationKit queues and places
+ * agents' jobs (ADR 0068). A refusal names the policy field and is audited.
  */
 import { afterEach, describe, expect, test } from "bun:test";
 import { chmodSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -187,14 +187,12 @@ describe("authority lives in the coordinator", () => {
     const after = (await human<{ policy: ProjectActionPolicy }>("/api/v1/projects/lab/policy")).body
       .policy;
     expect(after.revision).toBe(0);
-    const remote = await agent<{ error: { code: string } }>(token, "/api/v1/projects/lab/jobs", {
-      body: {
-        command: ["python3", "train.py"],
-        target_id: "runpod",
-        limits: { runtime_max_sec: 60 },
-      },
-    });
-    expect(remote.body.error.code).toBe("policy_denied");
+    // Nor does a repository file move the pool: still this machine alone (ADR 0068).
+    const compute = await agent<{ targets: { target_id: string }[] }>(
+      token,
+      "/api/v1/projects/lab/compute",
+    );
+    expect(compute.body.targets.map((t) => t.target_id)).toEqual(["local"]);
   });
 });
 
@@ -255,38 +253,109 @@ describe("agent job submission (ADR 0037)", () => {
     expect(audit()).toContain('"action":"job.submit","outcome":"denied"');
   });
 
-  test("remote: denied by default; only allowed targets pass the policy; paid cost is never the agent's to accept", async () => {
+  test("the agent never picks a target; the pool is what the policy allows (ADR 0068)", async () => {
     const { agent, mint, revise } = await setup();
     const { token } = await mint();
-    const submit = (target_id: string) =>
+    const submit = (extra: Json = {}) =>
       agent<{ error: { code: string; message: string } }>(token, "/api/v1/projects/lab/jobs", {
         body: {
           command: ["python3", "train.py"],
-          target_id,
-          accept_cost: true,
+          environment: "none",
           limits: { runtime_max_sec: 60 },
+          ...extra,
         },
       });
-    const byDefault = await submit("gpu1");
-    expect(byDefault.status).toBe(403);
-    expect(byDefault.body.error.message).toContain("jobs.submit_remote.decision to deny");
+    const named = await submit({ target_id: "gpu1", accept_cost: true });
+    expect(named.status).toBe(400);
+    expect(named.body.error.code).toBe("target_not_agents");
+    // Remote targets allowed but none configured, and this machine denied: an empty pool.
     expect(
       (
         await revise({
           jobs: {
-            run_local: { decision: "allow" },
+            run_local: { decision: "deny" },
             submit_remote: { decision: "allow", allowed_targets: ["gpu1"] },
           },
         })
       ).status,
     ).toBe(201);
-    const other = await submit("gpu2");
-    expect(other.status).toBe(403);
-    expect(other.body.error.message).toContain("not in jobs.submit_remote.allowed_targets");
-    // Past the policy, the target itself is checked (none is configured here).
-    const allowed = await submit("gpu1");
-    expect(allowed.body.error.code).not.toBe("policy_denied");
+    const empty = await submit();
+    expect(empty.status).toBe(403);
+    expect(empty.body.error.code).toBe("policy_denied");
+    expect(empty.body.error.message).toContain("jobs.run_local.decision to deny");
+    expect(empty.body.error.message).toContain("matches no configured compute target");
   });
+
+  test("agents' jobs queue for the local GPU's slot; gpu none runs beside; a freed slot places the next (ADR 0068)", async () => {
+    const { cl, human, agent, mint } = await setup();
+    const { token } = await mint();
+    type View = {
+      job_id: string;
+      state: string;
+      placement?: { target?: string; waiting?: string; queued_at: string };
+      error?: { code: string };
+    };
+    const submit = (extra: Json = {}) =>
+      agent<View>(token, "/api/v1/projects/lab/jobs", {
+        body: {
+          command: ["sleep", "30"],
+          environment: "none",
+          limits: { runtime_max_sec: 120 },
+          ...extra,
+        },
+      });
+    const first = await submit();
+    expect(first.status).toBe(201);
+    expect(first.body.state).toBe("starting");
+    expect(first.body.placement?.target).toBe("local");
+    const second = await submit();
+    expect(second.status).toBe(201);
+    expect(second.body.state).toBe("queued");
+    expect(second.body.placement?.waiting).toContain("local 1/1");
+    // A job without a GPU takes no slot.
+    const check = await submit({ gpu: "none" });
+    expect(check.body.state).toBe("starting");
+    // The agent sees its pool, its slots and the queue.
+    const compute = await agent<{
+      queued: number;
+      reserved_hours: number;
+      targets: { target_id: string; slots: number; busy: number }[];
+    }>(token, "/api/v1/projects/lab/compute");
+    expect(compute.body.queued).toBe(1);
+    expect(compute.body.targets).toEqual([
+      expect.objectContaining({ target_id: "local", slots: 1, busy: 1 }),
+    ]);
+    // The queued job holds its whole time limit: three jobs of 120 s.
+    expect(compute.body.reserved_hours).toBeCloseTo(0.1, 2);
+    // A second slot places it at once.
+    const third = await submit();
+    expect(third.body.state).toBe("queued");
+    const slots = await human<{ slot_changes: Json[] }>("/api/v1/compute/weights", {
+      method: "PUT",
+      body: { slots: { local: 2 } },
+    });
+    expect(slots.status).toBe(200);
+    expect(slots.body.slot_changes).toEqual([{ target_id: "local", from: 1, to: 2 }]);
+    const until = async (what: string, ok: () => boolean) => {
+      for (let i = 0; i < 600 && !ok(); i++) await Bun.sleep(25);
+      if (!ok()) throw new Error(`timed out waiting for ${what}`);
+    };
+    const state = (id: string) => cl.c.services.jobs.require(id).state;
+    await until("the second job placed", () => state(second.body.job_id) !== "queued");
+    expect(state(third.body.job_id)).toBe("queued");
+    // A queued job is taken out of the queue; ending a job frees its slot for the next.
+    const out = await agent<View>(token, `/api/v1/jobs/${third.body.job_id}/cancel`, { body: {} });
+    expect(out.status).toBe(202);
+    expect(out.body.state).toBe("cancelled");
+    const fourth = await submit();
+    expect(fourth.body.state).toBe("queued");
+    await until("the first job running", () => state(first.body.job_id) === "running");
+    await agent(token, `/api/v1/jobs/${first.body.job_id}/cancel`, { body: {} });
+    await until("the fourth job placed", () => state(fourth.body.job_id) !== "queued");
+    expect(cl.c.services.jobs.require(fourth.body.job_id).placement?.target).toBe("local");
+    for (const j of [second, check, fourth])
+      await agent(token, `/api/v1/jobs/${j.body.job_id}/cancel`, { body: {} });
+  }, 30_000);
 
   test("an agent cancels only the jobs it submitted", async () => {
     const { human, agent, mint } = await setup();

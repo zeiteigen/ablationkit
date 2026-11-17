@@ -341,6 +341,7 @@ export class Coordinator {
         remote: () => remoteRef,
         sdkPythonPaths: (pid) => (svcRef as Services).backends.sdkPythonPaths(pid),
         containers: () => svcRef?.containers,
+        placement: () => svcRef?.compute,
       });
       jobs.load();
       for (const p of jobs.loadProblems) unreadable("job record", p);

@@ -46,6 +46,17 @@ TrackingOpKind = Literal[
     "log_trace",
 ]
 TargetId = Annotated[str, StringConstraints(pattern="^[a-z][a-z0-9-]{0,39}$")]
+JobState = Literal[
+    "queued",
+    "starting",
+    "running",
+    "succeeded",
+    "failed",
+    "cancelled",
+    "timed_out",
+    "oom_killed",
+    "unknown",
+]
 AttemptState = Literal[
     "starting", "running", "succeeded", "failed", "cancelled", "timed_out", "oom_killed", "unknown"
 ]
@@ -1049,6 +1060,32 @@ class JobContainer(ProtocolModel):
     )
 
 
+class JobPlacement(ProtocolModel):
+    """An agent's job is placed by AblationKit, never by the agent (ADR 0068): queued until a target in the project's pool (this machine if the policy allows local jobs, then the remote targets it allows) has a free slot, then started there."""
+
+    queued_at: Timestamp = Field(
+        description="RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds."
+    )
+    placed_at: Timestamp | None = Field(
+        default=None,
+        description="RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+    )
+    target: Annotated[str, StringConstraints(min_length=1, max_length=100)] | None = Field(
+        default=None,
+        description="Where AblationKit placed it: `local` (this machine) or a compute target's ID.",
+    )
+    local_only: Literal[True] | None = Field(
+        default=None,
+        description="It runs only on this machine: a protected evaluation or an environment build (ADR 0066).",
+    )
+    waiting: Annotated[str, StringConstraints(max_length=500)] | None = Field(
+        default=None, description="While queued: what it is waiting for."
+    )
+    error: Annotated[str, StringConstraints(max_length=2000)] | None = Field(
+        default=None, description="Why it could not be started once placed (the job then failed)."
+    )
+
+
 class JobRecord(ProtocolModel):
     """One logical job submission. Retries add attempts; each attempt has its own run."""
 
@@ -1147,11 +1184,17 @@ class JobRecord(ProtocolModel):
         default=None,
         description="Set on jobs a contained agent session submits (ADR 0061): each local attempt runs in a job container of its own.",
     )
+    placement: JobPlacement | None = Field(
+        default=None,
+        description="An agent's job is placed by AblationKit, never by the agent (ADR 0068): queued until a target in the project's pool (this machine if the policy allows local jobs, then the remote targets it allows) has a free slot, then started there.",
+    )
     gpu: Literal["none"] | None = Field(
         default=None,
         description="The job asked for no GPU (ADR 0066). In a job container it gets no GPU device; on this machine outside one, `CUDA_VISIBLE_DEVICES` is empty (advisory).",
     )
-    state: AttemptState = Field(description="State of the latest attempt.")
+    state: JobState = Field(
+        description="State of the latest attempt, or `queued` before the first."
+    )
     attempts: list[AttemptId] = Field(description="Attempt IDs, oldest first.")
     created_at: Timestamp = Field(
         description="RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds."
@@ -1702,11 +1745,15 @@ class ComputeTarget(ProtocolModel):
 
 
 class ComputeWeights(ProtocolModel):
-    """Machine-wide compute weights, set by the researcher. Each agent job records the weight in effect when it was submitted, so changing a weight never rewrites what was used."""
+    """Machine-wide compute weights and slots, set by the researcher. Each agent job records the weight of the target it was placed on, so changing a weight never rewrites what was used."""
 
     schema_version: Annotated[Literal[1], BeforeValidator(reject_bool)]
     weights: dict[str, Annotated[int, Field(ge=1, le=100000)]] = Field(
         description="By target: `local` (this workstation) or a compute target's ID. A target without an entry has weight 1."
+    )
+    slots: dict[str, Annotated[int, Field(ge=1, le=64)]] | None = Field(
+        default=None,
+        description="By target: how many jobs needing a GPU run there at once (ADR 0068); agents' jobs wait in a queue for a free one. Without an entry: 1, or 2 for a Colab target.",
     )
     updated_at: Timestamp | None = Field(
         default=None,
@@ -4995,8 +5042,10 @@ __all__ = [
     "JobGates",
     "JobId",
     "JobLimits",
+    "JobPlacement",
     "JobRecord",
     "JobSettings",
+    "JobState",
     "JournalEvent",
     "JudgeProvenance",
     "LatencySummary",

@@ -705,7 +705,7 @@ export const OPERATIONS: readonly Operation[] = [
   {
     id: "project",
     description:
-      "This session's project: first the researcher's agenda (what to work on now, the rules every session follows; ADR 0058) and their directions in force (`directions_from_the_researcher`: their standing rules and the directions still waiting for an answer, written by them in the web UI), then the project, its agent session, the project policy summary (what agents may run where) and the agent compute limit with what is used and left, and the targets you may use with their weights and limit enforcement. Start here, and answer each direction on the record (ablationkit_do direction.respond).",
+      "This session's project: first the researcher's agenda (what to work on now, the rules every session follows; ADR 0058) and their directions in force (`directions_from_the_researcher`: their standing rules and the directions still waiting for an answer, written by them in the web UI), then the project, its agent session, the project policy summary (what agents may run where) and the agent compute limit with what is used and left, and the pool your jobs are placed on (`compute.targets`, with weights and slots). Start here, and answer each direction on the record (ablationkit_do direction.respond).",
     inputSchema: obj({}),
     run: async (api) => {
       const [agenda, project, session, policy, compute] = await Promise.all([
@@ -740,7 +740,7 @@ export const OPERATIONS: readonly Operation[] = [
   {
     id: "compute",
     description:
-      "The project's agent compute limit in weighted hours (an hour on a target counts its weight; the researcher sets both), what agent jobs used, what running ones still hold, and what is left; and `targets`: each target the policy lets you run jobs on, with its weight and whether job limits are enforced there. Plan jobs to fit; only the researcher can raise the limit.",
+      "The project's agent compute limit in weighted hours (an hour on a target counts its weight; the researcher sets both), what agent jobs used, what running and queued ones still hold, and what is left; `queued`: jobs waiting for a slot; `targets`: the pool your jobs go to, with weights, slots (and busy ones) and limit enforcement. Plan jobs to fit; only the researcher can raise the limit or change the pool.",
     inputSchema: obj({}),
     run: (api) => api.request("GET", `${base(api)}/compute`),
   },
@@ -748,7 +748,7 @@ export const OPERATIONS: readonly Operation[] = [
   {
     id: "job.submit",
     description:
-      "Run a command as an AblationKit job in this project's checkout, tracked as an MLflow run: on this machine, or on a remote compute target. The project policy decides (jobs.run_local; jobs.submit_remote and its allowed targets): a refusal is policy_denied and names the field. Every job needs runtime_max_sec; its time limit x its target's weight must fit in what is left of the compute limit (compute_limit_reached otherwise). In an agent container (ADRs 0061, 0066) a job runs in a job container, without network unless the project allows it, in the environment ablationkit_job environment built (read-only; environment_stale until a build from the current uv.lock succeeds). There, `evaluation` runs one of the researcher's protected evaluations instead of a command: its pinned command against your current code, with data you cannot see; you read its metrics, not its console.",
+      "Run a command as an AblationKit job in this project's checkout, tracked as an MLflow run. You never choose where: it is queued and started on a target of the project's pool (the researcher's: compute.targets) once one has a free slot; meanwhile it is `queued` and `placement.waiting` says why. Write jobs that run on any of them. gpu \"none\" runs on this machine beside the others, taking no slot. An empty pool is policy_denied. Every job needs runtime_max_sec and must fit the compute limit at the pool's heaviest weight (compute_limit_reached). In an agent container (ADRs 0061, 0066) a job runs in a job container, without network unless the project allows it, in the environment ablationkit_job environment built (read-only; environment_stale until a build from the current uv.lock succeeds). There, `evaluation` runs one of the researcher's protected evaluations instead of a command: its pinned command against your current code, with data you cannot see; you read its metrics, not its console.",
     inputSchema: obj(
       {
         command: strs(
@@ -761,7 +761,6 @@ export const OPERATIONS: readonly Operation[] = [
           "Wall-clock limit in seconds; the job is stopped when it is reached. Every job needs one: the coordinator refuses a job without it (time_limit_required).",
           1,
         ),
-        target_id: str("Remote compute target. Omit to run on this machine."),
         run_name: str("MLflow run name: short and readable, e.g. 'sym64k-emb0.02-finalnorm'."),
         description: str(
           "What this run tests and why, in a sentence or two: what differs from the baseline and what result would mean what. It becomes the run's summary; replace it with the outcome through ablationkit_run describe once the run ends.",
@@ -807,7 +806,6 @@ export const OPERATIONS: readonly Operation[] = [
         ...pick(a, [
           "command",
           "evaluation",
-          "target_id",
           "run_name",
           "description",
           "cwd",
@@ -1992,7 +1990,6 @@ export const OPERATIONS: readonly Operation[] = [
         contribution: str("Python contribution ID."),
         params: { type: "object", description: "JSON parameters (at most 64 KiB)." },
         refs: refs("Object references, e.g. [{kind: 'run', id: '…'}]."),
-        target_id: str("Run it as a job on this compute target (the policy decides)."),
       },
       ["extension_id", "contribution"],
     ),
@@ -2001,7 +1998,6 @@ export const OPERATIONS: readonly Operation[] = [
         contribution: a["contribution"],
         params: a["params"] ?? {},
         refs: a["refs"] ?? [],
-        ...pick(a, ["target_id"]),
       }),
   },
   {

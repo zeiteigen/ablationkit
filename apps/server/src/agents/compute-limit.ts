@@ -17,6 +17,7 @@ import {
   type ComputeUsage,
   computeUsage,
   DEFAULT_WEIGHT_HUNDREDTHS,
+  defaultSlots,
   LOCAL_TARGET,
   parseWeight,
   roundHours,
@@ -45,6 +46,10 @@ export interface WeightView {
   readonly weight_hundredths: number;
   /** No weight was set: the default of 1. */
   readonly default: boolean;
+  /** How many jobs needing a GPU run there at once (ADR 0068). */
+  readonly slots: number;
+  /** No slots were set: the default (1, or 2 for Colab). */
+  readonly slots_default: boolean;
 }
 
 export interface ProjectComputeUsage {
@@ -60,6 +65,8 @@ export interface ProjectComputeUsage {
   readonly attempts: number;
   readonly live: number;
   readonly over_limit: boolean;
+  /** Agents' jobs of this project waiting for a slot (ADR 0068). */
+  readonly queued: number;
   readonly refused?: { readonly at: string; readonly count: number; readonly message: string };
   /**
    * The targets the project policy lets agents run jobs on, with their weights (an hour there
@@ -73,6 +80,10 @@ export interface AgentTargetView {
   readonly label: string;
   readonly kind: string;
   readonly weight: number;
+  /** How many jobs needing a GPU run there at once; agents' jobs queue for a free one. */
+  readonly slots: number;
+  /** Jobs needing a GPU live there now, anyone's. */
+  readonly busy: number;
   /**
    * `enforced` or `advisory` on this machine (systemd user scopes, or direct mode), with the
    * reason; `reported_per_attempt` on a remote target, whose worker reports it for each attempt.
@@ -133,11 +144,20 @@ export class ComputeLimitService {
     return this.doc.weights[targetId] ?? DEFAULT_WEIGHT_HUNDREDTHS;
   }
 
+  /** How many jobs needing a GPU run on a target at once (ADR 0068). */
+  slotsOf(targetId: string): number {
+    const set = this.doc.slots?.[targetId];
+    if (set !== undefined) return set;
+    if (targetId === LOCAL_TARGET) return defaultSlots("local");
+    return defaultSlots(this.o.svc().targets.get(targetId)?.kind ?? "");
+  }
+
   /** This workstation and every configured target, with their weights. */
   weights(): { weights: WeightView[]; updated_at?: string; updated_by?: string } {
     const svc = this.o.svc();
     const view = (target_id: string, label: string, kind: string): WeightView => {
       const h = this.doc.weights[target_id];
+      const slots = this.doc.slots?.[target_id];
       return {
         target_id,
         label,
@@ -145,6 +165,8 @@ export class ComputeLimitService {
         weight: weightValue(h ?? DEFAULT_WEIGHT_HUNDREDTHS),
         weight_hundredths: h ?? DEFAULT_WEIGHT_HUNDREDTHS,
         default: h === undefined,
+        slots: slots ?? defaultSlots(kind),
+        slots_default: slots === undefined,
       };
     };
     return {
@@ -158,19 +180,43 @@ export class ComputeLimitService {
   }
 
   /**
-   * Set weights (`{ "local": 1, "a100": 3 }`; `null` goes back to 1). Jobs already submitted keep
-   * the weight they recorded.
+   * Set weights (`{ "local": 1, "a100": 3 }`; `null` goes back to 1) and slots (`{ "local": 2 }`;
+   * `null` goes back to the default). Jobs already placed keep the weight they recorded.
    */
   setWeights(
     input: unknown,
     by: string,
-  ): { changes: { target_id: string; from: number; to: number }[] } {
-    if (!input || typeof input !== "object" || Array.isArray(input))
+    slotsInput?: unknown,
+  ): {
+    changes: { target_id: string; from: number; to: number }[];
+    slot_changes: { target_id: string; from: number; to: number }[];
+  } {
+    if (input === undefined && slotsInput === undefined)
+      throw new HttpError(400, "invalid_request", "give `weights`, `slots` or both");
+    const isMap = (v: unknown) => !!v && typeof v === "object" && !Array.isArray(v);
+    if (input !== undefined && !isMap(input))
       throw new HttpError(400, "invalid_request", "`weights` must be an object of target → weight");
+    if (slotsInput !== undefined && !isMap(slotsInput))
+      throw new HttpError(400, "invalid_request", "`slots` must be an object of target → slots");
     const svc = this.o.svc();
     const next = { ...this.doc.weights };
     const changes: { target_id: string; from: number; to: number }[] = [];
-    for (const [id, raw] of Object.entries(input as Record<string, unknown>)) {
+    const nextSlots: Record<string, number> = { ...(this.doc.slots ?? {}) };
+    const slotChanges: { target_id: string; from: number; to: number }[] = [];
+    for (const [id, raw] of Object.entries((slotsInput ?? {}) as Record<string, unknown>)) {
+      if (id !== LOCAL_TARGET && !svc.targets.get(id))
+        throw new HttpError(404, "target_not_found", `no compute target ${id}`);
+      const from = this.slotsOf(id);
+      if (raw === null) delete nextSlots[id];
+      else if (typeof raw === "number" && Number.isInteger(raw) && raw >= 1 && raw <= 64)
+        nextSlots[id] = raw;
+      else
+        throw new HttpError(400, "invalid_slots", `${id}: slots are a whole number from 1 to 64`);
+      const kind = id === LOCAL_TARGET ? "local" : (svc.targets.get(id)?.kind ?? "");
+      const to = nextSlots[id] ?? defaultSlots(kind);
+      if (from !== to) slotChanges.push({ target_id: id, from, to });
+    }
+    for (const [id, raw] of Object.entries((input ?? {}) as Record<string, unknown>)) {
       if (id !== LOCAL_TARGET && !svc.targets.get(id))
         throw new HttpError(404, "target_not_found", `no compute target ${id}`);
       const from = next[id] ?? DEFAULT_WEIGHT_HUNDREDTHS;
@@ -192,13 +238,16 @@ export class ComputeLimitService {
     const doc: ComputeWeights = {
       schema_version: 1,
       weights: next,
+      ...(Object.keys(nextSlots).length ? { slots: nextSlots } : {}),
       updated_at: this.o.now().toISOString(),
       updated_by: by,
     };
     mkdirSync(dirname(this.o.weightsPath), { recursive: true, mode: 0o700 });
     writeJsonAtomic(this.o.weightsPath, doc, { validate: validateComputeWeights });
     this.doc = doc;
-    return { changes };
+    // More slots can start queued jobs at once.
+    if (slotChanges.length) svc.jobs.schedule();
+    return { changes, slot_changes: slotChanges };
   }
 
   // ------------------------------------------------------------------ usage
@@ -212,6 +261,7 @@ export class ComputeLimitService {
         .map((j) => ({
           weight_hundredths: j.compute_weight_hundredths,
           runtime_max_sec: j.limits.runtime_max_sec,
+          queued: j.state === "queued",
           attempts: j.attempts.flatMap((id) => {
             const a = jobs.attempt(id);
             return a ? [a] : [];
@@ -240,12 +290,22 @@ export class ComputeLimitService {
       attempts: u.attempts,
       live: u.live,
       over_limit: u.used_hours > limit + 1e-9,
+      queued: svc.jobs.queued(projectId).length,
       // Refusals under an earlier revision were answered by the revision.
       ...(refused && refused.policy_revision === policy.revision
         ? { refused: { at: refused.last_at, count: refused.count, message: refused.message } }
         : {}),
       targets: this.agentTargets(policy.jobs),
     };
+  }
+
+  /**
+   * A project's pool (ADR 0068): the targets its policy lets agents' jobs run on, in the order
+   * AblationKit tries them: this machine if `jobs.run_local` allows, then the remote targets
+   * `jobs.submit_remote` allows. The agent never picks among them.
+   */
+  pool(projectId: string): AgentTargetView[] {
+    return this.agentTargets(this.o.svc().policy.current(projectId).jobs);
   }
 
   /** The targets `jobs` lets an agent use: this machine if run_local allows, then remote ones. */
@@ -258,6 +318,7 @@ export class ComputeLimitService {
   }): AgentTargetView[] {
     const svc = this.o.svc();
     const out: AgentTargetView[] = [];
+    const busy = svc.jobs.occupancy();
     if (jobs.run_local.decision === "allow") {
       const probe = svc.jobs.probe();
       out.push({
@@ -265,6 +326,8 @@ export class ComputeLimitService {
         label: "this workstation",
         kind: "local",
         weight: weightValue(this.weightOf(LOCAL_TARGET)),
+        slots: this.slotsOf(LOCAL_TARGET),
+        busy: busy.get(LOCAL_TARGET) ?? 0,
         limits: probe.enforcement,
         ...(probe.reason ? { limits_reason: probe.reason } : {}),
       });
@@ -277,6 +340,8 @@ export class ComputeLimitService {
             label: t.label ?? t.target_id,
             kind: t.kind,
             weight: weightValue(this.weightOf(t.target_id)),
+            slots: this.slotsOf(t.target_id),
+            busy: busy.get(t.target_id) ?? 0,
             limits: "reported_per_attempt",
           });
     return out;
@@ -292,13 +357,18 @@ export class ComputeLimitService {
   // ------------------------------------------------------------------ admission
 
   /**
-   * Admit an agent's job of `runtimeSec` on `targetId`, or throw 403 `compute_limit_reached`.
-   * Returns the weight to record on the job.
+   * Admit an agent's job of `runtimeSec` that may run on any of `targets` (its pool, ADR 0068), or
+   * throw 403 `compute_limit_reached`. It is held at the heaviest of their weights until it is
+   * placed. Returns that weight, to record on the job.
    */
-  admit(projectId: string, targetId: string, runtimeSec: number): number {
+  admit(projectId: string, targets: readonly string[], runtimeSec: number): number {
     const svc = this.o.svc();
     const policy = svc.policy.current(projectId);
-    const weight = this.weightOf(targetId);
+    const heaviest = targets.reduce(
+      (best, t) => (this.weightOf(t) > this.weightOf(best) ? t : best),
+      targets[0] ?? LOCAL_TARGET,
+    );
+    const weight = this.weightOf(heaviest);
     const u = this.raw(projectId);
     const limit = policy.compute.limit_hours;
     const a = admit(u, limit, runtimeSec, weight);
@@ -311,7 +381,7 @@ export class ComputeLimitService {
       return weight;
     }
     const name = svc.registry.require(projectId).name;
-    const message = `This job may use up to ${fmt(a.needed_hours)} weighted hours (${fmt(runtimeSec / 3600)} h time limit × weight ${weightValue(weight)} on ${targetId}), but agents in ${name} have used ${fmt(u.used_hours)} and reserved ${fmt(u.reserved_hours)} of ${limit} (${fmt(a.available_hours)} left).`;
+    const message = `This job may use up to ${fmt(a.needed_hours)} weighted hours (${fmt(runtimeSec / 3600)} h time limit × weight ${weightValue(weight)}${targets.length > 1 ? `, the heaviest of its pool (${heaviest})` : ` on ${heaviest}`}), but agents in ${name} have used ${fmt(u.used_hours)} and reserved ${fmt(u.reserved_hours)} of ${limit} (${fmt(a.available_hours)} left).`;
     this.refused(projectId, name, policy.revision, message);
     throw new HttpError(
       403,
@@ -324,7 +394,7 @@ export class ComputeLimitService {
         reserved_hours: roundHours(u.reserved_hours),
         available_hours: roundHours(a.available_hours),
         needed_hours: roundHours(a.needed_hours),
-        target: targetId,
+        target: heaviest,
         weight: weightValue(weight),
       },
     );

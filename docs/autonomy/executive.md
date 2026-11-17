@@ -28,7 +28,7 @@ An agent on your machine can act as your executive through its own MCP server, `
 
 ## Keeping an agent off the GPU
 
-When one agent's job needs the GPU to itself (training matched by wall-clock time, a benchmark), tell the others to hold their GPU jobs. Do not tell them to stop submitting jobs. Their tests, checks and analysis run as jobs with `gpu: "none"`, which get no GPU device and run beside the GPU job without touching it (ADR 0066). An agent told only "no jobs until I say" falls back to running code in its own shell. In an agent container it has no project environment for that, and nothing it ran there would be recorded or counted. Never tell it to `uv sync` in its shell either: packages are installed by an environment build (`ablationkit_job environment`), which the agent submits itself.
+Agents' jobs do not share the GPU by accident: AblationKit queues them and places each on a target of the project's pool with a free slot (ADR 0068), one GPU job at a time on this machine unless the researcher gave it more slots. When an agent must stay off the GPU all the same, tell it to hold its GPU jobs. Do not tell it to stop submitting jobs. Their tests, checks and analysis run as jobs with `gpu: "none"`, which get no GPU device and run beside the GPU job without touching it (ADR 0066). An agent told only "no jobs until I say" falls back to running code in its own shell. In an agent container it has no project environment for that, and nothing it ran there would be recorded or counted. Never tell it to `uv sync` in its shell either: packages are installed by an environment build (`ablationkit_job environment`), which the agent submits itself.
 
 ## How it is held to that
 
