@@ -52,6 +52,15 @@ The agent container has no project environment (ADR 0066). It has no `uv` or `pi
   - Tests and quick checks use `gpu: "none"`: they get no GPU device and run beside a training job without touching its GPU.
 - **A refused host in a build** (a private index, a Git dependency elsewhere) is yours to allow: `ablationkit agent allow --environment HOST`.
 
+**Where jobs run, and what they run** (ADR 0068):
+
+- **The agent never chooses where.** AblationKit queues each job and places it on the project's pool (this machine, then the remote targets the policy allows) as soon as a target has a free slot. One GPU job runs on this machine at a time unless you give it more slots on the Compute page. See [the pool](project-permissions.md#the-pool-where-agents-jobs-run).
+- **The checkout as submitted.** A job runs a copy of the checkout as it was when the agent submitted it: the files Git tracks or would track, committed or not, with the ignored files its `input_paths` names. Hidden paths and `.ablationkit/` are left out. The copy is kept with the job (`state/PROJECT/jobs/JOB/source/`), so a queued job runs what was submitted, and a retry runs it again. A source over 256 MiB is refused (`source_too_large`): data belongs in `.gitignore`.
+- **On this machine,** each attempt gets its own copy (`~/.ablationkit/work/ATTEMPT/`), mounted at the checkout's path in its job container. The checkout's ignored files and directories (data, earlier outputs) and its `.git` are mounted over the copy read-only, so the job reads them in place but cannot change them. Hidden paths stay masked.
+- **Outputs come back as artifacts.** What the job writes stays in its copy, which is deleted when the attempt ends; only what `artifact_paths` collect is kept, as MLflow artifacts. The checkout is never written.
+- **Inputs from earlier runs.** A later job takes what an earlier one kept with `inputs: [{run, path, to?}]`, for example a checkpoint for an evaluation. The coordinator downloads them when the job is submitted and mounts them read-only at `to` (by default where the earlier job wrote them). They are capped at 8 inputs and 16 GiB, kept for a week after the job ends, and go to a remote target in its bundle.
+- **On a remote target,** the job's bundle carries the same copy and its inputs, so the checkout need not be committed or clean.
+
 An environment agents installed before ADR 0066 (`env/`) is adopted on first use, taken as built from the `uv.lock` of that moment. Sessions started earlier keep their old mounts until they end.
 
 **Driving a session from another agent.** An agent of yours on the host (or a script) has no terminal to attach. It can:
@@ -107,4 +116,6 @@ These do not hold:
 - With Remote Control on, Claude Code also sends its usage reporting. Reporting to Anthropic's hosts goes through. Its Datadog host is not on the allowlist, so it shows as a refused host in the session's egress.
 - Your Claude Code login is in the container while it runs, readable by the agent. A renewal it makes is carried back to `~/.claude`, so a hostile agent could replace your login with a broken one; a backup is kept. Use `--no-login` to keep a separate login.
 - The checkout is bind-mounted, so the files a session changed include your own edits made meanwhile.
+- A job on this machine reads the checkout's ignored files as they are when it runs, not as they were when it was submitted: only the source is a snapshot.
+- An agent outside an agent container is your operator (ADR 0062): its jobs on this machine still run in the checkout itself, and take no `inputs`.
 - HTTPS egress is recorded by host only.

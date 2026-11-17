@@ -317,6 +317,8 @@ Schema: [`job-record.v1.schema.json`](../../packages/protocol/schemas/job-record
 | `via_extension` | string | no | Submitted through this extension backend's broker (`compute.remote`, ADR 0024); only it may read or cancel the job there. |
 | `container` | object | no | Set on jobs a contained agent session submits (ADR 0061): each local attempt runs in a job container of its own. |
 | `placement` | object | no | An agent's job is placed by AblationKit, never by the agent (ADR 0068): queued until a target in the project's pool (this machine if the policy allows local jobs, then the remote targets it allows) has a free slot, then started there. |
+| `source` | object | no | An agent's job runs its checkout as it was when submitted (ADR 0068): the files Git tracks or would track, with the ignored ones `input_paths` names, copied to `jobs/<job>/source/` and run wherever the job is placed. Hidden paths and `.ablationkit/` are left out. |
+| `inputs` | array of object | no |  |
 | `gpu` | `"none"` | no | The job asked for no GPU (ADR 0066). In a job container it gets no GPU device; on this machine outside one, `CUDA_VISIBLE_DEVICES` is empty (advisory). |
 | `state` | `JobState` | yes | State of the latest attempt, or `queued` before the first. |
 | `attempts` | array of `AttemptId` | yes | Attempt IDs, oldest first. |
@@ -415,6 +417,7 @@ Schema: [`collector-manifest.v1.schema.json`](../../packages/protocol/schemas/co
 | `spool_max_bytes` | integer | yes |  |
 | `deliver_deadline_sec` | integer | yes | How long after exit the collector keeps retrying delivery before leaving the spool for reconciliation. |
 | `drain_only` | boolean | no | Deliver an existing spool without starting the command. |
+| `source` | object | no | The job runs a copy of its source (ADR 0068), not a Git checkout: the provenance to record instead of asking Git in `project_path`. |
 
 ## ComputeTarget (v1)
 
@@ -1365,6 +1368,7 @@ Schema: [`source-build-record.v1.schema.json`](../../packages/protocol/schemas/s
 | `CapabilityConfig` | object |  | Bounds for capabilities that need them: allowlists, quotas and sizes. |
 | `ColabConfig` | object |  |  |
 | `CollectorHealth` | object |  | Last health report from the attempt's collector. |
+| `CollectorSource` | object |  | The job runs a copy of its source (ADR 0068), not a Git checkout: the provenance to record instead of asking Git in `project_path`. |
 | `ComputeLimit` | object |  |  |
 | `ComputeLimitRefusals` | object |  | Agent submissions refused since the last admitted one under this policy revision: one notification per burst. |
 | `ConsoleStream` | undefined |  | `log`: a Python logging record from the SDK handler. `system`: a note from AblationKit itself. |
@@ -1442,6 +1446,7 @@ Schema: [`source-build-record.v1.schema.json`](../../packages/protocol/schemas/s
 | `JobLimits` | object |  | CPU, memory, time and task limits for one attempt. |
 | `JobPlacement` | object |  | An agent's job is placed by AblationKit, never by the agent (ADR 0068): queued until a target in the project's pool (this machine if the policy allows local jobs, then the remote targets it allows) has a free slot, then started there. |
 | `JobSettings` | object |  | Local job runner and collector settings. |
+| `JobSource` | object |  | An agent's job runs its checkout as it was when submitted (ADR 0068): the files Git tracks or would track, with the ignored ones `input_paths` names, copied to `jobs/<job>/source/` and run wherever the job is placed. Hidden paths and `.ablationkit/` are left out. |
 | `JobState` | undefined |  | State of the latest attempt, or `queued` before the first. |
 | `ListenerSettings` | object |  | Worker upload API. Default 127.0.0.1:7422. Host `tailscale` binds the machine's Tailscale IPv4 address (remote workers). |
 | `LlmActor` | object |  |  |

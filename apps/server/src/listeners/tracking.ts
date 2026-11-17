@@ -1279,6 +1279,39 @@ async function projectRun(
   return { runId, run };
 }
 
+/**
+ * The MLflow run ID of one of a project's runs, named by a job (its latest attempt), an attempt,
+ * a run name (the newest job with it) or an MLflow run ID: a job's `inputs` (ADR 0068).
+ */
+export async function projectRunId(svc: Services, pid: string, id: string): Promise<string> {
+  if (!ID_RE.test(id) && id.length > 250)
+    throw new HttpError(
+      400,
+      "invalid_request",
+      "a run is named by a job, an attempt, a run name or an MLflow run ID",
+    );
+  const notFound = new HttpError(404, "run_not_found", `no run ${id} in project ${pid}`);
+  const jobs = svc.jobs.list(pid);
+  const job =
+    jobs.find((j) => j.job_id === id) ??
+    jobs.find((j) => j.run_name === id && j.attempts.length > 0);
+  const ref = job ? job.attempts[job.attempts.length - 1] : id;
+  if (!ref || !ID_RE.test(ref)) throw notFound;
+  const { mapping, runId } = resolve(svc, ref);
+  if (mapping) {
+    if (mapping.project_id !== pid) throw notFound;
+    if (!runId)
+      throw new HttpError(409, "tracking_pending", `MLflow has not acknowledged run ${id} yet`);
+    return runId;
+  }
+  if (!runId) throw notFound;
+  const run = await mlflow(svc, () => svc.tracking.client.getRun(runId)).catch(() => {
+    throw notFound;
+  });
+  if (!projectExperimentIds(svc, pid).includes(run.info.experiment_id)) throw notFound;
+  return runId;
+}
+
 const agentRead = (
   path: string,
   action: string,

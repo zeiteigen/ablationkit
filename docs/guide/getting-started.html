@@ -336,6 +336,17 @@ args = ["mcp"]</code></pre>
         </code>
         starts it without). Claude Code's own management tools are off: it keeps no auto memory, publishes no Artifacts, schedules nothing and does not message your other sessions. What it learns goes in the vault.
        </p>
+       <p>
+        The agent runs its code as jobs, and never chooses where they run. AblationKit queues each one and starts it on the project's pool, this workstation first and then the remote targets you allow, as soon as one has a free slot (see
+        <a href="operations.html#permissions">
+         agent permissions
+        </a>
+        ). A job runs the checkout as it was when the agent submitted it. On this workstation it reads your ignored data in place, read-only, and writes only into its own copy, which is deleted when it ends. What it keeps is what it collects as artifacts. A later job takes those back as
+        <code>
+         inputs
+        </code>
+        , for example a checkpoint to evaluate. Your checkout is never written by a job.
+       </p>
       </li>
       <li>
        <h3>

@@ -1086,6 +1086,45 @@ class JobPlacement(ProtocolModel):
     )
 
 
+class JobSource(ProtocolModel):
+    """An agent's job runs its checkout as it was when submitted (ADR 0068): the files Git tracks or would track, with the ignored ones `input_paths` names, copied to `jobs/<job>/source/` and run wherever the job is placed. Hidden paths and `.ablationkit/` are left out."""
+
+    commit: Annotated[str, StringConstraints(pattern="^[a-f0-9]{40,64}$")] | None = Field(
+        default=None
+    )
+    changed: Annotated[
+        list[Annotated[str, StringConstraints(max_length=4096)]], Field(max_length=200)
+    ] = Field(
+        description="Files that differed from `commit` (modified, added, deleted, untracked)."
+    )
+    changed_total: Annotated[int, Field(ge=0)]
+    files: Annotated[int, Field(ge=0)]
+    bytes: Annotated[int, Field(ge=0)]
+    taken_at: Timestamp = Field(
+        description="RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds."
+    )
+
+
+class JobInput(ProtocolModel):
+    """What an earlier run produced, taken by an agent's job (ADR 0068): downloaded from the run's artifacts when the job was submitted, mounted read-only at `to` on this machine or carried in the bundle to a remote target."""
+
+    run: Annotated[str, StringConstraints(min_length=1, max_length=250)] = Field(
+        description="As the agent named it: a job, an attempt, a run name or an MLflow run ID."
+    )
+    run_id: Annotated[str, StringConstraints(min_length=1, max_length=128)] = Field(
+        description="The MLflow run."
+    )
+    path: Annotated[str, StringConstraints(max_length=1024)] = Field(
+        description="The artifact path taken (a file or a directory); empty for the whole run."
+    )
+    to: Annotated[str, StringConstraints(min_length=1, max_length=1024)] = Field(
+        description="Where it is in the job's source, relative to its root."
+    )
+    kind: Literal["file", "dir"]
+    files: Annotated[int, Field(ge=1)]
+    bytes: Annotated[int, Field(ge=0)]
+
+
 class JobRecord(ProtocolModel):
     """One logical job submission. Retries add attempts; each attempt has its own run."""
 
@@ -1188,6 +1227,11 @@ class JobRecord(ProtocolModel):
         default=None,
         description="An agent's job is placed by AblationKit, never by the agent (ADR 0068): queued until a target in the project's pool (this machine if the policy allows local jobs, then the remote targets it allows) has a free slot, then started there.",
     )
+    source: JobSource | None = Field(
+        default=None,
+        description="An agent's job runs its checkout as it was when submitted (ADR 0068): the files Git tracks or would track, with the ignored ones `input_paths` names, copied to `jobs/<job>/source/` and run wherever the job is placed. Hidden paths and `.ablationkit/` are left out.",
+    )
+    inputs: Annotated[list[JobInput], Field(max_length=8)] | None = Field(default=None)
     gpu: Literal["none"] | None = Field(
         default=None,
         description="The job asked for no GPU (ADR 0066). In a job container it gets no GPU device; on this machine outside one, `CUDA_VISIBLE_DEVICES` is empty (advisory).",
@@ -1496,6 +1540,15 @@ class ConsoleRecord(ProtocolModel):
     )
 
 
+class CollectorSource(ProtocolModel):
+    """The job runs a copy of its source (ADR 0068), not a Git checkout: the provenance to record instead of asking Git in `project_path`."""
+
+    commit: Annotated[str, StringConstraints(pattern="^[a-f0-9]{40,64}$")] | None = Field(
+        default=None
+    )
+    dirty: bool
+
+
 class CollectorManifest(ProtocolModel):
     """Everything the collector needs to run and report one attempt."""
 
@@ -1534,6 +1587,10 @@ class CollectorManifest(ProtocolModel):
     )
     drain_only: bool | None = Field(
         default=None, description="Deliver an existing spool without starting the command."
+    )
+    source: CollectorSource | None = Field(
+        default=None,
+        description="The job runs a copy of its source (ADR 0068), not a Git checkout: the provenance to record instead of asking Git in `project_path`.",
     )
 
 
@@ -4913,6 +4970,7 @@ __all__ = [
     "ColabGpu",
     "CollectorHealth",
     "CollectorManifest",
+    "CollectorSource",
     "ComputeLimit",
     "ComputeLimitRefusals",
     "ComputeLimitState",
@@ -5041,10 +5099,12 @@ __all__ = [
     "JobContainer",
     "JobGates",
     "JobId",
+    "JobInput",
     "JobLimits",
     "JobPlacement",
     "JobRecord",
     "JobSettings",
+    "JobSource",
     "JobState",
     "JournalEvent",
     "JudgeProvenance",

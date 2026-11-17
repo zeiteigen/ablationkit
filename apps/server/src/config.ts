@@ -49,6 +49,8 @@ export interface RuntimePaths {
   readonly computeWeights: string;
   /** Staged run bundles of remote attempts (`bundles/<attempt-id>/`). */
   readonly bundlesDir: string;
+  /** An agent's local attempt's copy of its job's source, while it runs (`work/<attempt-id>/`). */
+  readonly workDir: string;
   /** The Colab CLI's session state for the runtimes the coordinator allocates (ADR 0059). */
   readonly colabState: string;
 }
@@ -74,6 +76,7 @@ export function runtimePaths(home: string): RuntimePaths {
     targetsDir: join(home, "targets"),
     computeWeights: join(home, "compute-weights.json"),
     bundlesDir: join(home, "bundles"),
+    workDir: join(home, "work"),
     colabState: join(home, "colab", "sessions.json"),
   };
 }

@@ -107,6 +107,57 @@ export const JobPlacement = Type.Object(
 );
 export type JobPlacement = Static<typeof JobPlacement>;
 
+export const JobSource = Type.Object(
+  {
+    commit: Type.Optional(Type.String({ pattern: "^[a-f0-9]{40,64}$" })),
+    changed: Type.Array(Type.String({ maxLength: 4096 }), {
+      maxItems: 200,
+      description: "Files that differed from `commit` (modified, added, deleted, untracked).",
+    }),
+    changed_total: Type.Integer({ minimum: 0 }),
+    files: Type.Integer({ minimum: 0 }),
+    bytes: Type.Integer({ minimum: 0 }),
+    taken_at: Timestamp,
+  },
+  {
+    title: "JobSource",
+    description:
+      "An agent's job runs its checkout as it was when submitted (ADR 0068): the files Git tracks or would track, with the ignored ones `input_paths` names, copied to `jobs/<job>/source/` and run wherever the job is placed. Hidden paths and `.ablationkit/` are left out.",
+    additionalProperties: false,
+  },
+);
+export type JobSource = Static<typeof JobSource>;
+
+export const JobInput = Type.Object(
+  {
+    run: Type.String({
+      minLength: 1,
+      maxLength: 250,
+      description: "As the agent named it: a job, an attempt, a run name or an MLflow run ID.",
+    }),
+    run_id: Type.String({ minLength: 1, maxLength: 128, description: "The MLflow run." }),
+    path: Type.String({
+      maxLength: 1024,
+      description: "The artifact path taken (a file or a directory); empty for the whole run.",
+    }),
+    to: Type.String({
+      minLength: 1,
+      maxLength: 1024,
+      description: "Where it is in the job's source, relative to its root.",
+    }),
+    kind: Type.Union([Type.Literal("file"), Type.Literal("dir")]),
+    files: Type.Integer({ minimum: 1 }),
+    bytes: Type.Integer({ minimum: 0 }),
+  },
+  {
+    title: "JobInput",
+    description:
+      "What an earlier run produced, taken by an agent's job (ADR 0068): downloaded from the run's artifacts when the job was submitted, mounted read-only at `to` on this machine or carried in the bundle to a remote target.",
+    additionalProperties: false,
+  },
+);
+export type JobInput = Static<typeof JobInput>;
+
 export const TERMINAL_ATTEMPT_STATES: readonly AttemptState[] = [
   "succeeded",
   "failed",
@@ -232,6 +283,8 @@ export const JobRecord = Type.Object(
     ),
     container: Type.Optional(JobContainer),
     placement: Type.Optional(JobPlacement),
+    source: Type.Optional(JobSource),
+    inputs: Type.Optional(Type.Array(JobInput, { maxItems: 8 })),
     gpu: Type.Optional(
       Type.Literal("none", {
         description:
@@ -441,6 +494,20 @@ export const CollectorManifest = Type.Object(
     ),
     drain_only: Type.Optional(
       describe(Type.Boolean(), "Deliver an existing spool without starting the command."),
+    ),
+    source: Type.Optional(
+      Type.Object(
+        {
+          commit: Type.Optional(Type.String({ pattern: "^[a-f0-9]{40,64}$" })),
+          dirty: Type.Boolean(),
+        },
+        {
+          title: "CollectorSource",
+          description:
+            "The job runs a copy of its source (ADR 0068), not a Git checkout: the provenance to record instead of asking Git in `project_path`.",
+          additionalProperties: false,
+        },
+      ),
     ),
   },
   {

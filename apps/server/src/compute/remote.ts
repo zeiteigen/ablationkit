@@ -238,9 +238,13 @@ export class RemoteService {
   prepare(job: JobRecord, attemptId: string, checkout: string): PreparedRemote {
     const target = this.o.targets.require(job.target_id as string);
     const workerUrl = this.workerUrlFor(target.target_id) ?? this.o.boundWorkerUrl();
+    // An agent's job runs its source as it was submitted (ADR 0068); any other the pinned commit.
+    const source = job.source
+      ? join(this.o.paths.stateDir, job.project_id, "jobs", job.job_id, "source")
+      : undefined;
     let commit: string;
     try {
-      commit = pinnedCommit(checkout);
+      commit = job.source ? (job.source.commit ?? "0".repeat(40)) : pinnedCommit(checkout);
     } catch (e) {
       if (e instanceof BundleError) throw new HttpError(422, e.code, e.message);
       throw e;
@@ -253,6 +257,15 @@ export class RemoteService {
         dir,
         repo: checkout,
         commit,
+        ...(source ? { source } : {}),
+        ...(job.inputs?.length
+          ? {
+              sourceExtras: job.inputs.map((x, n) => ({
+                src: join(this.o.paths.workDir, "inputs", job.job_id, String(n)),
+                to: x.to,
+              })),
+            }
+          : {}),
         sdkSrcs: [...BUNDLE_SDK_SRCS, ...(this.o.sdkSources?.(job.project_id) ?? [])],
         spec: compact({
           bundle_id: bundleId,

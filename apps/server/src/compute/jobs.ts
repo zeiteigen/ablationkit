@@ -9,11 +9,25 @@
  * tracking outbox and turns lifecycle events into compute status.
  */
 import { createHash, randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { join, resolve, sep } from "node:path";
 import type { TokenStore } from "@ablationkit/auth";
 import { COLLECTOR_MAIN, SDK_ENV, type SpoolLayout, spoolLayout } from "@ablationkit/collector";
-import { BundleError, pinnedCommit } from "@ablationkit/compute-targets";
+import {
+  BundleError,
+  ignoredEntries,
+  pinnedCommit,
+  snapshotSource,
+} from "@ablationkit/compute-targets";
 import { JsonlLog, readJson, readJsonl, writeJsonAtomic } from "@ablationkit/core";
 import {
   detachedAlive,
@@ -32,6 +46,7 @@ import {
   ENV_NAME_RE,
   type EventEnvelope,
   type IngestState,
+  type JobInput,
   type JobLimits,
   type JobPlacement,
   type JobRecord,
@@ -81,8 +96,8 @@ const WATCHDOG_MS = 15_000;
 const MAX_DRAINS = 3;
 const SECRET_ENV_RE = /(SECRET|TOKEN|PASSWORD|PASSWD|API_KEY|PRIVATE_KEY)/i;
 
-function isTerminal(s: AttemptState): boolean {
-  return TERMINAL_ATTEMPT_STATES.includes(s);
+function isTerminal(s: string): boolean {
+  return TERMINAL_ATTEMPT_STATES.includes(s as AttemptState);
 }
 
 export interface SubmitInput {
@@ -126,6 +141,8 @@ export interface SubmitInput {
    * pool with a free slot; `local_only` for protected evaluations and environment builds.
    */
   readonly queue?: { readonly local_only?: boolean };
+  /** An agent's job's inputs from earlier runs, downloaded into `dir` (ADR 0068). */
+  readonly staged_inputs?: { readonly dir: string; readonly inputs: readonly JobInput[] };
 }
 
 /** Where agents' jobs may run and how many at once (ADR 0068): the compute limit service. */
@@ -180,14 +197,27 @@ export interface JobServiceOptions {
 export interface JobContainers {
   contained(job: JobRecord): boolean;
   checkJob(job: JobRecord): void;
+  /** Paths relative to the checkout no job of the project may see: left out of its source. */
+  hiddenPaths(job: JobRecord): readonly string[];
   containerizeJob(
     job: JobRecord,
     a: {
       readonly attemptId: string;
       readonly spool: string;
       readonly argv: readonly string[];
+      /** In the container: below the checkout's path, where the job's source is mounted. */
       readonly cwd: string;
       readonly env: Readonly<Record<string, string>>;
+      /**
+       * The attempt's copy of the job's source (ADR 0068), mounted read-write at the checkout's
+       * path, with the checkout's ignored entries (relative paths) and the job's inputs (at `to`)
+       * mounted read-only over it.
+       */
+      readonly source?: {
+        readonly dir: string;
+        readonly ignored: readonly string[];
+        readonly inputs: readonly { readonly src: string; readonly to: string }[];
+      };
     },
   ): { argv: string[]; container: AttemptContainer };
   /** An attempt that ran in a job container ended (`attempt.state` says how). */
@@ -512,19 +542,89 @@ export class JobService {
   enqueue(input: SubmitInput & { readonly queue: { readonly local_only?: boolean } }): JobRecord {
     if (input.target_id !== undefined)
       throw new HttpError(400, "invalid_request", "a queued job is placed, not given a target");
-    const job = this.build(input);
+    const built = this.build(input);
     // What would stop it on this machine is a refusal now, not a failure once placed.
     if (
       this.o
         .placement?.()
-        ?.pool(job.project_id)
+        ?.pool(built.project_id)
         .some((t) => t.target_id === "local")
     )
-      this.preflightLocal(job);
+      this.preflightLocal(built);
+    // Its source as it is now, run wherever it is placed; an environment build writes the
+    // checkout's own lock, so it runs there (ADR 0066).
+    let job = built.container?.build_environment ? built : this.snapshot(built);
+    if (input.staged_inputs?.inputs.length) {
+      const into = this.inputsDir(job);
+      mkdirSync(join(this.o.paths.workDir, "inputs"), { recursive: true, mode: 0o700 });
+      rmSync(into, { recursive: true, force: true });
+      try {
+        renameSync(input.staged_inputs.dir, into);
+      } catch {
+        cpSync(input.staged_inputs.dir, into, { recursive: true });
+        rmSync(input.staged_inputs.dir, { recursive: true, force: true });
+      }
+      job = { ...job, inputs: [...input.staged_inputs.inputs] };
+    }
     this.saveJob(job);
     this.publishJob(job);
     this.placeQueued();
     return this.require(job.job_id);
+  }
+
+  /** Where an agent's job's inputs from earlier runs live, `<n>` each (ADR 0068). */
+  inputsDir(job: { job_id: string }): string {
+    return join(this.o.paths.workDir, "inputs", job.job_id);
+  }
+
+  /** The job's inputs as files or directories to put at `to` in its source. */
+  inputMounts(job: JobRecord): { src: string; to: string }[] {
+    return (job.inputs ?? []).map((x, n) => ({
+      src: join(this.inputsDir(job), String(n)),
+      to: x.to,
+    }));
+  }
+
+  /** Inputs of jobs that ended a week ago go (a retry after that has none). */
+  private pruneInputs(): void {
+    const before = this.o.now().getTime() - 7 * 24 * 3600 * 1000;
+    for (const j of this.jobs.values())
+      if (
+        j.inputs?.length &&
+        j.state !== "queued" &&
+        isTerminal(j.state) &&
+        Date.parse(j.updated_at) < before
+      )
+        rmSync(this.inputsDir(j), { recursive: true, force: true });
+  }
+
+  /** Where a job's source snapshot lives (ADR 0068). */
+  sourceDir(job: { project_id: string; job_id: string }): string {
+    return join(this.jobDir(job.project_id, job.job_id), "source");
+  }
+
+  /** Take the job's source from its checkout (ADR 0068); refusals are 422 `source_too_large`. */
+  private snapshot(job: JobRecord): JobRecord {
+    const project = this.o.registry.require(job.project_id);
+    const root = project.path;
+    const hidden = job.container ? (this.o.containers?.()?.hiddenPaths(job) ?? []) : [];
+    const isHidden = (rel: string) => hidden.some((h) => rel === h || rel.startsWith(`${h}/`));
+    try {
+      const s = snapshotSource({
+        repo: root,
+        dest: this.sourceDir(job),
+        exclude: isHidden,
+        ...(job.input_paths?.length ? { include: job.input_paths } : {}),
+      });
+      return {
+        ...job,
+        source: { ...s, changed: [...s.changed], taken_at: this.o.now().toISOString() },
+      };
+    } catch (e) {
+      rmSync(this.jobDir(job.project_id, job.job_id), { recursive: true, force: true });
+      if (e instanceof BundleError) throw new HttpError(422, e.code, e.message);
+      throw e;
+    }
   }
 
   /** The job record a submission makes, checked; nothing is saved or started. */
@@ -991,17 +1091,41 @@ export class JobService {
       job.environment === "uv"
         ? [uv, "run", "--frozen", "--project", project.path, "--", ...job.command]
         : [...job.command];
-    const cwd = job.cwd ? resolve(project.path, job.cwd) : project.path;
-    let container: AttemptContainer | undefined;
+    // A contained agent's job runs a copy of its source (ADR 0068): the collector reads it here,
+    // and the job container mounts it at the checkout's path. Outside a container the job runs in
+    // the checkout itself.
+    let work: string | undefined;
     let containerError: string | undefined;
-    if (inContainer && containers) {
+    try {
+      work = inContainer && job.source ? this.workCopy(job, attemptId) : undefined;
+      if (job.inputs?.length && !work)
+        throw new Error("its inputs need a copy of its source: a job container or a remote target");
+      for (const m of this.inputMounts(job))
+        if (!existsSync(m.src)) throw new Error(`its input at ${m.to} is gone (${m.src})`);
+    } catch (e) {
+      containerError = `could not copy the job's source: ${(e as Error).message}`.slice(0, 2000);
+    }
+    const root = work ?? project.path;
+    const cwd = job.cwd ? resolve(root, job.cwd) : root;
+    let container: AttemptContainer | undefined;
+    if (inContainer && containers && !containerError) {
       try {
         const planned = containers.containerizeJob(job, {
           attemptId,
           spool: spool.root,
           argv,
-          cwd,
+          cwd: job.cwd ? resolve(project.path, job.cwd) : project.path,
           env: this.buildEnv(job, attemptId, spool, false),
+          ...(work
+            ? {
+                source: {
+                  dir: work,
+                  // Never over what the job's source holds (an ignored config it named).
+                  ignored: ignoredEntries(project.path).filter((p) => !existsSync(join(work, p))),
+                  inputs: this.inputMounts(job),
+                },
+              }
+            : {}),
         });
         argv = planned.argv;
         container = planned.container;
@@ -1017,7 +1141,7 @@ export class JobService {
       attempt_id: attemptId,
       worker_url: this.o.workerUrl(),
       token_file: spool.token,
-      project_path: project.path,
+      project_path: root,
       argv,
       cwd,
       env: this.buildEnv(job, attemptId, spool),
@@ -1025,9 +1149,17 @@ export class JobService {
       mode: probe.mode,
       unit,
       artifact_paths: job.artifact_paths,
-      ...(job.metrics_file ? { metrics_file: resolve(project.path, job.metrics_file) } : {}),
+      ...(job.metrics_file ? { metrics_file: resolve(root, job.metrics_file) } : {}),
       ...(job.metrics_format ? { metrics_format: job.metrics_format } : {}),
       ...(job.input_paths ? { input_paths: job.input_paths } : {}),
+      ...(work && job.source
+        ? {
+            source: {
+              ...(job.source.commit ? { commit: job.source.commit } : {}),
+              dirty: job.source.changed_total > 0,
+            },
+          }
+        : {}),
       spool_max_bytes: this.o.settings.spoolMaxBytes,
       deliver_deadline_sec: this.o.settings.deliverDeadlineSec,
     };
@@ -1091,6 +1223,17 @@ export class JobService {
     });
     this.publishAttempt(attempt);
     return attempt;
+  }
+
+  /** A fresh copy of the job's source for one local attempt. */
+  private workCopy(job: JobRecord, attemptId: string): string {
+    const src = this.sourceDir(job);
+    if (!existsSync(src)) throw new Error(`job ${job.job_id}'s source ${src} is gone`);
+    const dir = join(this.o.paths.workDir, attemptId);
+    rmSync(dir, { recursive: true, force: true });
+    mkdirSync(this.o.paths.workDir, { recursive: true, mode: 0o700 });
+    cpSync(src, dir, { recursive: true, verbatimSymlinks: true });
+    return dir;
   }
 
   private requireRemote(): RemoteService {
@@ -1236,6 +1379,12 @@ export class JobService {
     this.o.tokens.markJobTerminal(a.job_id, this.o.now());
     this.closeConsole(a.attempt_id);
     if (a.supervisor.container) this.o.containers?.()?.attemptEnded(done, this.jobs.get(a.job_id));
+    // Its copy of the source: what the job kept, artifact_paths staged before it exited.
+    try {
+      rmSync(join(this.o.paths.workDir, a.attempt_id), { recursive: true, force: true });
+    } catch (e) {
+      this.o.log(`could not remove ${a.attempt_id}'s copy of its source: ${(e as Error).message}`);
+    }
     // A slot may be free.
     this.schedule();
     return done;
@@ -1905,6 +2054,7 @@ export class JobService {
       }
       // A policy, a slot count or a target changed: queued jobs may be placeable.
       this.schedule();
+      this.pruneInputs();
     }, this.o.watchdogMs ?? WATCHDOG_MS);
   }
 

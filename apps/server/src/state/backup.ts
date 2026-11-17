@@ -67,6 +67,7 @@ export const BACKUP_EXCLUSIONS: readonly string[] = [
   "state/*/extensions/*/builds/*/venv/: Python extension environments hold absolute paths; rebuilt from the approved lockfile on first use",
   "spool/: undelivered local collector data; local attempts do not survive a restart, and what was delivered is in state/ and MLflow",
   "bundles/: staged run bundles, already on their targets",
+  "work/: agents' jobs' working copies of their source, and their inputs (downloaded again from MLflow)",
   "builds/: Level 2 builds; a restored coordinator runs the original install",
   "operations/: per-run scratch of the operations bridge",
   "project checkouts: source and Git history stay in each repository; research/ and .ablationkit/ are copied",

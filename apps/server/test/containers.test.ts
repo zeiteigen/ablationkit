@@ -522,6 +522,131 @@ describe("agent container sessions", () => {
     expect(outside.body.error["code"]).toBe("evaluation_needs_container");
   });
 
+  test("a contained job runs its source as submitted, with the checkout's ignored files read-only (ADR 0068)", async () => {
+    const w = await setup();
+    const s = (await w.start()).body;
+    const token = w.tokenOf(s.session_id);
+    writeFileSync(join(w.repo, ".gitignore"), "runs/\nconfigs/local.yaml\n");
+    mkdirSync(join(w.repo, "runs"), { recursive: true });
+    writeFileSync(join(w.repo, "runs", "ckpt.txt"), "weights\n");
+    mkdirSync(join(w.repo, "configs"), { recursive: true });
+    writeFileSync(join(w.repo, "configs", "local.yaml"), "lr: 0.1\n");
+    writeFileSync(join(w.repo, "notes.txt"), "untracked, not ignored\n");
+    writeFileSync(join(w.repo, "train.py"), "print('changed, not committed')\n");
+    const j = await w.cl.json<Json & { job_id: string; source?: Json }>(
+      w.cl.agent("/api/v1/projects/lab/jobs", {
+        token,
+        body: {
+          command: ["sh", "-c", "true"],
+          environment: "none",
+          input_paths: ["configs/local.yaml"],
+          limits: { runtime_max_sec: 60 },
+        },
+      }),
+    );
+    expect(j.status).toBe(201);
+    const job = w.cl.c.services.jobs.require(j.body.job_id);
+    const src = w.cl.c.services.jobs.sourceDir(job);
+    // Tracked and untracked files as they were, the ignored config it named; never hidden paths,
+    // other ignored files or the repository.
+    expect(readFileSync(join(src, "train.py"), "utf8")).toBe("print('changed, not committed')\n");
+    expect(existsSync(join(src, "notes.txt"))).toBe(true);
+    expect(existsSync(join(src, "configs", "local.yaml"))).toBe(true);
+    expect(existsSync(join(src, "eval"))).toBe(false);
+    expect(existsSync(join(src, "runs"))).toBe(false);
+    expect(existsSync(join(src, ".git"))).toBe(false);
+    // (Never toMatchObject on a live record: Bun writes its matchers into the object.)
+    expect(job.source?.changed).toContain("train.py");
+    expect(job.source?.changed).toContain("notes.txt");
+    expect(job.source?.commit).toMatch(/^[a-f0-9]{40}$/);
+    // What the agent changes next is not what this job runs.
+    writeFileSync(join(w.repo, "train.py"), "print('later')\n");
+    expect(readFileSync(join(src, "train.py"), "utf8")).toBe("print('changed, not committed')\n");
+    expect(await w.settled(j.body.job_id)).toBe("succeeded");
+    const a = w.cl.c.services.jobs.latestAttempt(w.cl.c.services.jobs.require(j.body.job_id));
+    // Its provenance is the source's, not the copy's (which has no Git).
+    expect(a?.snapshot?.source_commit).toBe(job.source?.commit as string);
+    expect(a?.snapshot?.source_dirty).toBe(true);
+    const args = readFileSync(join(w.f.dir, `ak-job-${a?.attempt_id}.args`), "utf8");
+    const work = join(w.cl.c.services.paths.workDir, a?.attempt_id as string);
+    expect(args).toContain(`${work}:${w.repo}:rw`);
+    expect(args).not.toContain(`${w.repo}:${w.repo}:rw`);
+    expect(args).toContain(`${w.repo}/runs:${w.repo}/runs:ro`);
+    expect(args).toContain(`${w.repo}/.git:${w.repo}/.git:ro`);
+    expect(args).toContain(`type=tmpfs,destination=${w.repo}/eval`);
+    // The copy goes with the attempt; the job's source stays for a retry.
+    expect(existsSync(work)).toBe(false);
+    expect(existsSync(src)).toBe(true);
+  }, 20_000);
+
+  test("a later job takes an earlier run's artifacts as inputs, read-only where they were written (ADR 0068)", async () => {
+    const w = await setup();
+    const s = (await w.start()).body;
+    const token = w.tokenOf(s.session_id);
+    const submit = (body: Json) =>
+      w.cl.json<Json & { job_id: string; inputs?: Json[]; error?: Json }>(
+        w.cl.agent("/api/v1/projects/lab/jobs", {
+          token,
+          body: { environment: "none", limits: { runtime_max_sec: 60 }, ...body },
+        }),
+      );
+    const train = await submit({
+      command: ["sh", "-c", "mkdir -p out && echo weights > out/ckpt.txt"],
+      artifact_paths: ["out/ckpt.txt"],
+      run_name: "train-1",
+    });
+    expect(train.status).toBe(201);
+    expect(await w.settled(train.body.job_id)).toBe("succeeded");
+    // What it wrote stayed in its copy: the checkout has no out/.
+    expect(existsSync(join(w.repo, "out"))).toBe(false);
+    await w.until("the checkpoint in MLflow", () => {
+      const a = w.cl.c.services.jobs.latestAttempt(w.cl.c.services.jobs.require(train.body.job_id));
+      const m = a ? w.cl.c.services.tracking.mappings.get(a.attempt_id) : undefined;
+      return (a?.artifacts.length ?? 0) > 0 && m?.mlflow_run_id !== undefined;
+    });
+    // (The fake runtime runs the command without its mounts: the real one is test:containers'.)
+    const evalJob = await submit({
+      command: ["true"],
+      inputs: [{ run: "train-1", path: "out/ckpt.txt" }],
+    });
+    expect(evalJob.status).toBe(201);
+    expect(evalJob.body.inputs).toEqual([
+      expect.objectContaining({
+        run: "train-1",
+        path: "out/ckpt.txt",
+        to: "out/ckpt.txt",
+        kind: "file",
+        files: 1,
+      }),
+    ]);
+    expect(await w.settled(evalJob.body.job_id)).toBe("succeeded");
+    const ej = w.cl.c.services.jobs.require(evalJob.body.job_id);
+    const a = w.cl.c.services.jobs.latestAttempt(ej);
+    const args = readFileSync(join(w.f.dir, `ak-job-${a?.attempt_id}.args`), "utf8");
+    const staged = join(w.cl.c.services.jobs.inputsDir(ej), "0");
+    expect(readFileSync(staged, "utf8")).toBe("weights\n");
+    expect(args).toContain(`${staged}:${w.repo}/out/ckpt.txt:ro`);
+    // An input names a run of this project, and something in it.
+    const missing = await submit({ command: ["true"], inputs: [{ run: "train-1", path: "nope" }] });
+    expect([missing.status, missing.body.error?.["code"]]).toEqual([404, "input_not_found"]);
+    const whole = await submit({ command: ["true"], inputs: [{ run: "train-1" }] });
+    expect(whole.status).toBe(400);
+    // Outside a container this machine runs a job in the checkout: nowhere to put them.
+    const plain = await w.cl.agentSession("lab");
+    const outside = await w.cl.json<{ error: Json }>(
+      w.cl.agent("/api/v1/projects/lab/jobs", {
+        token: plain.token,
+        body: {
+          command: ["true"],
+          environment: "none",
+          limits: { runtime_max_sec: 60 },
+          inputs: [{ run: "train-1", path: "out/ckpt.txt" }],
+        },
+      }),
+    );
+    expect(outside.body.error["code"]).toBe("inputs_need_a_copy");
+  }, 30_000);
+
   test("an agent container has no environment; environment builds make the one jobs read (ADR 0066)", async () => {
     const w = await setup();
     const svc = w.cl.c.services;

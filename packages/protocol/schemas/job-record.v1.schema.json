@@ -389,6 +389,116 @@
         }
       }
     },
+    "source": {
+      "title": "JobSource",
+      "description": "An agent's job runs its checkout as it was when submitted (ADR 0068): the files Git tracks or would track, with the ignored ones `input_paths` names, copied to `jobs/<job>/source/` and run wherever the job is placed. Hidden paths and `.ablationkit/` are left out.",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "changed",
+        "changed_total",
+        "files",
+        "bytes",
+        "taken_at"
+      ],
+      "properties": {
+        "commit": {
+          "pattern": "^[a-f0-9]{40,64}$",
+          "type": "string"
+        },
+        "changed": {
+          "maxItems": 200,
+          "description": "Files that differed from `commit` (modified, added, deleted, untracked).",
+          "type": "array",
+          "items": {
+            "maxLength": 4096,
+            "type": "string"
+          }
+        },
+        "changed_total": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "files": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "bytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "taken_at": {
+          "title": "Timestamp",
+          "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+          "type": "string"
+        }
+      }
+    },
+    "inputs": {
+      "maxItems": 8,
+      "type": "array",
+      "items": {
+        "title": "JobInput",
+        "description": "What an earlier run produced, taken by an agent's job (ADR 0068): downloaded from the run's artifacts when the job was submitted, mounted read-only at `to` on this machine or carried in the bundle to a remote target.",
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "run",
+          "run_id",
+          "path",
+          "to",
+          "kind",
+          "files",
+          "bytes"
+        ],
+        "properties": {
+          "run": {
+            "minLength": 1,
+            "maxLength": 250,
+            "description": "As the agent named it: a job, an attempt, a run name or an MLflow run ID.",
+            "type": "string"
+          },
+          "run_id": {
+            "minLength": 1,
+            "maxLength": 128,
+            "description": "The MLflow run.",
+            "type": "string"
+          },
+          "path": {
+            "maxLength": 1024,
+            "description": "The artifact path taken (a file or a directory); empty for the whole run.",
+            "type": "string"
+          },
+          "to": {
+            "minLength": 1,
+            "maxLength": 1024,
+            "description": "Where it is in the job's source, relative to its root.",
+            "type": "string"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "const": "file",
+                "type": "string"
+              },
+              {
+                "const": "dir",
+                "type": "string"
+              }
+            ]
+          },
+          "files": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "bytes": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      }
+    },
     "gpu": {
       "description": "The job asked for no GPU (ADR 0066). In a job container it gets no GPU device; on this machine outside one, `CUDA_VISIBLE_DEVICES` is empty (advisory).",
       "const": "none",

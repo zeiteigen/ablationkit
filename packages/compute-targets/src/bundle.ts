@@ -2,7 +2,8 @@
  * Staged run bundles (spec §5.7 "before launch"; ADR 0023).
  *
  *   bundle/bundle.json                      RunBundleManifest (every other file with its SHA-256)
- *   bundle/source/                          `git archive` of the pinned commit (no working tree)
+ *   bundle/source/                          `git archive` of the pinned commit (no working tree), or
+ *                                           an agent job's snapshot of its source (ADR 0068)
  *   bundle/worker/ablationkit_worker/       the stdlib remote worker
  *   bundle/sdk/ablationkit_sdk/, …          the project-facing SDK packages (on PYTHONPATH)
  *   bundle.tgz                              the archive that is copied to the worker
@@ -101,11 +102,17 @@ export interface BuiltBundle {
   readonly size: number;
 }
 
-/** Build a bundle for `spec` from `repo` at `commit` into `dir` (replaced if it exists). */
+/**
+ * Build a bundle for `spec` from `repo` at `commit` into `dir` (replaced if it exists), or from
+ * `source`, a job's snapshot of its source (ADR 0068), recorded as taken from `commit`.
+ */
 export function buildBundle(input: {
   readonly dir: string;
   readonly repo: string;
   readonly commit: string;
+  readonly source?: string;
+  /** Files or directories put into the source at `to` (an agent's job's inputs, ADR 0068). */
+  readonly sourceExtras?: readonly { readonly src: string; readonly to: string }[];
   readonly spec: BundleSpec;
   readonly workerSrc?: string;
   readonly sdkSrcs?: readonly string[];
@@ -116,12 +123,27 @@ export function buildBundle(input: {
   rmSync(dir, { recursive: true, force: true });
   const b = join(dir, "bundle");
   mkdirSync(join(b, "source"), { recursive: true, mode: 0o700 });
-  const tar = join(dir, "source.tar");
-  const arch = gitArchive(repo, commit, tar);
-  if (arch.code !== 0) throw new BundleError("git_failed", `git archive: ${arch.stderr.trim()}`);
-  const x = Bun.spawnSync(["tar", "-xf", tar, "-C", join(b, "source")], { stderr: "pipe" });
-  if (x.exitCode !== 0) throw new BundleError("tar_failed", x.stderr.toString().trim());
-  rmSync(tar, { force: true });
+  if (input.source) {
+    if (!existsSync(input.source))
+      throw new BundleError("source_missing", `the job's source ${input.source} is gone`);
+    cpSync(input.source, join(b, "source"), { recursive: true, verbatimSymlinks: true });
+    for (const x of input.sourceExtras ?? []) {
+      if (x.to.startsWith("/") || x.to.split("/").includes(".."))
+        throw new BundleError("invalid_request", `an input must stay inside the source: ${x.to}`);
+      if (!existsSync(x.src)) throw new BundleError("input_missing", `${x.src} is gone`);
+      const to = join(b, "source", x.to);
+      rmSync(to, { recursive: true, force: true });
+      mkdirSync(join(to, ".."), { recursive: true, mode: 0o700 });
+      cpSync(x.src, to, { recursive: true, verbatimSymlinks: true });
+    }
+  } else {
+    const tar = join(dir, "source.tar");
+    const arch = gitArchive(repo, commit, tar);
+    if (arch.code !== 0) throw new BundleError("git_failed", `git archive: ${arch.stderr.trim()}`);
+    const x = Bun.spawnSync(["tar", "-xf", tar, "-C", join(b, "source")], { stderr: "pipe" });
+    if (x.exitCode !== 0) throw new BundleError("tar_failed", x.stderr.toString().trim());
+    rmSync(tar, { force: true });
+  }
   copyPackage(input.workerSrc ?? WORKER_SRC, join(b, "worker", "ablationkit_worker"));
   for (const src of input.sdkSrcs ?? BUNDLE_SDK_SRCS)
     copyPackage(src, join(b, "sdk", basename(src)));

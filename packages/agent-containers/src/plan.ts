@@ -68,6 +68,17 @@ export interface JobContainerInput {
   readonly name: string;
   readonly image: string;
   readonly checkout: string;
+  /**
+   * An agent's job's copy of its source (ADR 0068), mounted read-write at the checkout's path
+   * instead of the checkout, with `readOnly` (absolute paths in the checkout: its ignored data,
+   * earlier outputs, its Git) mounted read-only over it, then its inputs from earlier runs
+   * (`src` on this machine, read-only at `dst` in the checkout).
+   */
+  readonly source?: {
+    readonly dir: string;
+    readonly readOnly: readonly string[];
+    readonly inputs?: readonly { readonly src: string; readonly dst: string }[];
+  };
   readonly tree: string;
   readonly tools: ContainerTools;
   readonly dirs: {
@@ -277,7 +288,9 @@ export function jobContainerArgs(i: JobContainerInput): string[] {
       ...(egress ? proxyEnv() : { UV_OFFLINE: "1", HF_HUB_OFFLINE: "1" }),
       ...i.env,
     }),
-    ...bind(i.checkout, i.checkout, "rw"),
+    ...(i.source ? bind(i.source.dir, i.checkout, "rw") : bind(i.checkout, i.checkout, "rw")),
+    ...(i.source?.readOnly ?? []).flatMap((p) => bind(p, p, "ro")),
+    ...(i.source?.inputs ?? []).flatMap((x) => bind(x.src, x.dst, "ro")),
     ...maskArgs(i.masks),
     ...i.evaluationMounts.flatMap((p) => bind(p, p, "ro")),
     ...bind(i.tree, i.tree, "ro"),

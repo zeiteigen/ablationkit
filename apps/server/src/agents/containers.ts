@@ -42,7 +42,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { homedir } from "node:os";
-import { isAbsolute, join, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import {
   type AgentContainerInput,
   agentContainerArgs,
@@ -1753,6 +1753,15 @@ export class ContainerService {
    * Before a contained job's attempt starts: the runtime, the image, the GPU and the evaluation it
    * names are there. A refusal here comes back to the submitter; nothing has started.
    */
+  /** Paths relative to the checkout no job of the project may see (ADR 0068: not in its source). */
+  hiddenPaths(job: JobRecord): string[] {
+    const checkout = realOr(this.o.svc().registry.require(job.project_id).path);
+    return this.masks(checkout, this.config(job.project_id))
+      .map((m) => m.path)
+      .filter((p) => p !== checkout && within(checkout, p))
+      .map((p) => relative(checkout, p));
+  }
+
   checkJob(job: JobRecord): void {
     if (!this.contained(job)) return;
     const cfg = this.config(job.project_id);
@@ -1836,6 +1845,11 @@ export class ContainerService {
       readonly argv: readonly string[];
       readonly cwd: string;
       readonly env: Readonly<Record<string, string>>;
+      readonly source?: {
+        readonly dir: string;
+        readonly ignored: readonly string[];
+        readonly inputs: readonly { readonly src: string; readonly to: string }[];
+      };
     },
   ): { argv: string[]; container: AttemptContainer } {
     const svc = this.o.svc();
@@ -1917,15 +1931,48 @@ export class ContainerService {
     const name = `ak-job-${a.attemptId}`;
     const gpu =
       build || job.gpu === "none" ? "none" : cfg.jobs.gpu === "all" && rt.gpu_cdi ? "all" : "none";
+    // The attempt's copy of the job's source at the checkout's path (ADR 0068), with the checkout's
+    // ignored data, earlier outputs and its Git read-only over it, then the job's inputs from
+    // earlier runs at their places; hidden paths stay masked.
+    const source = a.source
+      ? {
+          dir: a.source.dir,
+          readOnly: [".git", ...a.source.ignored]
+            .map((rel) => join(checkout, rel))
+            .filter((p) => exists(p) && within(checkout, p)),
+          inputs: a.source.inputs
+            .map((i) => ({ src: i.src, dst: join(checkout, i.to) }))
+            .filter((i) => exists(i.src) && within(checkout, i.dst)),
+        }
+      : undefined;
+    const masks = this.masks(checkout, cfg, evalMounts);
+    // Every mount point inside the copy is made here, as this user: one Podman made would belong
+    // to another uid of the user namespace, and the copy could not be removed afterwards.
+    if (source) {
+      const points: { path: string; dir: boolean }[] = [
+        ...source.readOnly.map((p) => ({ path: p, dir: isDir(p) })),
+        ...source.inputs.map((i) => ({ path: i.dst, dir: isDir(i.src) })),
+        ...masks.map((m) => ({ path: m.path, dir: m.kind === "dir" })),
+        ...evalMounts.map((p) => ({ path: p, dir: isDir(p) })),
+      ];
+      for (const p of points) {
+        if (!within(checkout, p.path) || p.path === checkout) continue;
+        const at = join(source.dir, relative(checkout, p.path));
+        if (exists(at)) continue;
+        mkdirSync(p.dir ? at : dirname(at), { recursive: true, mode: 0o700 });
+        if (!p.dir) writeFileSync(at, "", { mode: 0o600 });
+      }
+    }
     const args = jobContainerArgs({
       name,
       image: cfg.image,
       checkout,
+      ...(source ? { source } : {}),
       tree: this.tree,
       tools: { bun: this.bun(), ...(uv ? { uv } : {}) },
       dirs: { ...dirs, ...(run ? { run } : {}) },
       extraReadOnly,
-      masks: this.masks(checkout, cfg, evalMounts),
+      masks,
       evaluationMounts: evalMounts,
       gpu,
       network,

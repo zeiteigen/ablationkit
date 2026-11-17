@@ -748,17 +748,17 @@ export const OPERATIONS: readonly Operation[] = [
   {
     id: "job.submit",
     description:
-      "Run a command as an AblationKit job in this project's checkout, tracked as an MLflow run. You never choose where: it is queued and started on a target of the project's pool (the researcher's: compute.targets) once one has a free slot; meanwhile it is `queued` and `placement.waiting` says why. Write jobs that run on any of them. gpu \"none\" runs on this machine beside the others, taking no slot. An empty pool is policy_denied. Every job needs runtime_max_sec and must fit the compute limit at the pool's heaviest weight (compute_limit_reached). In an agent container (ADRs 0061, 0066) a job runs in a job container, without network unless the project allows it, in the environment ablationkit_job environment built (read-only; environment_stale until a build from the current uv.lock succeeds). There, `evaluation` runs one of the researcher's protected evaluations instead of a command: its pinned command against your current code, with data you cannot see; you read its metrics, not its console.",
+      "Run a command as an AblationKit job, tracked as an MLflow run. You never choose where: it is queued and started on a target of the project's pool (the researcher's: compute.targets) once one has a free slot; meanwhile it is `queued` and `placement.waiting` says why. Write jobs that run on any of them. gpu \"none\" runs on this machine beside the others, taking no slot. An empty pool is policy_denied. Every job needs runtime_max_sec and must fit the compute limit at the pool's heaviest weight (compute_limit_reached). It runs a copy of your checkout as submitted (ignored files out, but read in place on this machine) and keeps only what artifact_paths collect; a later job takes those with `inputs`. Outside an agent container this machine runs it in the checkout. In one it has no network unless the project allows it, and the environment ablationkit_job environment built (environment_stale until rebuilt from uv.lock); `evaluation` runs a protected evaluation: the researcher's pinned command on your code and data you cannot see; you read its metrics, not its console.",
     inputSchema: obj(
       {
         command: strs(
           "argv to run, e.g. ['python', 'train.py', '--lr', '0.1']. Required unless `evaluation` is given.",
         ),
         evaluation: str(
-          "In an agent container only: the name of a protected evaluation to run (the researcher pins its command, data and time limit; ignore command, runtime_max_sec and env).",
+          "In an agent container: a protected evaluation's name (the researcher pins its command, data and time limit).",
         ),
         runtime_max_sec: int(
-          "Wall-clock limit in seconds; the job is stopped when it is reached. Every job needs one: the coordinator refuses a job without it (time_limit_required).",
+          "Wall-clock limit in seconds; the job is stopped at it. Required (time_limit_required).",
           1,
         ),
         run_name: str("MLflow run name: short and readable, e.g. 'sym64k-emb0.02-finalnorm'."),
@@ -773,13 +773,10 @@ export const OPERATIONS: readonly Operation[] = [
         },
         memory_max_bytes: int("Memory limit in bytes.", 1),
         cpu_quota_percent: int("CPU quota in percent of one core.", 1),
-        gpu: oneOf(
-          ["all", "none"],
-          "none: no GPU, for tests, checks and CPU work; it runs beside GPU jobs. Default all.",
-        ),
+        gpu: oneOf(["all", "none"], "none: no GPU (tests, checks, CPU work). Default all."),
         environment: oneOf(["uv", "none"], "uv: run in the project's uv environment; none: as is."),
         metrics_file: str(
-          "A JSONL metrics file the job writes, relative to the checkout root: each line a JSON object whose numbers become metrics (nested objects flattened with '/').",
+          "A JSONL file the job writes (relative to the checkout): each line's numbers become metrics (nested keys joined with '/').",
         ),
         metrics_format: obj({
           step_keys: strs(
@@ -791,8 +788,15 @@ export const OPERATIONS: readonly Operation[] = [
         }),
         artifact_paths: strs("Paths uploaded as MLflow artifacts when the job ends."),
         input_paths: strs(
-          "Globs (relative to the checkout) recorded as inputs/<path> artifacts as the job starts: configs the source commit does not hold, such as ignored ones. Up to 16 MiB each; jobs on this machine only.",
+          "Ignored files (globs) the job takes with it, recorded as inputs/<path> artifacts: configs. Up to 16 MiB each.",
         ),
+        inputs: {
+          type: "array",
+          maxItems: 8,
+          description:
+            "Earlier runs' artifacts it reads: {run (job, run name or MLflow run ID), path (file or directory), to (where in its source; default path)}.",
+          items: { type: "object" },
+        },
         study_id: str("The study this run belongs to (its study_id run tag)."),
         variant_id: str("The study variant this run is."),
         task_id: TASK_ID,
@@ -816,6 +820,7 @@ export const OPERATIONS: readonly Operation[] = [
           "metrics_format",
           "artifact_paths",
           "input_paths",
+          "inputs",
           "study_id",
           "variant_id",
           "task_id",
@@ -828,7 +833,7 @@ export const OPERATIONS: readonly Operation[] = [
   {
     id: "job.environment",
     description:
-      "In an agent container (ADR 0066): build the environment the project's jobs run in, as a job: uv sync (relocking if pyproject.toml changed) with the package indexes your container cannot reach. It replaces the environment only on success. Build after changing pyproject.toml or uv.lock; wait for it.",
+      "In an agent container: build the environment the project's jobs run in, as a job: uv sync (relocking if pyproject.toml changed) with the package indexes your container cannot reach. It replaces the environment only on success. Build after changing pyproject.toml or uv.lock; wait for it.",
     inputSchema: obj({
       args: strs("More uv sync arguments, e.g. ['--extra', 'cuda']."),
       runtime_max_sec: int("Time limit in seconds (default 1200).", 1),

@@ -9,10 +9,18 @@
  * a time limit, and its time limit × its target's weight must fit). A refusal names the policy
  * field or the limit.
  */
-import { existsSync } from "node:fs";
+import { randomBytes } from "node:crypto";
+import { existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { decide } from "@ablationkit/autonomy-policy";
-import type { AttemptRecord, JobLimits, JobRecord, MetricsFormat } from "@ablationkit/protocol";
+import type {
+  AttemptRecord,
+  JobInput,
+  JobLimits,
+  JobRecord,
+  MetricsFormat,
+} from "@ablationkit/protocol";
+import { parseInputs, stageInputs } from "../compute/job-inputs.ts";
 import { HttpError, intParam, json, readJsonBody } from "../http.ts";
 import type { Route } from "../router.ts";
 import type { Services } from "../services.ts";
@@ -396,6 +404,7 @@ export const AGENT_JOB_ROUTES: readonly Route<AgentHandler>[] = [
           "evaluation_needs_container",
           "protected evaluations run only for agents in an agent container (ADR 0061): outside one, the data they protect is not hidden from you",
         );
+      const inputs = parseInputs(raw["inputs"]);
       if (raw["target_id"] !== undefined)
         throw new HttpError(
           400,
@@ -515,14 +524,40 @@ export const AGENT_JOB_ROUTES: readonly Route<AgentHandler>[] = [
         }
         throw e;
       }
-      const job = c.svc.jobs.enqueue({
-        ...input,
-        compute_weight_hundredths: weight,
-        queue: localOnly ? { local_only: true } : {},
-      });
+      // What earlier runs produced, downloaded now (ADR 0068). A job that would run in the checkout
+      // itself (outside an agent container, on this machine) has nowhere to put them.
+      let staged: { dir: string; inputs: JobInput[] } | undefined;
+      if (inputs.length) {
+        if (localOnly)
+          throw new HttpError(
+            400,
+            "invalid_request",
+            "an environment build or a protected evaluation takes no `inputs`",
+          );
+        if (!sessionId && pool.includes("local"))
+          throw new HttpError(
+            400,
+            "inputs_need_a_copy",
+            "`inputs` go into the copy of its source a job runs in an agent container or on a remote target; outside a container this machine runs your jobs in the checkout itself, where earlier outputs already are",
+          );
+        const dir = join(c.svc.paths.workDir, "staging", randomBytes(6).toString("hex"));
+        staged = { dir, inputs: await stageInputs(c.svc, pid, inputs, dir) };
+      }
+      let job: JobRecord;
+      try {
+        job = c.svc.jobs.enqueue({
+          ...input,
+          compute_weight_hundredths: weight,
+          queue: localOnly ? { local_only: true } : {},
+          ...(staged ? { staged_inputs: staged } : {}),
+        });
+      } finally {
+        if (staged) rmSync(staged.dir, { recursive: true, force: true });
+      }
       agentAudit(c, "job.submit", "allowed", job.job_id, {
         pool,
         state: job.state,
+        ...(staged ? { inputs: staged.inputs.map((x) => `${x.run}:${x.path || "*"}`) } : {}),
         ...(job.placement?.target ? { placed: job.placement.target } : {}),
         compute_weight: weight / 100,
       });

@@ -196,9 +196,15 @@ result that exists only in your chat reply is not recorded.
    this machine and the remote targets the researcher allows, each with its slots) as soon as one
    has a free slot. Until then it is `queued`, and its `placement.waiting` says why; submit what
    you need and let the queue order it, rather than holding jobs back yourself. Write each job so
-   that it runs on any target of the pool. A job placed on a remote target runs the commit your
-   checkout is at, so commit (and push, if your harness does) the code it needs first; the project's
-   `.ablationkit/` exports never block a remote job. A remote job runs on its own, Colab included:
+   that it runs on any target of the pool. A job runs your checkout as it was when you submitted
+   it, committed or not: a copy of the files Git tracks or would track (untracked ones included,
+   ignored ones left out except those `input_paths` names), so edit freely while it waits or
+   runs. On this machine it reads the checkout's ignored files (data, earlier outputs) in place,
+   read-only. It keeps only what `artifact_paths` collect: list the outputs you need (checkpoints,
+   result files), and a later job takes them with `inputs: [{run, path}]` (a job ID, run name or
+   MLflow run ID, and the artifact path), read-only where the earlier job wrote them; `to` puts
+   them elsewhere. Outside an agent container a job on this machine runs in the checkout itself,
+   and takes no `inputs`. A remote job runs on its own, Colab included:
    the coordinator stages it, collects its results while it runs and after, and frees the
    runtime, so do not ask the researcher to run anything. Its attempt's `remote` shows staging,
    the provider's state and, on Colab, the runtime's compute units. A staging error that only the

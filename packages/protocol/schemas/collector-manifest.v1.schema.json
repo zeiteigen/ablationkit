@@ -187,6 +187,24 @@
     "drain_only": {
       "type": "boolean",
       "description": "Deliver an existing spool without starting the command."
+    },
+    "source": {
+      "title": "CollectorSource",
+      "description": "The job runs a copy of its source (ADR 0068), not a Git checkout: the provenance to record instead of asking Git in `project_path`.",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "dirty"
+      ],
+      "properties": {
+        "commit": {
+          "pattern": "^[a-f0-9]{40,64}$",
+          "type": "string"
+        },
+        "dirty": {
+          "type": "boolean"
+        }
+      }
     }
   }
 }

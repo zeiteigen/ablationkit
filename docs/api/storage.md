@@ -20,7 +20,7 @@ Rules:
 
 ## Coordinator runtime home
 
-`ABLATIONKIT_HOME`, or `~/.ablationkit` (0700). Written only by the coordinator (ADR 0009), except `cli-session.json`, which the CLI owns, and `spool/`, which collectors own. Startup recovery skips `spool/`, and backups do not include `spool/`, `bundles/`, `builds/`, `operations/` or extension venvs (ADR 0025).
+`ABLATIONKIT_HOME`, or `~/.ablationkit` (0700). Written only by the coordinator (ADR 0009), except `cli-session.json`, which the CLI owns, and `spool/`, which collectors own. Startup recovery skips `spool/`, and backups do not include `spool/`, `bundles/`, `work/`, `builds/`, `operations/` or extension venvs (ADR 0025).
 
 | Path | Schema | Meaning |
 | --- | --- | --- |
@@ -35,7 +35,8 @@ Rules:
 | `state/<project-id>/` | — | per-project runtime state |
 | `state/<project-id>/tracking/experiments.json` | `TrackingProjectLinks` | the project's `ak/<project-id>` experiment ID and read-only imports |
 | `state/<project-id>/tracking/runs/<ref>.json` | `TrackingRunMapping` | one attempt (or manual run) mapped to its MLflow run, with sync state |
-| `state/<project-id>/jobs/<job-id>/job.json` | `JobRecord` | one job: command, environment, limits, attempt IDs, latest state; an agent's job also records the compute weight in effect when it was submitted (`compute_weight_hundredths`) (ADR 0011) |
+| `state/<project-id>/jobs/<job-id>/job.json` | `JobRecord` | one job: command, environment, limits, attempt IDs, latest state; an agent's job also records the weight of the target it was placed on (`compute_weight_hundredths`), its `placement` and its `source` (ADRs 0011, 0068) |
+| `state/<project-id>/jobs/<job-id>/source/` | — | an agent's job's source as it was when submitted (ADR 0068): the checkout's files Git tracks or would track, with the ignored ones its `input_paths` name; hidden paths and `.ablationkit/` left out. Each attempt runs a copy of it |
 | `state/<project-id>/jobs/<job-id>/attempts/<attempt-id>/attempt.json` | `AttemptRecord` | compute status, supervisor and enforcement level, collector health, provenance snapshot, uploaded artifacts |
 | `…/attempts/<attempt-id>/ingest.json` | `IngestState` | per-producer high-water marks (dedupe) and ingest counters |
 | `…/attempts/<attempt-id>/console/console-NNNN.jsonl` | `ConsoleRecord` | console output (stdout, stderr, log records, system notes); independent of MLflow |
@@ -81,7 +82,9 @@ Rules:
 | `state/<project-id>/task-attachments/<task-id>/` | — | private source content (`S<n>.txt`, 0600) and every package sent (`package-<sha256>.txt`), so a resend after a crash sends the same bytes |
 | `spool/<attempt-id>/` | `CollectorManifest` (`manifest.json`) | a collector's spool, written by the collector (and the SDK's event file), not the coordinator; removed after full delivery. Layout in `packages/collector/src/layout.ts` |
 | `targets/<target-id>.json` | `ComputeTarget` | a remote compute target (ADR 0023); credentials are referenced by environment-variable name, never stored |
-| `bundles/<attempt-id>/` | `RunBundleManifest` (`bundle/bundle.json`) | a remote attempt's staged bundle: `bundle/source/` (`git archive` of the pinned commit), `bundle/worker/`, `bundle/sdk/`; `bundle.tgz` is deleted once staged (a Runpod pod downloads it: kept until the worker's first contact or the attempt is terminal); `notebook.ipynb` for a Colab export |
+| `work/<attempt-id>/` | — | a contained agent's local attempt's copy of its job's source (ADR 0068), mounted at the checkout's path in the job container; what the job writes there is lost when the attempt ends, except what `artifact_paths` collected |
+| `work/inputs/<job-id>/<n>` | — | an agent's job's inputs from earlier runs (`JobRecord.inputs[n]`, a file or a directory), downloaded from MLflow at submission; mounted read-only at `to`, or copied into a remote bundle's source; removed a week after the job ends |
+| `bundles/<attempt-id>/` | `RunBundleManifest` (`bundle/bundle.json`) | a remote attempt's staged bundle: `bundle/source/` (`git archive` of the pinned commit, or an agent's job's snapshot of its source, ADR 0068), `bundle/worker/`, `bundle/sdk/`; `bundle.tgz` is deleted once staged (a Runpod pod downloads it: kept until the worker's first contact or the attempt is terminal); `notebook.ipynb` for a Colab export |
 | `colab/sessions.json` | — | the Colab CLI's session state (`colab --config`) for the runtimes the coordinator allocates for `colab.mode: cli` targets (ADR 0059): one `ak-<attempt-id>` session per attempt, removed when the runtime is released; written by the Colab CLI (0600). The CLI's sign-in token stays in the OS keyring, never here |
 | `state/<project-id>/jobs/<job-id>/attempts/<attempt-id>/uploads/` | `ResumableUpload` (`u-….json`) | a remote worker's chunked artifact uploads in progress (`u-….part`); removed when complete. `store-s<nn>.part`: an object being pulled from the artifact store (removed after the receipt) |
 | `containers/projects/<project-id>/config.json` | `ContainerConfig` | a project's agent container configuration (ADR 0061), the researcher's only; each change a new revision |

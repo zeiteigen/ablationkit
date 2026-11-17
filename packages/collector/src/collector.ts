@@ -324,8 +324,13 @@ export class Collector {
       return;
     }
     this.child = child;
-    const commit = git(m.project_path, ["rev-parse", "HEAD"]);
-    const dirty = commit === undefined ? undefined : sourceDirty(m.project_path);
+    // A copy of the job's source (ADR 0068) has no Git: the coordinator says what it was.
+    const commit = m.source ? m.source.commit : git(m.project_path, ["rev-parse", "HEAD"]);
+    const dirty = m.source
+      ? m.source.dirty
+      : commit === undefined
+        ? undefined
+        : sourceDirty(m.project_path);
     this.emit("attempt.started", {
       pid: child.pid,
       unit: child.unit,

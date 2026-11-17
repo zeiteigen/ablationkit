@@ -1698,14 +1698,15 @@ void mountReact(Demo);
       .waitFor();
   }, 90_000);
 
-  test("agent compute limit: set a weight on Compute and see an agent job's usage; raise the limit in Project settings after a before → after summary (ADR 0037)", async () => {
+  test("agent compute limit: set a weight and slots on Compute and see an agent job's usage and the pool; raise the limit in Project settings after a before → after summary (ADRs 0037, 0068)", async () => {
     const pid = stack.projectId;
     await go("/compute");
     const weights = page.getByTestId("compute-weights");
     // The weights editor is folded away on Compute (ADR 0055).
     await weights.locator("summary").click();
     await weights.getByLabel("Weight of local").fill("2");
-    await weights.getByRole("button", { name: "Save weights" }).click();
+    await weights.getByLabel("Slots on local").fill("2");
+    await weights.getByRole("button", { name: "Save", exact: true }).click();
     await weights.getByText(/Last changed/).waitFor();
 
     // An agent submits a job with a 30-minute time limit: at weight 2 it reserves 1 weighted hour.
@@ -1734,6 +1735,11 @@ void mountReact(Demo);
     );
     await card.getByText(`Revision ${before.policy.revision}`, { exact: false }).waitFor();
     await card.getByText("Run jobs on this workstation").waitFor();
+    // The pool the agents' jobs are placed on, with this workstation's two slots.
+    await card
+      .getByTestId("agent-pool")
+      .getByText(/this workstation \(\d\/2 slots busy\)/)
+      .waitFor();
     await card.getByText(/reserved of 10 weighted hours/).waitFor();
     await card.getByLabel("Compute limit in weighted hours").fill("24");
     await card.getByRole("button", { name: "Review changes…" }).click();
@@ -1754,7 +1760,11 @@ void mountReact(Demo);
     expect(after.policy.compute.limit_hours).toBe(24);
 
     await stack.api(`/api/v1/jobs/${job.job_id}/cancel`, {});
-    await stack.api("/api/v1/compute/weights", { weights: { local: null } }, "PUT");
+    await stack.api(
+      "/api/v1/compute/weights",
+      { weights: { local: null }, slots: { local: null } },
+      "PUT",
+    );
   });
 
   test("tasks: an agent session's task with the job and note recorded under it; the researcher abandons it; Settings ends the session (ADR 0039, 0040)", async () => {

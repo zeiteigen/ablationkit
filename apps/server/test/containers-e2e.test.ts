@@ -7,8 +7,9 @@
  * boundary (no coordinator home, no login socket, hidden paths empty, read-only paths unwritable,
  * no GPU devices, no network but the proxy, which refuses a host off the allowlist) and talks to
  * AblationKit through `ablationkit mcp --contained`. Then a contained job runs in a job container,
- * the session is paused and resumed for real, and when the shell exits the session records what it
- * changed. Last, environment builds (ADR 0066): real `uv sync` into a new copy of the project's
+ * running a copy of its source with the checkout's ignored data read-only, and a later job reads
+ * what it collected through `inputs` (ADR 0068); the session is paused and resumed for real, and
+ * when the shell exits the session records what it changed. Last, environment builds (ADR 0066): real `uv sync` into a new copy of the project's
  * environment, which a job then reads read-only.
  */
 import { afterAll, describe, expect, test } from "bun:test";
@@ -188,33 +189,71 @@ describe.skipIf(!E2E)("agent containers on rootless Podman", () => {
     const sid = sessionToken.session_id;
     const token = readFileSync(join(svc.containers.mountDir(sid), "token"), "utf8").trim();
     const sock = join(svc.containers.mountDir(sid), "agent.sock");
-    const r = await fetch("http://localhost/api/v1/projects/lab/jobs", {
-      method: "POST",
-      unix: sock,
-      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
-      body: JSON.stringify({
-        command: ["sh", "-c", "echo hidden=$(ls eval | wc -l); echo job-ok"],
-        environment: "none",
-        limits: { runtime_max_sec: 300 },
-        description: "e2e job container",
-      }),
-    } as RequestInit);
-    expect(r.status).toBe(201);
-    const job = (await r.json()) as { job_id: string };
-    for (let i = 0; i < 600; i++) {
-      const st = svc.jobs.get(job.job_id)?.state;
-      if (st && st !== "starting" && st !== "running") break;
-      await Bun.sleep(200);
-    }
-    expect(svc.jobs.get(job.job_id)?.state).toBe("succeeded");
-    const attempt = svc.jobs.latestAttempt(svc.jobs.get(job.job_id) as never);
-    const con = await fetch(
-      `${svc.urls.human}/api/v1/jobs/${job.job_id}/attempts/${attempt?.attempt_id}/console`,
-      { headers: { authorization: `Bearer ${human}` } },
-    );
-    const text = await con.text();
+    // Ignored data the job reads in place (ADR 0068).
+    const repo = svc.registry.require("lab").path;
+    writeFileSync(join(repo, ".gitignore"), "big/\n");
+    mkdirSync(join(repo, "big"), { recursive: true });
+    writeFileSync(join(repo, "big", "set.bin"), "the-big-data\n");
+    const submit = async (body: Record<string, unknown>) => {
+      const r = await fetch("http://localhost/api/v1/projects/lab/jobs", {
+        method: "POST",
+        unix: sock,
+        headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+        body: JSON.stringify({ environment: "none", limits: { runtime_max_sec: 300 }, ...body }),
+      } as RequestInit);
+      expect(r.status).toBe(201);
+      const job = (await r.json()) as { job_id: string };
+      for (let i = 0; i < 600; i++) {
+        const st = svc.jobs.get(job.job_id)?.state;
+        if (st && !["queued", "starting", "running"].includes(st)) break;
+        await Bun.sleep(200);
+      }
+      expect(svc.jobs.get(job.job_id)?.state).toBe("succeeded");
+      const attempt = svc.jobs.latestAttempt(svc.jobs.get(job.job_id) as never);
+      const con = await fetch(
+        `${svc.urls.human}/api/v1/jobs/${job.job_id}/attempts/${attempt?.attempt_id}/console`,
+        { headers: { authorization: `Bearer ${human}` } },
+      );
+      return { job, attempt, text: await con.text() };
+    };
+    const { attempt, text } = await submit({
+      command: [
+        "sh",
+        "-c",
+        "echo hidden=$(ls eval | wc -l); cat big/set.bin; (echo x > big/set.bin) 2>/dev/null && echo big-writable || echo big-read-only; mkdir -p outs && echo made > outs/a.txt; echo job-ok",
+      ],
+      artifact_paths: ["outs/a.txt"],
+      run_name: "e2e-maker",
+      description: "e2e job container",
+    });
     expect(text).toContain("job-ok");
     expect(text).toContain("hidden=0");
+    expect(text).toContain("the-big-data");
+    expect(text).toContain("big-read-only");
+    // What it wrote stayed in its copy; the checkout and its data are as they were.
+    expect(existsSync(join(repo, "outs"))).toBe(false);
+    expect(readFileSync(join(repo, "big", "set.bin"), "utf8")).toBe("the-big-data\n");
+    // A later job reads it where it was written, read-only, from the run's artifacts.
+    for (let i = 0; i < 300; i++) {
+      const a = svc.jobs.attempt(attempt?.attempt_id as string);
+      if (
+        (a?.artifacts.length ?? 0) > 0 &&
+        svc.tracking.mappings.get(a?.attempt_id as string)?.mlflow_run_id
+      )
+        break;
+      await Bun.sleep(100);
+    }
+    const reader = await submit({
+      command: [
+        "sh",
+        "-c",
+        "cat outs/a.txt; (echo y > outs/a.txt) 2>/dev/null || echo input-read-only",
+      ],
+      inputs: [{ run: "e2e-maker", path: "outs/a.txt" }],
+      description: "e2e job inputs",
+    });
+    expect(reader.text).toContain("made");
+    expect(reader.text).toContain("input-read-only");
     expect(attempt?.supervisor.container?.gpu).toBe(
       existsSync("/var/run/cdi/nvidia.yaml") || existsSync("/etc/cdi/nvidia.yaml") ? "all" : "none",
     );

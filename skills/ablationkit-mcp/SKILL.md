@@ -224,6 +224,9 @@ don't retry it unchanged and don't work around it.
 | `policy_denied` | The project policy does not allow this (it names the field, e.g. `jobs.submit_remote`) | Tell the researcher which field; they change the policy if they want to |
 | `time_limit_required` | A job without `runtime_max_sec` | Add a realistic time limit |
 | `target_not_agents` | A job that names `target_id` | Leave it out: AblationKit places your jobs on the project's pool, which the researcher sets |
+| `source_too_large` | The checkout's files Git tracks or would track are over 256 MiB or 50,000 files | Add data and outputs to `.gitignore`: a job reads ignored files in place on this machine |
+| `input_not_found`, `inputs_too_large` | An input names a run or artifact path that is not there, or the inputs are over 16 GiB | `ablationkit_read run.artifacts` lists a run's; take less |
+| `inputs_need_a_copy` | `inputs` outside an agent container, where this machine runs a job in the checkout | Leave `inputs` out: the earlier job's outputs are in the checkout already |
 | `unknown_agenda_item` | `agenda_item` names nothing on the agenda (the message lists what it has) | Use an ID from `ablationkit_read agenda`, or leave `agenda_item` out |
 | `compute_limit_reached` | Time limit × the pool's heaviest weight exceeds `available_hours` | Shorten the run, or ask the researcher to raise the limit |
 | `evidence_required` | `supported`/`not_supported` with a notebook none of whose notes cites a run (or a report that cites none) | Give the findings their `evidence`, or complete as `inconclusive` |

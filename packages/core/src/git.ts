@@ -31,7 +31,14 @@ function gitEnv(): Record<string, string> {
     if (v === undefined || k.startsWith("GIT_")) continue;
     env[k] = v;
   }
-  return { ...env, GIT_TERMINAL_PROMPT: "0", GIT_CONFIG_NOSYSTEM: "1", LC_ALL: "C" };
+  // No optional locks: `git status` must not refresh the checkout's index (read-only Git).
+  return {
+    ...env,
+    GIT_TERMINAL_PROMPT: "0",
+    GIT_CONFIG_NOSYSTEM: "1",
+    GIT_OPTIONAL_LOCKS: "0",
+    LC_ALL: "C",
+  };
 }
 
 /** Run one read-only Git command in `cwd`; never throws on a non-zero exit. */
