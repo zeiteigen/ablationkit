@@ -118,6 +118,8 @@ export interface SubmitInput {
   readonly via_extension?: string;
   /** A contained agent session's job (ADR 0061): each local attempt runs in a job container. */
   readonly container?: JobRecord["container"];
+  /** No GPU (ADR 0066): none in a job container; `CUDA_VISIBLE_DEVICES` empty outside one. */
+  readonly gpu?: "none";
 }
 
 export interface JobServiceOptions {
@@ -171,7 +173,8 @@ export interface JobContainers {
       readonly env: Readonly<Record<string, string>>;
     },
   ): { argv: string[]; container: AttemptContainer };
-  attemptEnded(attemptId: string, container: string | undefined): void;
+  /** An attempt that ran in a job container ended (`attempt.state` says how). */
+  attemptEnded(attempt: AttemptRecord, job: JobRecord | undefined): void;
   attemptCancelled(container: string | undefined): void;
 }
 
@@ -510,6 +513,12 @@ export class JobService {
           "invalid_request",
           `input path ${g} must stay inside the checkout`,
         );
+    if (input.gpu === "none" && input.target_id !== undefined)
+      throw new HttpError(
+        400,
+        "invalid_request",
+        '`gpu: "none"` applies to jobs on this machine; a remote target runs what it is given',
+      );
     if (input.input_paths?.length && input.target_id !== undefined)
       throw new HttpError(
         400,
@@ -570,6 +579,7 @@ export class JobService {
         : {}),
       ...(input.via_extension ? { via_extension: input.via_extension } : {}),
       ...(input.container ? { container: { ...input.container } } : {}),
+      ...(input.gpu === "none" ? { gpu: "none" as const } : {}),
       state: "starting",
       attempts: [],
       created_at: ts,
@@ -659,6 +669,8 @@ export class JobService {
         if (v !== undefined && !k.startsWith("ABLATIONKIT_")) env[k] = v;
       }
     Object.assign(env, job.env);
+    // Asked for no GPU (ADR 0066): a job container has no GPU device; outside one this hides it.
+    if (job.gpu === "none") env["CUDA_VISIBLE_DEVICES"] = "";
     const py = [
       ...SDK_PYTHONPATH,
       ...(this.o.sdkPythonPaths?.(job.project_id) ?? []),
@@ -974,8 +986,7 @@ export class JobService {
     // Worker tokens stay valid for the grace period so late uploads still land (spec §7.11).
     this.o.tokens.markJobTerminal(a.job_id, this.o.now());
     this.closeConsole(a.attempt_id);
-    if (a.supervisor.container)
-      this.o.containers?.()?.attemptEnded(a.attempt_id, a.supervisor.container.name);
+    if (a.supervisor.container) this.o.containers?.()?.attemptEnded(done, this.jobs.get(a.job_id));
     return done;
   }
 

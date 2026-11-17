@@ -1043,6 +1043,10 @@ class JobContainer(ProtocolModel):
         default=None,
         description="A protected evaluation's name: its pinned command ran, not the agent's.",
     )
+    build_environment: Literal[True] | None = Field(
+        default=None,
+        description="An environment build (ADR 0066): `uv sync` into a new copy of the project's environment, with the environment allowlist and no GPU. On success the copy becomes the environment the project's jobs run in.",
+    )
 
 
 class JobRecord(ProtocolModel):
@@ -1143,6 +1147,10 @@ class JobRecord(ProtocolModel):
         default=None,
         description="Set on jobs a contained agent session submits (ADR 0061): each local attempt runs in a job container of its own.",
     )
+    gpu: Literal["none"] | None = Field(
+        default=None,
+        description="The job asked for no GPU (ADR 0066). In a job container it gets no GPU device; on this machine outside one, `CUDA_VISIBLE_DEVICES` is empty (advisory).",
+    )
     state: AttemptState = Field(description="State of the latest attempt.")
     attempts: list[AttemptId] = Field(description="Attempt IDs, oldest first.")
     created_at: Timestamp = Field(
@@ -1164,6 +1172,12 @@ class AttemptContainer(ProtocolModel):
     mounts: Annotated[
         list[Annotated[str, StringConstraints(max_length=4096)]], Field(max_length=64)
     ] = Field(description="Hidden paths mounted read-only for a protected evaluation.")
+    environment: Annotated[str, StringConstraints(pattern="^[A-Za-z0-9._-]{1,200}$")] | None = (
+        Field(
+            default=None,
+            description="The project environment the attempt ran with, read-only (ADR 0066): the attempt ID of the build that made it, or `legacy`. For an environment build, the one it built.",
+        )
+    )
 
 
 class SupervisorInfo(ProtocolModel):
@@ -2791,7 +2805,17 @@ class ContainerEgress(ProtocolModel):
     mode: Literal["allowlist", "open"] = Field(
         description="`allowlist`: only `allow` and the harness's own hosts. `open`: any host, every connection still recorded."
     )
-    allow: Annotated[list[HostPattern], Field(max_length=512)]
+    allow: Annotated[list[HostPattern], Field(max_length=512)] = Field(
+        description="Hosts the agent container (and jobs with `jobs.network: egress`) may reach. Package indexes belong in `environment.allow` (ADR 0066)."
+    )
+
+
+class ContainerEnvironmentConfig(ProtocolModel):
+    """The project's environment builds (ADR 0066): `uv sync` in a job container of its own, the only place agents' packages are installed. Absent: AblationKit's defaults."""
+
+    allow: Annotated[list[HostPattern], Field(max_length=512)] = Field(
+        description="Hosts an environment build may reach: package indexes, Python downloads, Git dependencies."
+    )
 
 
 class ContainerJobs(ProtocolModel):
@@ -2799,7 +2823,7 @@ class ContainerJobs(ProtocolModel):
         description="`all`: every GPU the CDI spec names (`nvidia.com/gpu=all`)."
     )
     network: Literal["none", "egress"] = Field(
-        description="`none`: no network at all (the environment must be synced by the agent first). `egress`: the project's allowlist through the attempt's own proxy."
+        description="`none`: no network at all (the environment is built beforehand by an environment build, ADR 0066). `egress`: the egress allowlist through the attempt's own proxy."
     )
 
 
@@ -2874,6 +2898,10 @@ class ContainerConfig(ProtocolModel):
         description="The agent container's own limits (kernel-enforced by its cgroup). It has no GPU."
     )
     egress: ContainerEgress
+    environment: ContainerEnvironmentConfig | None = Field(
+        default=None,
+        description="The project's environment builds (ADR 0066): `uv sync` in a job container of its own, the only place agents' packages are installed. Absent: AblationKit's defaults.",
+    )
     hidden: Annotated[
         list[Annotated[str, StringConstraints(min_length=1, max_length=4096)]], Field(max_length=64)
     ] = Field(
@@ -3087,6 +3115,35 @@ class EgressRecord(ProtocolModel):
     bytes_up: Annotated[int, Field(ge=0)] | None = Field(default=None)
     bytes_down: Annotated[int, Field(ge=0)] | None = Field(default=None)
     duration_ms: Annotated[int, Field(ge=0)] | None = Field(default=None)
+
+
+class ContainerEnvironmentBuild(ProtocolModel):
+    job_id: Annotated[str, StringConstraints(max_length=200)]
+    attempt_id: Annotated[str, StringConstraints(max_length=200)]
+
+
+class ContainerEnvironment(ProtocolModel):
+    """The project environment contained jobs run in, and the build that made it (ADR 0066)."""
+
+    schema_version: Annotated[Literal[1], BeforeValidator(reject_bool)]
+    project_id: ProjectId = Field(
+        description="Stable project identifier (lowercase slug). Never a path; paths live in the local registry."
+    )
+    generation: Annotated[str, StringConstraints(pattern="^[A-Za-z0-9._-]{1,200}$")] = Field(
+        description="The copy in use: `envs/<generation>/` beside this file, named for the attempt that built it; `legacy` is `env/`, an environment from before environment builds."
+    )
+    lock_sha256: Annotated[str, StringConstraints(pattern="^[a-f0-9]{64}$")] | None = Field(
+        default=None,
+        description="SHA-256 of the checkout's `uv.lock` the environment was built from. Jobs that run in the environment are refused while the checkout's differs.",
+    )
+    built_at: Timestamp = Field(
+        description="RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds."
+    )
+    built_by: ContainerEnvironmentBuild | None = Field(default=None)
+    adopted: Literal[True] | None = Field(
+        default=None,
+        description="Not built by an environment build: an environment agents installed before ADR 0066, taken as built from the `uv.lock` of the time.",
+    )
 
 
 class DeploymentProvider(ProtocolModel):
@@ -4689,6 +4746,7 @@ MODELS: dict[str, type[ProtocolModel]] = {
     "ContainerConfig": ContainerConfig,
     "ContainerSessionRecord": ContainerSessionRecord,
     "EgressRecord": EgressRecord,
+    "ContainerEnvironment": ContainerEnvironment,
     "DeploymentRecord": DeploymentRecord,
     "ModelLink": ModelLink,
     "RegistryVersionLink": RegistryVersionLink,
@@ -4753,6 +4811,7 @@ SCHEMA_VERSIONS: dict[str, int] = {
     "ContainerConfig": 1,
     "ContainerSessionRecord": 1,
     "EgressRecord": 1,
+    "ContainerEnvironment": 1,
     "DeploymentRecord": 1,
     "ModelLink": 1,
     "RegistryVersionLink": 1,
@@ -4821,6 +4880,9 @@ __all__ = [
     "ContainerControl",
     "ContainerCredential",
     "ContainerEgress",
+    "ContainerEnvironment",
+    "ContainerEnvironmentBuild",
+    "ContainerEnvironmentConfig",
     "ContainerEvaluation",
     "ContainerFileChange",
     "ContainerHarness",

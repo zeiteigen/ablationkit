@@ -157,9 +157,30 @@ export const ContainerConfig = Type.Object(
           description:
             "`allowlist`: only `allow` and the harness's own hosts. `open`: any host, every connection still recorded.",
         }),
-        allow: Type.Array(HostPattern, { maxItems: 512 }),
+        allow: Type.Array(HostPattern, {
+          maxItems: 512,
+          description:
+            "Hosts the agent container (and jobs with `jobs.network: egress`) may reach. Package indexes belong in `environment.allow` (ADR 0066).",
+        }),
       },
       { title: "ContainerEgress", additionalProperties: false },
+    ),
+    environment: Type.Optional(
+      Type.Object(
+        {
+          allow: Type.Array(HostPattern, {
+            maxItems: 512,
+            description:
+              "Hosts an environment build may reach: package indexes, Python downloads, Git dependencies.",
+          }),
+        },
+        {
+          title: "ContainerEnvironmentConfig",
+          description:
+            "The project's environment builds (ADR 0066): `uv sync` in a job container of its own, the only place agents' packages are installed. Absent: AblationKit's defaults.",
+          additionalProperties: false,
+        },
+      ),
     ),
     hidden: Type.Array(ContainerPath, {
       maxItems: 64,
@@ -177,7 +198,7 @@ export const ContainerConfig = Type.Object(
         }),
         network: Type.Union([Type.Literal("none"), Type.Literal("egress")], {
           description:
-            "`none`: no network at all (the environment must be synced by the agent first). `egress`: the project's allowlist through the attempt's own proxy.",
+            "`none`: no network at all (the environment is built beforehand by an environment build, ADR 0066). `egress`: the egress allowlist through the attempt's own proxy.",
         }),
       },
       { title: "ContainerJobs", additionalProperties: false },
@@ -443,6 +464,12 @@ export const JobContainer = Type.Object(
         description: "A protected evaluation's name: its pinned command ran, not the agent's.",
       }),
     ),
+    build_environment: Type.Optional(
+      Type.Literal(true, {
+        description:
+          "An environment build (ADR 0066): `uv sync` into a new copy of the project's environment, with the environment allowlist and no GPU. On success the copy becomes the environment the project's jobs run in.",
+      }),
+    ),
   },
   {
     title: "JobContainer",
@@ -464,6 +491,13 @@ export const AttemptContainer = Type.Object(
       maxItems: 64,
       description: "Hidden paths mounted read-only for a protected evaluation.",
     }),
+    environment: Type.Optional(
+      Type.String({
+        pattern: "^[A-Za-z0-9._-]{1,200}$",
+        description:
+          "The project environment the attempt ran with, read-only (ADR 0066): the attempt ID of the build that made it, or `legacy`. For an environment build, the one it built.",
+      }),
+    ),
   },
   {
     title: "AttemptContainer",
@@ -472,3 +506,49 @@ export const AttemptContainer = Type.Object(
   },
 );
 export type AttemptContainer = Static<typeof AttemptContainer>;
+
+/**
+ * `<home>/containers/projects/<project-id>/environment.json`: which copy of the project's
+ * environment its contained jobs run in (ADR 0066). Written by the coordinator only.
+ */
+export const ContainerEnvironment = Type.Object(
+  {
+    schema_version: Type.Literal(1),
+    project_id: ProjectId,
+    generation: Type.String({
+      pattern: "^[A-Za-z0-9._-]{1,200}$",
+      description:
+        "The copy in use: `envs/<generation>/` beside this file, named for the attempt that built it; `legacy` is `env/`, an environment from before environment builds.",
+    }),
+    lock_sha256: Type.Optional(
+      Type.String({
+        pattern: "^[a-f0-9]{64}$",
+        description:
+          "SHA-256 of the checkout's `uv.lock` the environment was built from. Jobs that run in the environment are refused while the checkout's differs.",
+      }),
+    ),
+    built_at: Timestamp,
+    built_by: Type.Optional(
+      Type.Object(
+        {
+          job_id: Type.String({ maxLength: 200 }),
+          attempt_id: Type.String({ maxLength: 200 }),
+        },
+        { title: "ContainerEnvironmentBuild", additionalProperties: false },
+      ),
+    ),
+    adopted: Type.Optional(
+      Type.Literal(true, {
+        description:
+          "Not built by an environment build: an environment agents installed before ADR 0066, taken as built from the `uv.lock` of the time.",
+      }),
+    ),
+  },
+  {
+    title: "ContainerEnvironment",
+    description:
+      "The project environment contained jobs run in, and the build that made it (ADR 0066).",
+    additionalProperties: false,
+  },
+);
+export type ContainerEnvironment = Static<typeof ContainerEnvironment>;

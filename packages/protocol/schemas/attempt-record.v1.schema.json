@@ -216,6 +216,11 @@
                 "maxLength": 4096,
                 "type": "string"
               }
+            },
+            "environment": {
+              "pattern": "^[A-Za-z0-9._-]{1,200}$",
+              "description": "The project environment the attempt ran with, read-only (ADR 0066): the attempt ID of the build that made it, or `legacy`. For an environment build, the one it built.",
+              "type": "string"
             }
           }
         }

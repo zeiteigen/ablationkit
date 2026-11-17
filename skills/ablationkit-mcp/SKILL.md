@@ -62,10 +62,17 @@ words. Call it again to keep waiting; do other work between calls if there is an
   CLI calls are recorded as the researcher's, so say what you did in your report. Report your
   own research through the tools here.
 - **In an agent container** (`ABLATIONKIT_CONTAINED=1` in your environment): the researcher
-  started your harness in a rootless container. You have no GPU, so run GPU work as jobs, which
-  go to job containers with the GPU. Jobs have no network by default, so run `uv sync` in your
-  shell before you submit. The network goes through a proxy that allows only the project's
-  hosts; a `403` from `AblationKit egress` names the host, so ask the researcher to allow it
+  started your harness in a rootless container. You have no GPU and no project environment
+  (`uv` and `pip` only say so): everything that runs the project's code is a job, tests and quick
+  checks included (ADR 0066).
+  - To add or change packages, edit `pyproject.toml`, then `ablationkit_job environment` (uv sync
+    in a job; it relocks and writes `uv.lock`) and wait for it with `ablationkit_wait`. Jobs read
+    that environment and are refused (`environment_stale`) when `uv.lock` changed since.
+  - Run tests, checks and analysis with `gpu: "none"`: they run beside GPU jobs without touching
+    the GPU. Training gets the GPU in its job container.
+
+  The network goes through a proxy that allows only the project's hosts (not package indexes:
+  those are the environment build's); a `403` from `AblationKit egress` names the host, so ask the researcher to allow it
   rather than working around it. Some paths may be hidden or read-only by design. A protected
   evaluation runs with `ablationkit_job submit` and `evaluation: NAME`, not a command; you read
   its metrics, not its console. The researcher can pause you; your session ends with the

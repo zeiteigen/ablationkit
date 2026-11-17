@@ -392,6 +392,7 @@ const agents: Run = async (x, a, io) => {
       const p = await projectOf(x, a);
       return x.call("POST", `/api/v1/projects/${enc(p.project_id)}/agent-containers/allow`, {
         hosts: (a["hosts"] as string[] | undefined) ?? [],
+        ...(a["environment"] === true ? { list: "environment" } : {}),
       });
     }
     default:
@@ -459,7 +460,7 @@ export const EXECUTIVE_TOOLS: readonly Tool[] = [
     name: "executive_agents",
     title: "Run the agents",
     description:
-      "The agents doing the research. list: agent sessions and agent containers (`project` to narrow). show: one container session. account: what a session did, against the coordinator's record (`token_id`). start: a contained agent in `project` (`harness` claude-code (default), codex or shell; `prompt`: its first task; `label`; `args`; `login: false` to not copy your Claude Code login). screen: what its terminal shows. send: type into it (`text`, submitted with Enter unless `enter: false`; `keys`: tmux key names such as Escape, Enter, C-c). wait: until its screen goes quiet (`quiet_sec`, default 10), shows `until_text`, it ends, or `timeout_sec` (default 300, at most 1800). egress: its connections (`denied: true` for refusals). pause, resume, stop (`reason`). end_session: revoke a session's token (`token_id`). allow_hosts: add `hosts` to `project`'s egress allowlist. Every input you type is recorded.",
+      "The agents doing the research. list: agent sessions and agent containers (`project` to narrow). show: one container session. account: what a session did, against the coordinator's record (`token_id`). start: a contained agent in `project` (`harness` claude-code (default), codex or shell; `prompt`: its first task; `label`; `args`; `login: false` to not copy your Claude Code login). screen: what its terminal shows. send: type into it (`text`, submitted with Enter unless `enter: false`; `keys`: tmux key names such as Escape, Enter, C-c). wait: until its screen goes quiet (`quiet_sec`, default 10), shows `until_text`, it ends, or `timeout_sec` (default 300, at most 1800). egress: its connections (`denied: true` for refusals). pause, resume, stop (`reason`). end_session: revoke a session's token (`token_id`). allow_hosts: add `hosts` to `project`'s egress allowlist, or with `environment: true` to what its environment builds may reach (package indexes; agents install nothing themselves). Every input you type is recorded.",
     inputSchema: {
       type: "object",
       properties: {
@@ -480,6 +481,10 @@ export const EXECUTIVE_TOOLS: readonly Tool[] = [
         timeout_sec: int("wait: give up after this long.", 5, 1800),
         denied: { type: "boolean", description: "egress: refused connections only." },
         hosts: strs("allow_hosts: host patterns (example.com, *.example.com, example.com:8443)."),
+        environment: {
+          type: "boolean",
+          description: "allow_hosts: add them to the environment builds' allowlist instead.",
+        },
         reason: str("pause, stop, end_session: why."),
       },
       required: ["action"],

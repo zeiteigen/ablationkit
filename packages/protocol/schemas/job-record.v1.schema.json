@@ -337,8 +337,18 @@
           "pattern": "^[a-z][a-z0-9_-]{0,39}$",
           "description": "A protected evaluation's name: its pinned command ran, not the agent's.",
           "type": "string"
+        },
+        "build_environment": {
+          "description": "An environment build (ADR 0066): `uv sync` into a new copy of the project's environment, with the environment allowlist and no GPU. On success the copy becomes the environment the project's jobs run in.",
+          "const": true,
+          "type": "boolean"
         }
       }
+    },
+    "gpu": {
+      "description": "The job asked for no GPU (ADR 0066). In a job container it gets no GPU device; on this machine outside one, `CUDA_VISIBLE_DEVICES` is empty (advisory).",
+      "const": "none",
+      "type": "string"
     },
     "state": {
       "title": "AttemptState",

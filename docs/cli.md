@@ -60,7 +60,7 @@ Run your harness in a rootless Podman container instead of on this machine: no G
 | Return to it, list, read | `ablationkit agent attach SESSION`; `agent list [--project ID]`; `agent show SESSION`; `agent screen SESSION` (the terminal now); `agent egress SESSION [--denied]` |
 | Control it | `ablationkit agent pause SESSION [--reason T]` (freezes it), `agent resume SESSION`, `agent stop SESSION` (ends it and its token); also in the web UI |
 | Drive it without a terminal | for another agent (or a script): `ablationkit agent start --detach -- "first prompt"`, then `agent screen SESSION` to read it and `agent send SESSION TEXT… [--stdin] [--keys Enter,Escape] [--no-enter]` to type into it (text is submitted with Enter); each input is audited with its text |
-| What containers may reach | `ablationkit agent allow HOST…` (egress allowlist: `pypi.org`, `*.hf.co`, `example.com:8443`); `agent config [show\|edit\|set FILE]` for the rest: hidden and read-only paths, job containers' GPU and network, protected evaluations, credentials, host code, pausing at the compute limit |
+| What containers may reach | `ablationkit agent allow HOST…` (the agents' egress allowlist: `*.hf.co`, `example.com:8443`), `agent allow --environment HOST…` (what environment builds may reach: a private package index, ADR 0066); `agent config [show\|edit\|set FILE]` for the rest: hidden and read-only paths, job containers' GPU and network, protected evaluations, credentials, host code, pausing at the compute limit |
 
 ## Extensions and source changes
 

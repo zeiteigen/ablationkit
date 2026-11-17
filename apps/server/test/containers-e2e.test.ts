@@ -8,7 +8,8 @@
  * no GPU devices, no network but the proxy, which refuses a host off the allowlist) and talks to
  * AblationKit through `ablationkit mcp --contained`. Then a contained job runs in a job container,
  * the session is paused and resumed for real, and when the shell exits the session records what it
- * changed.
+ * changed. Last, environment builds (ADR 0066): real `uv sync` into a new copy of the project's
+ * environment, which a job then reads read-only.
  */
 import { afterAll, describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -137,6 +138,8 @@ describe.skipIf(!E2E)("agent containers on rootless Podman", () => {
       `echo hidden=$(ls eval | wc -l)`,
       `echo readonly=$(touch data/new 2>/dev/null && echo writable || echo refused)`,
       `echo gpu=$(ls /dev/nvidia* 2>/dev/null | wc -l)`,
+      `echo env=$(ls /opt/ablationkit/env 2>/dev/null | wc -l)`,
+      `echo uv=$(uv sync >/dev/null 2>&1; echo $?)`,
       `echo direct=$(curl -sS --noproxy '*' --max-time 5 https://example.com >/dev/null 2>&1 && echo reached || echo blocked)`,
       `echo proxied=$(curl -s -o /dev/null -w '%{http_connect}' --max-time 10 https://example.com)`,
       // stdin stays open a moment: the server answers calls in flight only while its client is there.
@@ -155,6 +158,8 @@ describe.skipIf(!E2E)("agent containers on rootless Podman", () => {
     expect(out).toContain("hidden=0");
     expect(out).toContain("readonly=refused");
     expect(out).toContain("gpu=0");
+    expect(out).toContain("env=0");
+    expect(out).toContain("uv=127");
     expect(out).toContain("direct=blocked");
     expect(out).toContain("proxied=403");
     expect(out).toMatch(/mcp=[1-9]/);
@@ -221,5 +226,90 @@ describe.skipIf(!E2E)("agent containers on rootless Podman", () => {
     for (let i = 0; i < 300 && svc.containers.get(sid)?.state === "running"; i++)
       await Bun.sleep(200);
     expect(svc.containers.get(sid)?.state).toBe("exited");
+  });
+
+  test("an environment build runs uv sync into a new copy; jobs read it and cannot change it (ADR 0066)", async () => {
+    const c = h.coordinators.at(-1);
+    if (!c) throw new Error("the first test starts the coordinator");
+    const svc = c.services;
+    const human = await new Client(c).session();
+    const repo = svc.registry.require("lab").path;
+    writeFileSync(
+      join(repo, "pyproject.toml"),
+      '[project]\nname = "lab"\nversion = "0.0.0"\nrequires-python = ">=3.10"\ndependencies = []\n',
+    );
+    const r0 = await fetch(`${svc.urls.human}/api/v1/projects/lab/agent-containers`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${human}` },
+      body: JSON.stringify({ harness: "shell", label: "e2e environment" }),
+    });
+    expect(r0.status).toBe(201);
+    const sid = ((await r0.json()) as ContainerSessionRecord).session_id;
+    const token = readFileSync(join(svc.containers.mountDir(sid), "token"), "utf8").trim();
+    const sock = join(svc.containers.mountDir(sid), "agent.sock");
+    const submit = async (body: Record<string, unknown>) => {
+      const r = await fetch("http://localhost/api/v1/projects/lab/jobs", {
+        method: "POST",
+        unix: sock,
+        headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+        body: JSON.stringify(body),
+      } as RequestInit);
+      return { status: r.status, body: (await r.json()) as { job_id: string; error?: unknown } };
+    };
+    const settle = async (jobId: string) => {
+      for (let i = 0; i < 900; i++) {
+        const st = svc.jobs.get(jobId)?.state;
+        if (st && st !== "starting" && st !== "running") return st;
+        await Bun.sleep(200);
+      }
+      return svc.jobs.get(jobId)?.state;
+    };
+    const consoleOf = async (jobId: string) => {
+      const a = svc.jobs.latestAttempt(svc.jobs.get(jobId) as never);
+      const r = await fetch(
+        `${svc.urls.human}/api/v1/jobs/${jobId}/attempts/${a?.attempt_id}/console`,
+        { headers: { authorization: `Bearer ${human}` } },
+      );
+      return { attempt: a, text: await r.text() };
+    };
+    const probe = {
+      command: [
+        "python",
+        "-c",
+        "import sys\nprint('prefix=' + sys.prefix)\ntry:\n    open(sys.prefix + '/x', 'w')\n    print('env=writable')\nexcept OSError:\n    print('env=read-only')",
+      ],
+      environment: "uv",
+      gpu: "none",
+      limits: { runtime_max_sec: 300 },
+    };
+    expect((await submit(probe)).status).toBe(409);
+    const b = await submit({ build_environment: true, limits: { runtime_max_sec: 600 } });
+    expect(b.status).toBe(201);
+    const built = await settle(b.body.job_id);
+    const bc = await consoleOf(b.body.job_id);
+    expect({ built, log: bc.text.slice(-2000) }).toMatchObject({ built: "succeeded" });
+    expect(existsSync(join(repo, "uv.lock"))).toBe(true);
+    const gen = bc.attempt?.attempt_id as string;
+    expect(svc.containers.environment("lab")?.generation).toBe(gen);
+    const j = await submit(probe);
+    expect(j.status).toBe(201);
+    expect(await settle(j.body.job_id)).toBe("succeeded");
+    const jc = await consoleOf(j.body.job_id);
+    expect(jc.text).toContain("prefix=/opt/ablationkit/env");
+    expect(jc.text).toContain("env=read-only");
+    expect(jc.attempt?.supervisor.container).toMatchObject({ gpu: "none", environment: gen });
+    // A second build starts from the first: a copy, then uv sync finds nothing to do.
+    const b2 = await submit({ build_environment: true, limits: { runtime_max_sec: 600 } });
+    expect(await settle(b2.body.job_id)).toBe("succeeded");
+    expect((await consoleOf(b2.body.job_id)).text).toContain(
+      "starting from the current environment",
+    );
+    const gen2 = svc.containers.environment("lab")?.generation as string;
+    expect(gen2).not.toBe(gen);
+    expect(existsSync(join(svc.containers.generationDir("lab", gen), "pyvenv.cfg"))).toBe(false);
+    expect((await submit(probe)).status).toBe(201);
+    svc.containers.stop(sid, "e2e");
+    for (let i = 0; i < 300 && svc.containers.get(sid)?.state === "running"; i++)
+      await Bun.sleep(200);
   });
 });

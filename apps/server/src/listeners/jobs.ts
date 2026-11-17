@@ -9,6 +9,8 @@
  * a time limit, and its time limit × its target's weight must fit). A refusal names the policy
  * field or the limit.
  */
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import type { AttemptRecord, JobLimits, JobRecord, MetricsFormat } from "@ablationkit/protocol";
 import { HttpError, intParam, json, readJsonBody } from "../http.ts";
 import type { Route } from "../router.ts";
@@ -106,6 +108,13 @@ function submitInput(
   const lim = limits(body);
   const artifactPaths = strings(body, "artifact_paths", 64);
   const inputPaths = strings(body, "input_paths", 16);
+  const gpu = body["gpu"];
+  if (gpu !== undefined && gpu !== "all" && gpu !== "none")
+    throw new HttpError(
+      400,
+      "invalid_request",
+      '`gpu` is "none" (no GPU: tests, checks, CPU work) or "all" (the default)',
+    );
   const description = optStr(body, "description")?.trim();
   if (description && description.length > 2000)
     throw new HttpError(400, "invalid_request", "`description` is longer than 2000 characters");
@@ -115,6 +124,7 @@ function submitInput(
     submitted_by: by,
     ...(optStr(body, "cwd") ? { cwd: optStr(body, "cwd") as string } : {}),
     ...(environment ? { environment: environment as "uv" | "none" } : {}),
+    ...(gpu === "none" ? { gpu: "none" as const } : {}),
     ...(env ? { env } : {}),
     ...(lim ? { limits: lim } : {}),
     ...(artifactPaths ? { artifact_paths: artifactPaths } : {}),
@@ -288,6 +298,65 @@ const agentOp = (action: string, run: AgentHandler["run"]): AgentHandler => ({
   run,
 });
 
+/** At most this many arguments to `uv sync` in an environment build. */
+const MAX_BUILD_ARGS = 32;
+/** An environment build's time limit when the agent gives none: a first CUDA install takes minutes. */
+const BUILD_RUNTIME_SEC = 1_200;
+
+/**
+ * An environment build's submission (ADR 0066): `uv sync` with the agent's arguments (`--extra
+ * cuda`), no GPU, run as given (the build makes the environment `uv run` would need). The record
+ * names the command; the job container runs it from the current environment's copy.
+ */
+function environmentBuildBody(
+  svc: Services,
+  pid: string,
+  raw: Record<string, unknown>,
+): Record<string, unknown> {
+  const args = raw["args"] === undefined ? [] : raw["args"];
+  if (
+    !Array.isArray(args) ||
+    args.length > MAX_BUILD_ARGS ||
+    !args.every((a) => typeof a === "string" && a.length > 0 && a.length <= 512)
+  )
+    throw new HttpError(
+      400,
+      "invalid_request",
+      `\`args\`: at most ${MAX_BUILD_ARGS} arguments to uv sync, e.g. ["--extra", "cuda"]`,
+    );
+  if (raw["command"] !== undefined || raw["target_id"] !== undefined || raw["env"] !== undefined)
+    throw new HttpError(
+      400,
+      "invalid_request",
+      "an environment build runs `uv sync` on this machine: give `args`, not `command`, `env` or `target_id`",
+    );
+  const project = svc.registry.require(pid);
+  if (!existsSync(join(project.path, "pyproject.toml")))
+    throw new HttpError(
+      422,
+      "no_project_environment",
+      `${project.path} has no pyproject.toml: there is no uv environment to build`,
+    );
+  const keep = ["run_name", "description", "task_id", "agenda_item"];
+  const given = raw["limits"];
+  const limits =
+    given && typeof given === "object" && !Array.isArray(given)
+      ? (given as Record<string, unknown>)
+      : {};
+  return {
+    ...Object.fromEntries(keep.filter((k) => raw[k] !== undefined).map((k) => [k, raw[k]])),
+    limits: { runtime_max_sec: BUILD_RUNTIME_SEC, ...limits },
+    command: ["uv", "sync", ...(args as string[])],
+    environment: "none",
+    gpu: "none",
+    run_name: typeof raw["run_name"] === "string" ? raw["run_name"] : "environment build",
+    description:
+      typeof raw["description"] === "string"
+        ? raw["description"]
+        : "Build the project's environment from pyproject.toml and uv.lock (uv sync), for the jobs that run in it.",
+  };
+}
+
 /**
  * Job submission and reading for agents (ADR 0037). Submitting checks the project policy: allowed
  * proceeds, denied is refused (403 `policy_denied`) with the field that denies it; then the compute
@@ -319,7 +388,23 @@ export const AGENT_JOB_ROUTES: readonly Route<AgentHandler>[] = [
           "evaluation_needs_container",
           "protected evaluations run only for agents in an agent container (ADR 0061): outside one, the data they protect is not hidden from you",
         );
+      const build = raw["build_environment"] === true;
+      if (raw["build_environment"] !== undefined && raw["build_environment"] !== true)
+        throw new HttpError(400, "invalid_request", "`build_environment` is true or absent");
+      if (build && !sessionId)
+        throw new HttpError(
+          400,
+          "environment_build_needs_container",
+          "environment builds are for agents in an agent container (ADR 0066); on this machine outside one, the project's own environment is yours to sync",
+        );
+      if (build && evaluation)
+        throw new HttpError(
+          400,
+          "invalid_request",
+          "give `build_environment` or `evaluation`, not both",
+        );
       let body = raw;
+      if (build) body = environmentBuildBody(c.svc, pid, raw);
       if (evaluation) {
         const e = c.svc.containers.config(pid).evaluations.find((x) => x.name === evaluation);
         if (!e)
@@ -356,7 +441,14 @@ export const AGENT_JOB_ROUTES: readonly Route<AgentHandler>[] = [
         id: c.token.token_id,
       });
       const given = sessionId
-        ? { ...parsed, container: { session_id: sessionId, ...(evaluation ? { evaluation } : {}) } }
+        ? {
+            ...parsed,
+            container: {
+              session_id: sessionId,
+              ...(evaluation ? { evaluation } : {}),
+              ...(build ? { build_environment: true as const } : {}),
+            },
+          }
         : parsed;
       // A task the job is recorded under: one of this project's, still open (ADR 0039).
       if (given.task_id) c.svc.tasks.requireOpen(pid, given.task_id);

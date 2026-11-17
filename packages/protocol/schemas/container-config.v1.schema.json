@@ -105,6 +105,31 @@
         },
         "allow": {
           "maxItems": 512,
+          "description": "Hosts the agent container (and jobs with `jobs.network: egress`) may reach. Package indexes belong in `environment.allow` (ADR 0066).",
+          "type": "array",
+          "items": {
+            "title": "HostPattern",
+            "description": "An egress allowlist entry: `example.com` (that host, ports 80 and 443), `*.example.com` (its subdomains, not the host itself), either with `:port` for one other port, or `*` (any host: the same as egress mode `open`).",
+            "minLength": 1,
+            "maxLength": 260,
+            "pattern": "^(\\*|(\\*\\.)?[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[0-9]{1,5})?)$",
+            "type": "string"
+          }
+        }
+      }
+    },
+    "environment": {
+      "title": "ContainerEnvironmentConfig",
+      "description": "The project's environment builds (ADR 0066): `uv sync` in a job container of its own, the only place agents' packages are installed. Absent: AblationKit's defaults.",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "allow"
+      ],
+      "properties": {
+        "allow": {
+          "maxItems": 512,
+          "description": "Hosts an environment build may reach: package indexes, Python downloads, Git dependencies.",
           "type": "array",
           "items": {
             "title": "HostPattern",
@@ -163,7 +188,7 @@
           ]
         },
         "network": {
-          "description": "`none`: no network at all (the environment must be synced by the agent first). `egress`: the project's allowlist through the attempt's own proxy.",
+          "description": "`none`: no network at all (the environment is built beforehand by an environment build, ADR 0066). `egress`: the egress allowlist through the attempt's own proxy.",
           "anyOf": [
             {
               "const": "none",

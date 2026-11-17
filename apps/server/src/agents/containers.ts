@@ -7,20 +7,23 @@
  * into the session's run directory with the MCP configuration, starts three Unix sockets there
  * (the agent API, the egress proxy, the credential routes), and runs `podman run` in a tmux
  * terminal of its own (a transient systemd unit, so it outlives the coordinator) that the
- * researcher attaches to. The container gets the checkout, the project's environment volumes and
- * the run directory (read-only); never the GPU, the network, the coordinator's home or the login
- * socket (`@ablationkit/agent-containers` plans the command line).
+ * researcher attaches to. The container gets the checkout and the run directory (read-only); never
+ * the GPU, the network, the project's environment, the coordinator's home or the login socket
+ * (`@ablationkit/agent-containers` plans the command line).
  *
  * Local jobs the session submits run in job containers (`checkJob`, `containerizeJob`): the GPU
- * through CDI, no network (or the project's allowlist through the attempt's own proxy), hidden
- * paths masked except the ones a protected evaluation mounts read-only.
+ * through CDI unless the job asks for none, no network (or the project's allowlist through the
+ * attempt's own proxy), the project's environment read-only, hidden paths masked except the ones a
+ * protected evaluation mounts read-only. The environment is built by environment builds (ADR
+ * 0066): `uv sync` in a job container of its own into a new copy, which becomes the environment
+ * the project's jobs run in when it succeeds.
  *
  * The researcher pauses, resumes and stops a session; the compute limit can pause it. When the
  * harness exits the session records what it changed (commits, files, packages, the commands its
  * transcript holds), the token is revoked and the sockets close. A restarted coordinator picks up
  * live sessions and attempts again.
  */
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import {
   appendFileSync,
   chmodSync,
@@ -43,6 +46,7 @@ import { isAbsolute, join, resolve } from "node:path";
 import {
   type AgentContainerInput,
   agentContainerArgs,
+  agentToolShims,
   CONTAINER,
   CREDENTIAL_PORT,
   claudeMcpConfig,
@@ -52,11 +56,14 @@ import {
   DEFAULT_IMAGE,
   defaultContainerConfig,
   diffPackages,
+  environmentAllow,
+  environmentBuildArgv,
   filesChanged,
   HARNESSES,
   hostAllowed,
   jobContainerArgs,
   type Mask,
+  migrateConfig,
   parseDistInfo,
   parseNameStatus,
   parsePorcelain,
@@ -67,7 +74,9 @@ import {
 import { gitCommit, readGit, readJson, writeJsonAtomic } from "@ablationkit/core";
 import type {
   AttemptContainer,
+  AttemptRecord,
   ContainerConfig,
+  ContainerEnvironment,
   ContainerHarness,
   ContainerSessionRecord,
   ContainerSnapshot,
@@ -75,7 +84,11 @@ import type {
   JobRecord,
   TokenRecord,
 } from "@ablationkit/protocol";
-import { validateContainerConfig, validateContainerSessionRecord } from "@ablationkit/protocol";
+import {
+  validateContainerConfig,
+  validateContainerEnvironment,
+  validateContainerSessionRecord,
+} from "@ablationkit/protocol";
 import type { RuntimePaths } from "../config.ts";
 import { HttpError } from "../http.ts";
 import type { Services } from "../services.ts";
@@ -131,7 +144,7 @@ export interface StartInput {
   readonly label?: string;
   readonly args?: readonly string[];
   /** Binaries the researcher's shell found: the harness, uv (absolute paths on this machine). */
-  readonly binaries?: { readonly harness?: string; readonly uv?: string };
+  readonly binaries?: { readonly harness?: string };
   /** The Git identity commits in the container are made with (the researcher's). */
   readonly git?: { readonly name?: string; readonly email?: string };
   /**
@@ -283,15 +296,37 @@ export class ContainerService {
 
   // ------------------------------------------------------------------ configuration
 
-  /** The project's configuration, or the default when the researcher has not set one. */
+  /**
+   * The project's configuration, or the default when the researcher has not set one. One from
+   * before environment builds is brought up to date once, on record (ADR 0066).
+   */
   config(pid: string): ContainerConfig {
+    let cfg: ContainerConfig;
     try {
-      return readJson(this.configPath(pid), validateContainerConfig);
+      cfg = readJson(this.configPath(pid), validateContainerConfig);
     } catch (e) {
       if ((e as { kind?: string }).kind === "missing")
         return defaultContainerConfig(pid, this.o.now().toISOString());
       throw e;
     }
+    const next = migrateConfig(cfg, this.o.now().toISOString());
+    if (!next) return cfg;
+    writeJsonAtomic(this.configPath(pid), next, { validate: validateContainerConfig });
+    const moved = cfg.egress.allow.filter((h) => !next.egress.allow.includes(h));
+    this.o.svc().audit.record({
+      actor: { kind: "system" },
+      listener: "human",
+      action: "agent.container.config.set",
+      outcome: "allowed",
+      project_id: pid,
+      target: `revision ${next.revision}`,
+      reason: next.updated_by,
+      details: { moved_to_environment: moved, environment_allow: next.environment?.allow.length },
+    });
+    this.o.log(
+      `${pid}: agent container configuration revision ${next.revision}: ${moved.length ? `${moved.join(", ")} moved from the agents' allowlist to environment builds'` : "environment builds' allowlist added"} (ADR 0066)`,
+    );
+    return next;
   }
 
   /** Replace the configurable fields; a new revision. The researcher's only. */
@@ -346,12 +381,24 @@ export class ContainerService {
     return next;
   }
 
-  /** Add hosts to the allowlist (the web UI's "Allow" on a refused connection). */
-  allowHosts(pid: string, hosts: readonly string[], by: string): ContainerConfig {
+  /**
+   * Add hosts to the agents' allowlist (the web UI's "Allow" on a refused connection), or with
+   * `list: "environment"` to what environment builds may reach (ADR 0066).
+   */
+  allowHosts(
+    pid: string,
+    hosts: readonly string[],
+    by: string,
+    list: "egress" | "environment" = "egress",
+  ): ContainerConfig {
     const cur = this.config(pid);
-    const allow = [...cur.egress.allow];
+    const allow = [...(list === "environment" ? environmentAllow(cur) : cur.egress.allow)];
     for (const h of hosts) if (!allow.includes(h)) allow.push(h);
-    return this.setConfig(pid, { egress: { ...cur.egress, allow } }, by);
+    return this.setConfig(
+      pid,
+      list === "environment" ? { environment: { allow } } : { egress: { ...cur.egress, allow } },
+      by,
+    );
   }
 
   /** Is this host allowed for the project's containers (with the harness's own hosts)? */
@@ -368,6 +415,17 @@ export class ContainerService {
     return {
       ok: false,
       reason: `${host}:${port} is not on ${cfg.project_id}'s egress allowlist; the researcher can allow it (web UI, or \`ablationkit agent allow ${host}\`)`,
+    };
+  }
+
+  /** Is this host one the project's environment builds may reach (ADR 0066)? */
+  environmentDecision(pid: string, host: string, port: number): EgressDecision {
+    const cfg = this.config(pid);
+    if (cfg.egress.mode === "open") return { ok: true };
+    if (hostAllowed(environmentAllow(cfg), host, port)) return { ok: true };
+    return {
+      ok: false,
+      reason: `${host}:${port} is not on ${cfg.project_id}'s environment allowlist (environment builds); the researcher can allow it (\`ablationkit agent allow --environment ${host}\`)`,
     };
   }
 
@@ -440,7 +498,12 @@ export class ContainerService {
    * coordinator-owned parts of `.ablationkit/`, the configured hidden paths (except `except`: a
    * protected evaluation's mounts), and the coordinator's home should it sit inside either.
    */
-  masks(checkout: string, cfg: ContainerConfig, except: readonly string[] = []): Mask[] {
+  masks(
+    checkout: string,
+    cfg: ContainerConfig,
+    except: readonly string[] = [],
+    agent = false,
+  ): Mask[] {
     const roots = [checkout, this.tree];
     const out = new Map<string, Mask>();
     const add = (p: string) => {
@@ -448,6 +511,8 @@ export class ContainerService {
       out.set(p, { path: p, kind: isDir(p) ? "dir" : "file" });
     };
     for (const g of GUARDED_PROJECT_PATHS) add(join(checkout, g));
+    // The checkout's own environment is this machine's (ADR 0066): an agent container has none.
+    if (agent) add(join(checkout, ".venv"));
     for (const h of cfg.hidden) add(resolveConfigPath(checkout, h));
     add(realOr(this.o.paths.home));
     return [...out.values()].sort((a, b) => a.path.localeCompare(b.path));
@@ -555,7 +620,6 @@ export class ContainerService {
     } catch (e) {
       throw new HttpError(409, "harness_binary", (e as Error).message);
     }
-    const uv = this.uv(input.binaries?.uv);
     const bun = this.bun();
     const sid = `c-${randomBytes(6).toString("hex")}`;
     const label = (input.label ?? `${input.harness} in a container`).slice(0, 200);
@@ -568,29 +632,21 @@ export class ContainerService {
       );
     const args = [...given];
 
-    // Directories: the session's record, the run directory (host-only and mounted), the agent's
-    // home for this project and harness, and the project's environment volumes.
+    // Directories: the session's record, the run directory (host-only and mounted) and the agent's
+    // home for this project and harness. No environment: that is the jobs' (ADR 0066).
     mkdirSync(this.sessionDir(sid), { recursive: true, mode: 0o700 });
     mkdirSync(join(this.mountDir(sid), "bin"), { recursive: true, mode: 0o700 });
     chmodSync(this.runDir(sid), 0o700);
-    const pdir = this.projectDir(pid);
-    const home = join(pdir, `home-${input.harness}`);
-    const dirs = {
-      run: this.mountDir(sid),
-      home,
-      env: join(pdir, "env"),
-      uvCache: join(pdir, "uv-cache"),
-      python: join(pdir, "python"),
-    };
-    for (const d of [home, dirs.env, dirs.uvCache, dirs.python])
-      mkdirSync(d, { recursive: true, mode: 0o700 });
+    const home = join(this.projectDir(pid), `home-${input.harness}`);
+    const dirs = { run: this.mountDir(sid), home };
+    mkdirSync(home, { recursive: true, mode: 0o700 });
     this.prepareHome(home, input);
     const loginSync = this.loginFor(input, sid, pid, checkout);
 
     const readOnly = cfg.read_only
       .map((p) => resolveConfigPath(checkout, p))
       .filter((p) => exists(p) && within(checkout, p));
-    const masks = this.masks(checkout, cfg);
+    const masks = this.masks(checkout, cfg, [], true);
     const credEnv: Record<string, string> = {};
     for (const c of cfg.credentials)
       for (const [k, v] of Object.entries(c.env))
@@ -613,6 +669,8 @@ export class ContainerService {
         mode: 0o600,
       });
       writeFileSync(join(mount, "bin", "ablationkit"), cliWrapper(this.tree), { mode: 0o755 });
+      for (const [name, text] of Object.entries(agentToolShims()))
+        writeFileSync(join(mount, "bin", name), text, { mode: 0o755 });
 
       const now = this.o.now().toISOString();
       rec = {
@@ -643,7 +701,7 @@ export class ContainerService {
           memory_mb: cfg.agent.memory_mb,
           pids_max: cfg.agent.pids_max,
         },
-        start: this.snapshot(checkout, dirs.env),
+        start: this.snapshot(checkout, this.currentEnvDir(pid)),
         ...(loginSync
           ? {
               login: {
@@ -682,7 +740,7 @@ export class ContainerService {
         image: cfg.image,
         checkout,
         tree: this.tree,
-        tools: { bun, ...(uv ? { uv } : {}), ...(harnessBin ? { harness: harnessBin } : {}) },
+        tools: { bun, ...(harnessBin ? { harness: harnessBin } : {}) },
         dirs,
         limits: cfg.agent,
         masks,
@@ -1255,7 +1313,8 @@ export class ContainerService {
         job &&
         !["succeeded", "failed", "cancelled", "timed_out", "lost", "unknown"].includes(a.state)
       ) {
-        if (a.supervisor.container?.network === "egress") this.attemptEgress(job, id);
+        if (a.supervisor.container?.network === "egress")
+          this.attemptEgress(job, id, job.container?.build_environment === true);
       } else rmSync(this.runDir(id), { recursive: true, force: true });
     }
   }
@@ -1308,8 +1367,7 @@ export class ContainerService {
     login?.end();
     const loginRecord = login ? this.loginRecord(s, login) : s.login;
     this.unlisten(s.session_id);
-    const envDir = join(this.projectDir(s.project_id), "env");
-    const end = this.snapshot(s.checkout, envDir);
+    const end = this.snapshot(s.checkout, this.currentEnvDir(s.project_id));
     const startHead = s.start?.head;
     const committed =
       startHead && end.head && startHead !== end.head
@@ -1420,7 +1478,7 @@ export class ContainerService {
     return out.sort((a, b) => a.name.localeCompare(b.name)).slice(0, 5000);
   }
 
-  private snapshot(checkout: string, envDir: string): ContainerSnapshot {
+  private snapshot(checkout: string, envDir: string | undefined): ContainerSnapshot {
     const head = gitCommit(checkout);
     return {
       at: this.o.now().toISOString(),
@@ -1428,7 +1486,7 @@ export class ContainerService {
       dirty: parsePorcelain(this.porcelain(checkout))
         .map((c) => c.path.slice(0, 4096))
         .slice(0, 500),
-      packages: this.packages(envDir),
+      packages: envDir ? this.packages(envDir) : [],
     };
   }
 
@@ -1532,6 +1590,141 @@ export class ContainerService {
     };
   }
 
+  // ------------------------------------------------------------------ the project's environment
+
+  private environmentPath(pid: string): string {
+    return join(this.projectDir(pid), "environment.json");
+  }
+
+  /** A copy of the environment: `envs/<generation>`, or `env` for one from before builds. */
+  generationDir(pid: string, generation: string): string {
+    return generation === "legacy"
+      ? join(this.projectDir(pid), "env")
+      : join(this.projectDir(pid), "envs", generation);
+  }
+
+  private lockHash(checkout: string): string | undefined {
+    try {
+      return createHash("sha256")
+        .update(readFileSync(join(checkout, "uv.lock")))
+        .digest("hex");
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
+   * The environment the project's contained jobs run in (ADR 0066), or undefined before its first
+   * build. One agents installed before environment builds is adopted once, on record, as built
+   * from the checkout's `uv.lock` of the time.
+   */
+  environment(pid: string): ContainerEnvironment | undefined {
+    try {
+      return readJson(this.environmentPath(pid), validateContainerEnvironment);
+    } catch (e) {
+      if ((e as { kind?: string }).kind !== "missing") throw e;
+    }
+    if (!existsSync(join(this.generationDir(pid, "legacy"), "pyvenv.cfg"))) return undefined;
+    const project = this.o.svc().registry.get(pid);
+    if (!project) return undefined;
+    const lock = this.lockHash(realOr(project.path));
+    const env: ContainerEnvironment = {
+      schema_version: 1,
+      project_id: pid,
+      generation: "legacy",
+      ...(lock ? { lock_sha256: lock } : {}),
+      built_at: this.o.now().toISOString(),
+      adopted: true,
+    };
+    writeJsonAtomic(this.environmentPath(pid), env, { validate: validateContainerEnvironment });
+    this.o.log(`${pid}: adopted the agents' environment from before environment builds (ADR 0066)`);
+    return env;
+  }
+
+  /** The current environment's directory, when there is one. */
+  private currentEnvDir(pid: string): string | undefined {
+    const env = this.environment(pid);
+    const dir = env ? this.generationDir(pid, env.generation) : undefined;
+    return dir && isDir(dir) ? dir : undefined;
+  }
+
+  /** The project's environment build that is starting or running, other than `except`. */
+  private liveBuild(pid: string, except?: string): string | undefined {
+    for (const j of this.o.svc().jobs.list(pid))
+      if (
+        j.container?.build_environment &&
+        j.job_id !== except &&
+        (j.state === "starting" || j.state === "running")
+      )
+        return j.job_id;
+    return undefined;
+  }
+
+  /**
+   * Remove the copies of the environment nothing uses: not the current one, not one a live
+   * attempt runs in or is building. The one from before builds (`env/`) is left to the researcher:
+   * sessions started before ADR 0066 still mount it.
+   */
+  private pruneEnvironments(pid: string): void {
+    const root = join(this.projectDir(pid), "envs");
+    if (!isDir(root)) return;
+    const svc = this.o.svc();
+    const keep = new Set<string>();
+    const cur = this.environment(pid);
+    if (cur) keep.add(cur.generation);
+    for (const j of svc.jobs.list(pid)) {
+      if (!j.container || (j.state !== "starting" && j.state !== "running")) continue;
+      const last = j.attempts.at(-1);
+      if (!last) continue;
+      keep.add(last);
+      try {
+        const used = svc.jobs.requireAttempt(j.job_id, last).supervisor.container?.environment;
+        if (used) keep.add(used);
+      } catch {
+        // An attempt not saved yet: it is the one just named.
+      }
+    }
+    for (const g of readdirSync(root))
+      if (!keep.has(g)) rmSync(join(root, g), { recursive: true, force: true });
+  }
+
+  /** An environment build ended: on success its copy becomes the environment (ADR 0066). */
+  private buildEnded(job: JobRecord, a: AttemptRecord): void {
+    const pid = job.project_id;
+    const dir = this.generationDir(pid, a.attempt_id);
+    const svc = this.o.svc();
+    if (a.state === "succeeded" && existsSync(join(dir, "pyvenv.cfg"))) {
+      const project = svc.registry.get(pid);
+      const lock = project ? this.lockHash(realOr(project.path)) : undefined;
+      const env: ContainerEnvironment = {
+        schema_version: 1,
+        project_id: pid,
+        generation: a.attempt_id,
+        ...(lock ? { lock_sha256: lock } : {}),
+        built_at: a.ended_at ?? this.o.now().toISOString(),
+        built_by: { job_id: job.job_id, attempt_id: a.attempt_id },
+      };
+      writeJsonAtomic(this.environmentPath(pid), env, { validate: validateContainerEnvironment });
+      svc.audit.record({
+        actor: {
+          kind: job.submitted_by.kind,
+          ...(job.submitted_by.id ? { id: job.submitted_by.id } : {}),
+        },
+        listener: "agent",
+        action: "agent.container.environment.built",
+        outcome: "allowed",
+        project_id: pid,
+        target: a.attempt_id,
+        details: compact({ job_id: job.job_id, lock_sha256: lock }),
+      });
+      svc.events.publish(pid, "agent.container.environment", {
+        generation: a.attempt_id,
+        job_id: job.job_id,
+      });
+    } else rmSync(dir, { recursive: true, force: true });
+    this.pruneEnvironments(pid);
+  }
+
   // ------------------------------------------------------------------ job containers
 
   /** Is this job one a contained session submitted, to run on this machine? */
@@ -1548,7 +1741,24 @@ export class ContainerService {
     const cfg = this.config(job.project_id);
     const rt = this.requireRuntime();
     this.requireImage(cfg);
-    if (cfg.jobs.gpu === "all" && !job.container?.evaluation && !rt.gpu_cdi)
+    if (job.container?.build_environment) {
+      if (!this.uv())
+        throw new HttpError(
+          409,
+          "container_runtime_unavailable",
+          "uv was not found on this machine as a binary to mount into the environment build (set ABLATIONKIT_UV)",
+        );
+      const live = this.liveBuild(job.project_id, job.job_id);
+      if (live)
+        throw new HttpError(
+          409,
+          "environment_building",
+          `job ${live} is building the project's environment: wait for it (ablationkit_wait), then build again if you changed pyproject.toml or uv.lock since`,
+        );
+      return;
+    }
+    if (job.environment === "uv") this.requireEnvironment(job.project_id);
+    if (cfg.jobs.gpu === "all" && job.gpu !== "none" && !job.container?.evaluation && !rt.gpu_cdi)
       throw new HttpError(
         409,
         "container_gpu_unavailable",
@@ -1566,6 +1776,37 @@ export class ContainerService {
         409,
         "container_runtime_unavailable",
         "uv was not found on this machine as a binary to mount into the job container (set ABLATIONKIT_UV)",
+      );
+  }
+
+  /**
+   * A job that runs in the project's environment needs it built, from the checkout's `uv.lock`
+   * as it is now (ADR 0066): jobs read it, they never install into it.
+   */
+  private requireEnvironment(pid: string): void {
+    const env = this.environment(pid);
+    const build =
+      "build it with ablationkit_job environment (uv sync in a job container), wait for that job with ablationkit_wait, then submit this one";
+    if (!env || !this.currentEnvDir(pid))
+      throw new HttpError(
+        409,
+        "environment_not_built",
+        `the project has no environment for its jobs yet: ${build}`,
+      );
+    const project = this.o.svc().registry.require(pid);
+    const lock = this.lockHash(realOr(project.path));
+    if (!lock)
+      throw new HttpError(
+        409,
+        "environment_stale",
+        `the checkout has no uv.lock, so its jobs' environment cannot be checked: ${build} (it writes uv.lock)`,
+      );
+    if (env.lock_sha256 !== lock)
+      throw new HttpError(
+        409,
+        "environment_stale",
+        `uv.lock has changed since the environment was ${env.built_by ? `built by job ${env.built_by.job_id}` : "adopted"}: ${build}`,
+        { environment: env.generation },
       );
   }
 
@@ -1595,21 +1836,48 @@ export class ContainerService {
       .map((m) => resolveConfigPath(checkout, m))
       .filter(exists);
     const pdir = this.projectDir(job.project_id);
+    const build = job.container?.build_environment === true;
+    const python = join(pdir, "python");
+    mkdirSync(python, { recursive: true, mode: 0o700 });
+    // The environment: a new copy for a build, from the current one; the current one, read-only,
+    // for everything else (ADR 0066).
+    const current = this.currentEnvDir(job.project_id);
+    let generation: string | undefined;
+    let env: string | undefined;
+    let uvCache: string | undefined;
+    if (build) {
+      generation = a.attemptId;
+      env = this.generationDir(job.project_id, generation);
+      uvCache = join(pdir, "uv-cache");
+      for (const d of [env, uvCache]) mkdirSync(d, { recursive: true, mode: 0o700 });
+    } else if (current) {
+      env = current;
+      generation = this.environment(job.project_id)?.generation;
+    }
     const dirs = {
-      env: join(pdir, "env"),
-      uvCache: join(pdir, "uv-cache"),
-      python: join(pdir, "python"),
       spool: a.spool,
+      python,
+      ...(env ? { env } : {}),
+      ...(build && current ? { envBase: current } : {}),
+      ...(uvCache ? { uvCache } : {}),
     };
-    for (const d of [dirs.env, dirs.uvCache, dirs.python])
-      mkdirSync(d, { recursive: true, mode: 0o700 });
     const uv = this.uv();
-    // The job's argv: `uv` is the mounted one inside.
-    const argv =
-      job.environment === "uv"
-        ? [`${CONTAINER.bin}/uv`, "run", "--frozen", "--project", checkout, "--", ...job.command]
+    // The job's argv: `uv` is the mounted one inside. Jobs never sync: the environment is built.
+    const argv = build
+      ? environmentBuildArgv(checkout, job.command.slice(2))
+      : job.environment === "uv"
+        ? [
+            `${CONTAINER.bin}/uv`,
+            "run",
+            "--frozen",
+            "--no-sync",
+            "--project",
+            checkout,
+            "--",
+            ...job.command,
+          ]
         : [...a.argv];
-    if (job.environment === "uv" && !uv)
+    if ((build || job.environment === "uv") && !uv)
       throw new HttpError(
         409,
         "container_runtime_unavailable",
@@ -1625,10 +1893,13 @@ export class ContainerService {
         !within(p, realOr(this.o.paths.home)) &&
         isDir(p),
     );
-    const network = evaluation ? "none" : cfg.jobs.network;
+    // A build reaches the environment allowlist whatever the jobs' network is.
+    const network = build ? "egress" : evaluation ? "none" : cfg.jobs.network;
     let run: string | undefined;
-    if (network === "egress") run = this.attemptEgress(job, a.attemptId);
+    if (network === "egress") run = this.attemptEgress(job, a.attemptId, build);
     const name = `ak-job-${a.attemptId}`;
+    const gpu =
+      build || job.gpu === "none" ? "none" : cfg.jobs.gpu === "all" && rt.gpu_cdi ? "all" : "none";
     const args = jobContainerArgs({
       name,
       image: cfg.image,
@@ -1639,8 +1910,9 @@ export class ContainerService {
       extraReadOnly,
       masks: this.masks(checkout, cfg, evalMounts),
       evaluationMounts: evalMounts,
-      gpu: cfg.jobs.gpu === "all" && rt.gpu_cdi ? "all" : "none",
+      gpu,
       network,
+      build,
       limits: job.limits,
       env: a.env,
       cwd: a.cwd,
@@ -1652,22 +1924,26 @@ export class ContainerService {
         name,
         image: cfg.image,
         image_id: imageId.slice(0, 200),
-        gpu: cfg.jobs.gpu === "all" && rt.gpu_cdi ? "all" : "none",
+        gpu,
         network,
         mounts: evalMounts.slice(0, 64),
+        ...(generation ? { environment: generation } : {}),
       },
     };
   }
 
   /** Start an attempt's egress proxy; returns the directory to mount. */
-  private attemptEgress(job: JobRecord, attemptId: string): string {
+  private attemptEgress(job: JobRecord, attemptId: string, build: boolean): string {
     const mount = this.mountDir(attemptId);
     mkdirSync(mount, { recursive: true, mode: 0o700 });
     this.attemptProxies.get(attemptId)?.stop();
     const proxy = new EgressProxy({
       socket: join(mount, "egress.sock"),
       owner: attemptId,
-      allowed: (host, port) => this.egressDecision(job.project_id, undefined, host, port),
+      allowed: (host, port) =>
+        build
+          ? this.environmentDecision(job.project_id, host, port)
+          : this.egressDecision(job.project_id, undefined, host, port),
       record: (r) => this.recordEgress(r),
       now: this.o.now,
       ...(this.o.resolve ? { resolve: this.o.resolve } : {}),
@@ -1679,11 +1955,23 @@ export class ContainerService {
     return mount;
   }
 
-  /** A contained attempt ended: its proxy and run directory go, its container is removed. */
-  attemptEnded(attemptId: string, container: string | undefined): void {
+  /**
+   * A contained attempt ended: its proxy and run directory go, its container is removed, and an
+   * environment build's copy becomes the environment or is deleted.
+   */
+  attemptEnded(a: AttemptRecord, job: JobRecord | undefined): void {
+    const attemptId = a.attempt_id;
     this.attemptProxies.get(attemptId)?.stop();
     this.attemptProxies.delete(attemptId);
     rmSync(this.runDir(attemptId), { recursive: true, force: true });
+    if (job?.container?.build_environment) {
+      try {
+        this.buildEnded(job, a);
+      } catch (e) {
+        this.o.log(`environment build ${attemptId}: ${(e as Error).message}`);
+      }
+    }
+    const container = a.supervisor.container?.name;
     if (!container) return;
     const bin = this.runtime().binary;
     if (!bin) return;

@@ -109,7 +109,7 @@ Tests marked with a script name need that script (`bun run test:web`, `bun run t
 
 ### CTR-1: An agent in an agent container reaches the coordinator's home, the login socket, the CLI's saved session or another session's token, and acts as the researcher
 
-**Control:** The container (rootless Podman, `--userns keep-id`, every capability dropped, no new privileges) mounts only the checkout, AblationKit's tree read-only, the harness, bun and uv read-only, the agent's home and the environment volumes, and the session's run directory read-only. The coordinator mints the session's token for the container (never through the login socket); the session's agent socket accepts only that token. The coordinator's home is masked should it sit inside the checkout or the tree, as are the coordinator-owned parts of `.ablationkit/` (ADR 0061). **Level:** enforced.
+**Control:** The container (rootless Podman, `--userns keep-id`, every capability dropped, no new privileges) mounts only the checkout, AblationKit's tree read-only, the harness and bun read-only, the agent's home, and the session's run directory read-only (no project environment, ADR 0066). The coordinator mints the session's token for the container (never through the login socket); the session's agent socket accepts only that token. The coordinator's home is masked should it sit inside the checkout or the tree, as are the coordinator-owned parts of `.ablationkit/` (ADR 0061). **Level:** enforced.
 
 **Limit:** Enforced by the kernel through Podman for what runs in the container; a kernel or runtime escape is out of scope. The harness's own sign-in lives in the container's home and is readable by the agent. Agents in the researcher's own harness, outside a container, are covered only by AUTH-10.
 
@@ -122,10 +122,20 @@ Tests marked with a script name need that script (`bun run test:web`, `bun run t
 
 **Control:** The agent container gets no devices: GPU work runs as jobs, in job containers that get the GPU through CDI, each admitted under the compute limit and recorded as runs. **Level:** enforced.
 
-**Limit:** CPU experiments in the agent's shell remain possible within the container's CPU and memory limits, and are not seen.
+**Limit:** CPU work in the agent's shell remains possible within the container's CPU and memory limits, and is not seen: see CTR-7.
 
 - `containers.test.ts`: the agent container has no network, GPU, privileges or coordinator home
 - `containers.test.ts`: a job container gets the GPU, no network and the spool
+
+### CTR-7: A contained agent runs the project's code in its own shell (CPU training, tests, analysis) or installs packages there, outside the compute limit and the runs the witness accounts for
+
+**Control:** The agent container has no project environment, no uv and no package index (ADR 0066): the package hosts are only on the environment builds' allowlist, the checkout's `.venv` is masked, and `uv`/`pip` are stand-ins that point to jobs. Packages are installed by environment builds, which are jobs; jobs read that environment read-only and are refused while `uv.lock` has changed since; tests and checks run as GPU-less jobs beside training. **Level:** advisory.
+
+**Limit:** Advisory, not enforced: the mounts, the allowlist and the read-only environment are enforced, but the image still has `python3` (with venv's bundled pip), a compiler, `curl` and `git`, and GitHub stays on the agents' allowlist. An agent determined to can fetch an interpreter or build packages from source, and run them on the container's CPUs (4 and 8 GB by default) unseen. An environment build runs the project's build backend with the package hosts reachable; it is a recorded, time-limited job without a GPU.
+
+- `containers.test.ts`: an agent container has no environment; environment builds make the one jobs read
+- `containers.test.ts`: an environment build writes a new copy from the current one
+- `containers-e2e.test.ts`: an environment build runs uv sync into a new copy (`test:containers`)
 
 ### CTR-3: A contained agent or its job sends data out, or reaches this machine's own services (the coordinator, MLflow) or the local network
 

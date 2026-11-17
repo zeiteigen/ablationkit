@@ -44,7 +44,7 @@ const USAGE = `usage:
   ablationkit agent screen SESSION
   ablationkit agent send SESSION [TEXT...] [--stdin] [--keys K1,K2] [--no-enter]
   ablationkit agent egress SESSION [--denied]
-  ablationkit agent allow HOST... [--project ID]
+  ablationkit agent allow HOST... [--environment] [--project ID]
   ablationkit agent config [show | edit | set FILE] [--project ID]
   ablationkit agent image build [--tag IMAGE]
   ablationkit agent doctor
@@ -53,7 +53,9 @@ const USAGE = `usage:
 Claude Code starts signed in: your login in ~/.claude (or --login-from DIR) is copied in and kept
 in step while the session runs; --no-login signs in inside instead (ADR 0063).
 Runs your harness in a rootless Podman container (ADR 0061): no GPU, no network but the project's
-egress allowlist, no view of ~/.ablationkit; its local jobs run in job containers with the GPU.
+egress allowlist, no view of ~/.ablationkit, no project environment; its code runs as jobs in job
+containers, with the GPU unless a job asks for none, in the environment its environment builds
+install (ADR 0066). \`agent allow --environment\` adds hosts those builds may reach.
 Detach from the terminal with tmux's prefix and d (Ctrl-b d); \`agent attach\` returns to it.
 Without a terminal of your own (another agent driving this one): \`agent start --detach\`, give
 the first prompt after --, then \`agent screen\` to read it and \`agent send\` to type into it.`;
@@ -178,6 +180,7 @@ export async function agentCommand(argv: readonly string[], ctx: CliContext): Pr
     "stdin",
     "no-enter",
     "no-login",
+    "environment",
   ]);
   const asJson = args.flags["json"] === true;
   const coordinator = flag(args, "coordinator");
@@ -232,7 +235,6 @@ export async function agentCommand(argv: readonly string[], ctx: CliContext): Pr
     const harnessBin = given ? resolve(given) : bin ? findBinary(bin, ctx.env["PATH"]) : undefined;
     if (bin && !harnessBin)
       throw new UsageError(`${bin} was not found on PATH as a binary: give --harness-binary PATH`);
-    const uv = findBinary("uv", ctx.env["PATH"]);
     const cwd = process.cwd();
     const label = flag(args, "label");
     const loginFrom = flag(args, "login-from");
@@ -245,7 +247,7 @@ export async function agentCommand(argv: readonly string[], ctx: CliContext): Pr
         harness,
         args: passthrough,
         ...(label ? { label } : {}),
-        binaries: { ...(harnessBin ? { harness: harnessBin } : {}), ...(uv ? { uv } : {}) },
+        binaries: { ...(harnessBin ? { harness: harnessBin } : {}) },
         git: { ...(name ? { name } : {}), ...(email ? { email } : {}) },
         login: {
           copy: args.flags["no-login"] !== true,
@@ -378,13 +380,22 @@ export async function agentCommand(argv: readonly string[], ctx: CliContext): Pr
 
   if (sub === "allow") {
     if (!args.positional.length) throw new UsageError("give the hosts to allow");
-    const c = await client.request<{ revision: number; egress: { allow: string[] } }>(
-      "POST",
-      `/api/v1/projects/${enc(project())}/agent-containers/allow`,
-      { hosts: args.positional },
-    );
+    const environment = args.flags["environment"] === true;
+    const c = await client.request<{
+      revision: number;
+      egress: { allow: string[] };
+      environment?: { allow: string[] };
+    }>("POST", `/api/v1/projects/${enc(project())}/agent-containers/allow`, {
+      hosts: args.positional,
+      ...(environment ? { list: "environment" } : {}),
+    });
     if (asJson) printJson(ctx, c);
-    else ctx.out(`revision ${c.revision}: ${c.egress.allow.length} hosts allowed\n`);
+    else
+      ctx.out(
+        environment
+          ? `revision ${c.revision}: environment builds may reach ${c.environment?.allow.length ?? 0} hosts\n`
+          : `revision ${c.revision}: ${c.egress.allow.length} hosts allowed\n`,
+      );
     return 0;
   }
 

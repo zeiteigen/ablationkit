@@ -9,16 +9,23 @@ import { parsePattern } from "./allowlist.ts";
 export const DEFAULT_IMAGE = "localhost/ablationkit-agent:1";
 
 /**
- * What a new project's agents may reach besides their harness's own hosts: Python packages, uv's
- * Python downloads (astral.sh and GitHub release assets), PyTorch wheels (both of its download
- * hosts), Hugging Face, and where papers live.
+ * Package indexes and Python downloads: what an environment build reaches, never the agent
+ * (ADR 0066). PyTorch's index answers on one host and serves wheels from the other.
  */
-export const DEFAULT_ALLOW: readonly string[] = [
+export const PACKAGE_HOSTS: readonly string[] = [
   "pypi.org",
   "files.pythonhosted.org",
   "download.pytorch.org",
   "download-r2.pytorch.org",
   "releases.astral.sh",
+];
+
+/**
+ * What a new project's agents may reach besides their harness's own hosts: code on GitHub,
+ * Hugging Face, and where papers live. Not package indexes: agents install nothing themselves
+ * (ADR 0066).
+ */
+export const DEFAULT_ALLOW: readonly string[] = [
   "github.com",
   "*.github.com",
   "*.githubusercontent.com",
@@ -34,6 +41,37 @@ export const DEFAULT_ALLOW: readonly string[] = [
   "api.crossref.org",
 ];
 
+/**
+ * What a new project's environment builds may reach: the package indexes, uv's Python downloads
+ * (astral.sh and GitHub release assets) and Git dependencies on GitHub.
+ */
+export const DEFAULT_ENVIRONMENT_ALLOW: readonly string[] = [
+  ...PACKAGE_HOSTS,
+  "github.com",
+  "*.githubusercontent.com",
+];
+
+/** The hosts the project's environment builds may reach. */
+export function environmentAllow(c: ContainerConfig): readonly string[] {
+  return c.environment?.allow ?? DEFAULT_ENVIRONMENT_ALLOW;
+}
+
+/**
+ * A configuration from before environment builds (ADR 0066), brought up to date: the package
+ * hosts move from the agent's allowlist to the environment's. `undefined` when it is current.
+ */
+export function migrateConfig(c: ContainerConfig, at: string): ContainerConfig | undefined {
+  if (c.environment) return undefined;
+  return {
+    ...c,
+    revision: c.revision + 1,
+    updated_at: at,
+    updated_by: "ADR 0066: package hosts moved to environment builds",
+    egress: { ...c.egress, allow: c.egress.allow.filter((h) => !PACKAGE_HOSTS.includes(h)) },
+    environment: { allow: [...DEFAULT_ENVIRONMENT_ALLOW] },
+  };
+}
+
 export function defaultContainerConfig(
   projectId: string,
   at: string,
@@ -48,6 +86,7 @@ export function defaultContainerConfig(
     image: DEFAULT_IMAGE,
     agent: { cpus: 4, memory_mb: 8192, pids_max: 4096 },
     egress: { mode: "allowlist", allow: [...DEFAULT_ALLOW] },
+    environment: { allow: [...DEFAULT_ENVIRONMENT_ALLOW] },
     hidden: [],
     read_only: [],
     jobs: { gpu: "all", network: "none" },
@@ -89,6 +128,8 @@ export function configProblems(c: ContainerConfig): string[] {
   const out: string[] = [];
   for (const h of c.egress.allow)
     if (!parsePattern(h)) out.push(`egress.allow: ${JSON.stringify(h)} is not a host pattern`);
+  for (const h of c.environment?.allow ?? [])
+    if (!parsePattern(h)) out.push(`environment.allow: ${JSON.stringify(h)} is not a host pattern`);
   for (const p of c.hidden)
     if (!(relativeInside(p) || absoluteClean(p)))
       out.push(`hidden: ${JSON.stringify(p)} must be absolute or inside the checkout, without ..`);

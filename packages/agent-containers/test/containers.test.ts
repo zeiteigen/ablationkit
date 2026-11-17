@@ -2,16 +2,23 @@ import { describe, expect, test } from "bun:test";
 import { validateContainerConfig } from "@ablationkit/protocol";
 import {
   agentContainerArgs,
+  agentToolShims,
   CONTAINER,
   commandsInTranscriptLine,
   commandsInTranscripts,
   configProblems,
+  DEFAULT_ALLOW,
+  DEFAULT_ENVIRONMENT_ALLOW,
   defaultContainerConfig,
   diffPackages,
+  environmentAllow,
+  environmentBuildArgv,
   filesChanged,
   hostAllowed,
   isPublicAddress,
   jobContainerArgs,
+  migrateConfig,
+  PACKAGE_HOSTS,
   parseDistInfo,
   parseNameStatus,
   parsePattern,
@@ -78,6 +85,29 @@ describe("configuration", () => {
     expect(configProblems(c)).toEqual([]);
     expect(c.jobs.network).toBe("none");
     expect(c.host_code).toBe("refuse");
+    // Agents reach no package index; environment builds do (ADR 0066).
+    for (const h of PACKAGE_HOSTS) {
+      expect(DEFAULT_ALLOW).not.toContain(h);
+      expect(environmentAllow(c)).toContain(h);
+    }
+    expect(migrateConfig(c, "2026-11-17T00:00:00Z")).toBeUndefined();
+  });
+
+  test("a configuration from before environment builds moves the package hosts (ADR 0066)", () => {
+    const { environment: _e, ...cur } = defaultContainerConfig("demo", "2026-11-16T00:00:00Z");
+    const old = {
+      ...cur,
+      egress: { mode: "allowlist" as const, allow: ["pypi.org", "github.com", "my.example.org"] },
+    };
+    expect(environmentAllow(old)).toEqual(DEFAULT_ENVIRONMENT_ALLOW);
+    const next = migrateConfig(old, "2026-11-17T00:00:00Z");
+    expect(next?.revision).toBe(2);
+    expect(next?.egress.allow).toEqual(["github.com", "my.example.org"]);
+    expect(next?.environment?.allow).toEqual([...DEFAULT_ENVIRONMENT_ALLOW]);
+    expect(() => validateContainerConfig(next)).not.toThrow();
+    expect(configProblems({ ...cur, environment: { allow: ["not a host"] } })).toEqual([
+      'environment.allow: "not a host" is not a host pattern',
+    ]);
   });
 
   test("problems name what is wrong", () => {
@@ -128,13 +158,10 @@ describe("podman command lines", () => {
     image: "localhost/ablationkit-agent:1",
     checkout: "/w/proj",
     tree: "/opt/ak",
-    tools: { bun: "/host/bun", uv: "/host/uv", harness: "/host/claude" },
+    tools: { bun: "/host/bun", harness: "/host/claude" },
     dirs: {
       run: "/home/u/.ablationkit/run/containers/c-0123456789ab/mount",
       home: "/home/u/.ablationkit/containers/projects/demo/home-claude-code",
-      env: "/e",
-      uvCache: "/c",
-      python: "/p",
     },
     limits: { cpus: 4, memory_mb: 8192, pids_max: 4096 },
     masks: [
@@ -169,6 +196,10 @@ describe("podman command lines", () => {
     expect(s).toContain("HTTPS_PROXY=http://127.0.0.1:3128");
     expect(s).toContain("HF_ENDPOINT=http://127.0.0.1:3129/hf");
     expect(s).toContain("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1");
+    // No project environment and no uv (ADR 0066): the project's code runs as jobs.
+    expect(s).not.toContain(CONTAINER.env);
+    expect(s).not.toContain("UV_");
+    expect(s).not.toContain("/opt/ablationkit/bin/uv");
     // The harness runs under the init, with the MCP server registered and the extra args after.
     const i = a.indexOf(base.image);
     expect(a.slice(i + 1, i + 4)).toEqual([
@@ -203,7 +234,7 @@ describe("podman command lines", () => {
       checkout: base.checkout,
       tree: base.tree,
       tools: { bun: "/host/bun", uv: "/host/uv" },
-      dirs: { env: "/e", uvCache: "/c", python: "/p", spool: "/s/j-abc-a1" },
+      dirs: { env: "/e", python: "/p", spool: "/s/j-abc-a1" },
       extraReadOnly: [],
       masks: [{ path: "/w/proj/eval", kind: "dir" }],
       evaluationMounts: [],
@@ -223,6 +254,11 @@ describe("podman command lines", () => {
     expect(s).toContain("/s/j-abc-a1:/s/j-abc-a1:rw");
     expect(s).toContain("type=tmpfs,destination=/w/proj/eval");
     expect(s).not.toContain("container-init");
+    // The environment read-only; no cache: a job never installs.
+    expect(s).toContain("/e:/opt/ablationkit/env:ro");
+    expect(s).toContain("/p:/opt/ablationkit/python:ro");
+    expect(s).not.toContain("uv-cache");
+    expect(s).not.toContain("UV_CACHE_DIR");
     expect(j.slice(-6)).toEqual([
       "/opt/ablationkit/bin/uv",
       "run",
@@ -240,7 +276,7 @@ describe("podman command lines", () => {
       checkout: base.checkout,
       tree: base.tree,
       tools: { bun: "/host/bun" },
-      dirs: { env: "/e", uvCache: "/c", python: "/p", spool: "/s", run: "/r" },
+      dirs: { python: "/p", spool: "/s", run: "/r" },
       extraReadOnly: ["/x/sdk"],
       masks: [],
       evaluationMounts: ["/data/heldout"],
@@ -258,6 +294,72 @@ describe("podman command lines", () => {
     expect(s).toContain("/data/heldout:/data/heldout:ro");
     expect(s).toContain("/x/sdk:/x/sdk:ro");
     expect(s).toContain("container-init.ts --job -- python eval.py");
+    expect(s).not.toContain(`:${CONTAINER.env}:`);
+  });
+
+  test("an environment build writes a new copy from the current one, with the cache (ADR 0066)", () => {
+    const argv = environmentBuildArgv("/w/proj", ["--extra", "cuda"]);
+    const j = jobContainerArgs({
+      name: "ak-job-j-abc-a1",
+      image: base.image,
+      checkout: base.checkout,
+      tree: base.tree,
+      tools: { bun: "/host/bun", uv: "/host/uv" },
+      dirs: {
+        env: "/envs/new",
+        envBase: "/envs/cur",
+        uvCache: "/c",
+        python: "/p",
+        spool: "/s",
+        run: "/r",
+      },
+      build: true,
+      extraReadOnly: [],
+      masks: [],
+      evaluationMounts: [],
+      gpu: "none",
+      network: "egress",
+      limits: {},
+      env: {},
+      cwd: "/w/proj",
+      argv,
+    });
+    const s = j.join(" ");
+    expect(s).toContain("/envs/new:/opt/ablationkit/env:rw");
+    expect(s).toContain("/envs/cur:/opt/ablationkit/env-base:ro");
+    expect(s).toContain("/c:/opt/ablationkit/uv-cache:rw");
+    expect(s).toContain("/p:/opt/ablationkit/python:rw");
+    expect(s).toContain("UV_CACHE_DIR=/opt/ablationkit/uv-cache");
+    expect(s).toContain("UV_LINK_MODE=copy");
+    expect(s).not.toContain("--device");
+    expect(j.slice(-argv.length)).toEqual(argv);
+    expect(argv.slice(0, 2)).toEqual(["/bin/sh", "-c"]);
+    expect(argv.slice(3)).toEqual(["environment-build", "/w/proj", "--extra", "cuda"]);
+    // The script, run by a real shell: copies the base, then hands uv its arguments as given.
+    expect(argv[2]).toContain(
+      "cp -a --reflink=auto /opt/ablationkit/env-base/. /opt/ablationkit/env/",
+    );
+    const p = Bun.spawnSync(
+      [
+        "/bin/sh",
+        "-c",
+        (argv[2] as string).replace(/exec \S+\/uv sync/, "printf '%s\\n' sync"),
+        "x",
+        "/w/proj",
+        "--extra",
+        "it's",
+      ],
+      { stdout: "pipe" },
+    );
+    expect(p.stdout.toString()).toBe("sync\n--project\n/w/proj\n--extra\nit's\n");
+  });
+
+  test("the package tools in an agent container say what to do instead", () => {
+    const shims = agentToolShims();
+    expect(Object.keys(shims).sort()).toEqual(["pip", "pip3", "uv", "uvx"]);
+    expect(shims["uv"]).toStartWith("#!/bin/sh\n");
+    expect(shims["uv"]).toContain("ablationkit_job environment");
+    expect(shims["pip"]).toContain("exit 127");
   });
 
   test("shell quoting", () => {

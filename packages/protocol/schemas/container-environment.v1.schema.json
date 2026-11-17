@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ablationkit:schema:container-environment.v1",
+  "title": "ContainerEnvironment",
+  "description": "The project environment contained jobs run in, and the build that made it (ADR 0066).",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schema_version",
+    "project_id",
+    "generation",
+    "built_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "type": "number"
+    },
+    "project_id": {
+      "title": "ProjectId",
+      "description": "Stable project identifier (lowercase slug). Never a path; paths live in the local registry.",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,62}$",
+      "type": "string"
+    },
+    "generation": {
+      "pattern": "^[A-Za-z0-9._-]{1,200}$",
+      "description": "The copy in use: `envs/<generation>/` beside this file, named for the attempt that built it; `legacy` is `env/`, an environment from before environment builds.",
+      "type": "string"
+    },
+    "lock_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "SHA-256 of the checkout's `uv.lock` the environment was built from. Jobs that run in the environment are refused while the checkout's differs.",
+      "type": "string"
+    },
+    "built_at": {
+      "title": "Timestamp",
+      "description": "RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "built_by": {
+      "title": "ContainerEnvironmentBuild",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "job_id",
+        "attempt_id"
+      ],
+      "properties": {
+        "job_id": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "attempt_id": {
+          "maxLength": 200,
+          "type": "string"
+        }
+      }
+    },
+    "adopted": {
+      "description": "Not built by an environment build: an environment agents installed before ADR 0066, taken as built from the `uv.lock` of the time.",
+      "const": true,
+      "type": "boolean"
+    }
+  }
+}

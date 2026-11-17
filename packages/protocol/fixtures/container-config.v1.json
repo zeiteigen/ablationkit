@@ -7,11 +7,21 @@
       "updated_at": "2026-11-16T10:00:00Z",
       "updated_by": "system",
       "image": "localhost/ablationkit-agent:1",
-      "agent": { "cpus": 4, "memory_mb": 8192, "pids_max": 4096 },
-      "egress": { "mode": "allowlist", "allow": ["pypi.org", "*.hf.co", "example.com:8443"] },
+      "agent": {
+        "cpus": 4,
+        "memory_mb": 8192,
+        "pids_max": 4096
+      },
+      "egress": {
+        "mode": "allowlist",
+        "allow": ["pypi.org", "*.hf.co", "example.com:8443"]
+      },
       "hidden": [],
       "read_only": [],
-      "jobs": { "gpu": "all", "network": "none" },
+      "jobs": {
+        "gpu": "all",
+        "network": "none"
+      },
       "evaluations": [],
       "credentials": [],
       "host_code": "refuse",
@@ -24,11 +34,21 @@
       "updated_at": "2026-11-16T10:00:00Z",
       "updated_by": "0123456789abcdef",
       "image": "ghcr.io/lab/agent:2",
-      "agent": { "cpus": 8, "memory_mb": 16384, "pids_max": 8192 },
-      "egress": { "mode": "open", "allow": [] },
+      "agent": {
+        "cpus": 8,
+        "memory_mb": 16384,
+        "pids_max": 8192
+      },
+      "egress": {
+        "mode": "open",
+        "allow": []
+      },
       "hidden": ["eval", "/data/heldout"],
       "read_only": ["data"],
-      "jobs": { "gpu": "none", "network": "egress" },
+      "jobs": {
+        "gpu": "none",
+        "network": "egress"
+      },
       "evaluations": [
         {
           "name": "heldout",
@@ -46,11 +66,48 @@
           "header": "authorization",
           "prefix": "Bearer ",
           "from_env": "HF_TOKEN",
-          "env": { "HF_ENDPOINT": "{url}" }
+          "env": {
+            "HF_ENDPOINT": "{url}"
+          }
         }
       ],
       "host_code": "allow",
       "pause_on_compute_limit": false
+    },
+    {
+      "schema_version": 1,
+      "project_id": "env-lab",
+      "revision": 1,
+      "updated_at": "2026-11-16T10:00:00Z",
+      "updated_by": "system",
+      "image": "localhost/ablationkit-agent:1",
+      "agent": {
+        "cpus": 4,
+        "memory_mb": 8192,
+        "pids_max": 4096
+      },
+      "egress": {
+        "mode": "allowlist",
+        "allow": ["github.com", "*.hf.co"]
+      },
+      "environment": {
+        "allow": [
+          "pypi.org",
+          "files.pythonhosted.org",
+          "download.pytorch.org",
+          "download-r2.pytorch.org"
+        ]
+      },
+      "hidden": [],
+      "read_only": [],
+      "jobs": {
+        "gpu": "all",
+        "network": "none"
+      },
+      "evaluations": [],
+      "credentials": [],
+      "host_code": "refuse",
+      "pause_on_compute_limit": true
     }
   ],
   "invalid": [
@@ -63,11 +120,21 @@
         "updated_at": "2026-11-16T10:00:00Z",
         "updated_by": "system",
         "image": "localhost/ablationkit-agent:1",
-        "agent": { "cpus": 4, "memory_mb": 8192, "pids_max": 4096 },
-        "egress": { "mode": "anything", "allow": [] },
+        "agent": {
+          "cpus": 4,
+          "memory_mb": 8192,
+          "pids_max": 4096
+        },
+        "egress": {
+          "mode": "anything",
+          "allow": []
+        },
         "hidden": [],
         "read_only": [],
-        "jobs": { "gpu": "all", "network": "none" },
+        "jobs": {
+          "gpu": "all",
+          "network": "none"
+        },
         "evaluations": [],
         "credentials": [],
         "host_code": "refuse",
@@ -83,11 +150,21 @@
         "updated_at": "2026-11-16T10:00:00Z",
         "updated_by": "system",
         "image": "localhost/ablationkit-agent:1",
-        "agent": { "cpus": 4, "memory_mb": 8192, "pids_max": 4096 },
-        "egress": { "mode": "allowlist", "allow": ["example.com/path"] },
+        "agent": {
+          "cpus": 4,
+          "memory_mb": 8192,
+          "pids_max": 4096
+        },
+        "egress": {
+          "mode": "allowlist",
+          "allow": ["example.com/path"]
+        },
         "hidden": [],
         "read_only": [],
-        "jobs": { "gpu": "all", "network": "none" },
+        "jobs": {
+          "gpu": "all",
+          "network": "none"
+        },
         "evaluations": [],
         "credentials": [],
         "host_code": "refuse",
@@ -103,11 +180,21 @@
         "updated_at": "2026-11-16T10:00:00Z",
         "updated_by": "system",
         "image": "localhost/ablationkit-agent:1",
-        "agent": { "cpus": 4, "memory_mb": 8192, "pids_max": 4096 },
-        "egress": { "mode": "allowlist", "allow": [] },
+        "agent": {
+          "cpus": 4,
+          "memory_mb": 8192,
+          "pids_max": 4096
+        },
+        "egress": {
+          "mode": "allowlist",
+          "allow": []
+        },
         "hidden": [],
         "read_only": [],
-        "jobs": { "gpu": "all", "network": "none" },
+        "jobs": {
+          "gpu": "all",
+          "network": "none"
+        },
         "evaluations": [],
         "credentials": [
           {
@@ -118,6 +205,40 @@
             "env": {}
           }
         ],
+        "host_code": "refuse",
+        "pause_on_compute_limit": true
+      }
+    },
+    {
+      "reason": "environment has an unknown field",
+      "value": {
+        "schema_version": 1,
+        "project_id": "env-lab",
+        "revision": 1,
+        "updated_at": "2026-11-16T10:00:00Z",
+        "updated_by": "system",
+        "image": "localhost/ablationkit-agent:1",
+        "agent": {
+          "cpus": 4,
+          "memory_mb": 8192,
+          "pids_max": 4096
+        },
+        "egress": {
+          "mode": "allowlist",
+          "allow": ["github.com", "*.hf.co"]
+        },
+        "environment": {
+          "allow": ["pypi.org"],
+          "extra": 1
+        },
+        "hidden": [],
+        "read_only": [],
+        "jobs": {
+          "gpu": "all",
+          "network": "none"
+        },
+        "evaluations": [],
+        "credentials": [],
         "host_code": "refuse",
         "pause_on_compute_limit": true
       }

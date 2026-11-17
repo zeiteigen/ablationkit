@@ -171,6 +171,12 @@ export const JobRecord = Type.Object(
       }),
     ),
     container: Type.Optional(JobContainer),
+    gpu: Type.Optional(
+      Type.Literal("none", {
+        description:
+          "The job asked for no GPU (ADR 0066). In a job container it gets no GPU device; on this machine outside one, `CUDA_VISIBLE_DEVICES` is empty (advisory).",
+      }),
+    ),
     state: describe(AttemptState, "State of the latest attempt."),
     attempts: Type.Array(AttemptId, { description: "Attempt IDs, oldest first." }),
     created_at: Timestamp,

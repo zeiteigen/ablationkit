@@ -316,6 +316,7 @@ Schema: [`job-record.v1.schema.json`](../../packages/protocol/schemas/job-record
 | `compute_weight_hundredths` | integer | no | Agent jobs (ADR 0037): the weight of the job's target when it was submitted, in hundredths. Every attempt's wall time times this weight counts against the project's `compute.limit_hours`; changing the target's weight later does not change it. |
 | `via_extension` | string | no | Submitted through this extension backend's broker (`compute.remote`, ADR 0024); only it may read or cancel the job there. |
 | `container` | object | no | Set on jobs a contained agent session submits (ADR 0061): each local attempt runs in a job container of its own. |
+| `gpu` | `"none"` | no | The job asked for no GPU (ADR 0066). In a job container it gets no GPU device; on this machine outside one, `CUDA_VISIBLE_DEVICES` is empty (advisory). |
 | `state` | `AttemptState` | yes | State of the latest attempt. |
 | `attempts` | array of `AttemptId` | yes | Attempt IDs, oldest first. |
 | `created_at` | `Timestamp` | yes | RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds. |
@@ -865,6 +866,7 @@ Schema: [`container-config.v1.schema.json`](../../packages/protocol/schemas/cont
 | `image` | string | yes | The image agent and job containers run (glibc, a shell, Git, CA certificates). AblationKit's own is built by `ablationkit agent image build`. |
 | `agent` | object | yes | The agent container's own limits (kernel-enforced by its cgroup). It has no GPU. |
 | `egress` | object | yes |  |
+| `environment` | object | no | The project's environment builds (ADR 0066): `uv sync` in a job container of its own, the only place agents' packages are installed. Absent: AblationKit's defaults. |
 | `hidden` | array of string | yes | Paths neither the agent container nor an ordinary job container can see (held-out data, evaluation code). Inside the checkout the working tree is hidden, not Git history: keep protected files out of the repository. |
 | `read_only` | array of string | yes | Checkout paths the agent container can read but not change. |
 | `jobs` | object | yes |  |
@@ -935,6 +937,22 @@ Schema: [`egress-record.v1.schema.json`](../../packages/protocol/schemas/egress-
 | `bytes_up` | integer | no |  |
 | `bytes_down` | integer | no |  |
 | `duration_ms` | integer | no |  |
+
+## ContainerEnvironment (v1)
+
+The project environment contained jobs run in, and the build that made it (ADR 0066).
+
+Schema: [`container-environment.v1.schema.json`](../../packages/protocol/schemas/container-environment.v1.schema.json)
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `schema_version` | `1` | yes |  |
+| `project_id` | `ProjectId` | yes | Stable project identifier (lowercase slug). Never a path; paths live in the local registry. |
+| `generation` | string | yes | The copy in use: `envs/<generation>/` beside this file, named for the attempt that built it; `legacy` is `env/`, an environment from before environment builds. |
+| `lock_sha256` | string | no | SHA-256 of the checkout's `uv.lock` the environment was built from. Jobs that run in the environment are refused while the checkout's differs. |
+| `built_at` | `Timestamp` | yes | RFC 3339 timestamp in UTC with a `Z` suffix and optional fractional seconds. |
+| `built_by` | object | no |  |
+| `adopted` | `true` | no | Not built by an environment build: an environment agents installed before ADR 0066, taken as built from the `uv.lock` of the time. |
 
 ## DeploymentRecord (v1)
 
@@ -1351,6 +1369,8 @@ Schema: [`source-build-record.v1.schema.json`](../../packages/protocol/schemas/s
 | `ContainerAgentLimits` | object |  | The agent container's own limits (kernel-enforced by its cgroup). It has no GPU. |
 | `ContainerBoundary` | object |  | What the container was given when it started, as applied. |
 | `ContainerEgress` | object |  |  |
+| `ContainerEnvironmentBuild` | object |  |  |
+| `ContainerEnvironmentConfig` | object |  | The project's environment builds (ADR 0066): `uv sync` in a job container of its own, the only place agents' packages are installed. Absent: AblationKit's defaults. |
 | `ContainerHarness` | undefined |  | What runs in the agent container: Claude Code, Codex, or a plain shell (to set the container up or look around). |
 | `ContainerJobs` | object |  |  |
 | `ContainerLogin` | object |  | The researcher's Claude Code login, copied into the container at start and kept in step with the source while the session runs (whichever side renews it, the fresher token is carried to the other); the container's copy is deleted when the session ends. |

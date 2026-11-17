@@ -73,7 +73,6 @@ export const CONTAINER_ROUTES: readonly Route<HumanHandler>[] = [
         typeof o[k] === "string" && (o[k] as string).length > 0 ? (o[k] as string) : undefined;
       const label = str(body, "label", { optional: true });
       const harnessBin = opt(binaries, "harness");
-      const uv = opt(binaries, "uv");
       const name = opt(git, "name");
       const email = opt(git, "email");
       const login = (body["login"] ?? {}) as Record<string, unknown>;
@@ -84,7 +83,7 @@ export const CONTAINER_ROUTES: readonly Route<HumanHandler>[] = [
           harness,
           args: strings(body["args"], "args", 64),
           ...(label ? { label } : {}),
-          binaries: { ...(harnessBin ? { harness: harnessBin } : {}), ...(uv ? { uv } : {}) },
+          binaries: { ...(harnessBin ? { harness: harnessBin } : {}) },
           git: { ...(name ? { name } : {}), ...(email ? { email } : {}) },
           login: { copy: login["copy"] !== false, ...(loginFrom ? { from: loginFrom } : {}) },
         },
@@ -224,7 +223,14 @@ export const CONTAINER_ROUTES: readonly Route<HumanHandler>[] = [
       const body = await readJsonBody(c.req);
       const hosts = strings(body["hosts"], "hosts", 64);
       if (!hosts.length) throw new HttpError(400, "invalid_request", "give `hosts` to allow");
-      return json(200, c.svc.containers.allowHosts(pid, hosts, by(c)));
+      const list = body["list"] ?? "egress";
+      if (list !== "egress" && list !== "environment")
+        throw new HttpError(
+          400,
+          "invalid_request",
+          "`list` is egress (the agents' allowlist) or environment (environment builds')",
+        );
+      return json(200, c.svc.containers.allowHosts(pid, hosts, by(c), list));
     }),
   },
 ];

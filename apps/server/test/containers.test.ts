@@ -75,6 +75,14 @@ case "$1" in
     done
     printf '%s\\n' "$@" > "$D/$name.args"
     echo running > "$D/$name.state"
+    # An environment build (ADR 0066): "install" into the copy it writes.
+    if printf '%s\\n' "$@" | grep -qx environment-build; then
+      for ((i=0;i<n;i++)); do
+        v="\${args[$i]}"
+        case "$v" in *:/opt/ablationkit/env:rw) echo "home = /usr/bin" > "\${v%%:*}/pyvenv.cfg";; esac
+      done
+      rm -f "$D/$name.state"; exit "$(cat "$D/build.exit" 2>/dev/null || echo 0)"
+    fi
     case "$name" in
       ak-agent-*)
         while [ "$(cat "$D/$name.state")" != stopped ]; do sleep 0.05; done
@@ -489,6 +497,185 @@ describe("agent container sessions", () => {
     );
     expect(outside.status).toBe(400);
     expect(outside.body.error["code"]).toBe("evaluation_needs_container");
+  });
+
+  test("an agent container has no environment; environment builds make the one jobs read (ADR 0066)", async () => {
+    const w = await setup();
+    const svc = w.cl.c.services;
+    writeFileSync(join(w.repo, "pyproject.toml"), '[project]\nname = "lab"\nversion = "0"\n');
+    writeFileSync(join(w.repo, "uv.lock"), "version = 1\n");
+    mkdirSync(join(w.repo, ".venv", "bin"), { recursive: true });
+    const s = (await w.start()).body;
+    // The agent container: no environment, no uv, the checkout's .venv hidden, stand-ins on PATH.
+    const argsFile = join(w.f.dir, `ak-agent-${s.session_id}.args`);
+    await w.until("podman run", () => existsSync(argsFile));
+    const agentArgs = readFileSync(argsFile, "utf8");
+    expect(agentArgs).not.toContain("/opt/ablationkit/env");
+    expect(agentArgs).not.toContain("UV_PROJECT_ENVIRONMENT");
+    expect(agentArgs).not.toContain("/opt/ablationkit/bin/uv");
+    expect(agentArgs).toContain(`type=tmpfs,destination=${w.repo}/.venv`);
+    const shim = readFileSync(join(w.mount(s.session_id), "bin", "uv"), "utf8");
+    expect(shim).toContain("ablationkit_job environment");
+    const pip = Bun.spawnSync([join(w.mount(s.session_id), "bin", "pip"), "install", "torch"], {
+      stderr: "pipe",
+    });
+    expect(pip.exitCode).toBe(127);
+    expect(pip.stderr.toString()).toContain('gpu "none"');
+
+    const token = w.tokenOf(s.session_id);
+    const submit = (body: Json) =>
+      w.cl.json<Json & { job_id: string; error?: Json }>(
+        w.cl.agent("/api/v1/projects/lab/jobs", { token, body }),
+      );
+    const uvJob = { command: ["python", "train.py"], environment: "uv", gpu: "none" };
+    const timed = (b: Json) => ({ ...b, limits: { runtime_max_sec: 60 } });
+    // No environment yet: a job that needs one is refused, and says how to get one.
+    const early = await submit(timed(uvJob));
+    expect(early.status).toBe(409);
+    expect(early.body.error?.["code"]).toBe("environment_not_built");
+    expect(early.body.error?.["message"]).toContain("ablationkit_job environment");
+
+    // The build: uv sync in a job container with the environment allowlist, no GPU.
+    const b = await submit({ build_environment: true, args: ["--extra", "cuda"] });
+    expect(b.status).toBe(201);
+    const bj = svc.jobs.get(b.body.job_id);
+    expect(bj).toMatchObject({
+      command: ["uv", "sync", "--extra", "cuda"],
+      environment: "none",
+      gpu: "none",
+      limits: { runtime_max_sec: 1200 },
+      container: { session_id: s.session_id, build_environment: true },
+    });
+    expect(await w.settled(b.body.job_id)).toBe("succeeded");
+    const ba = svc.jobs.latestAttempt(bj as never);
+    const gen = ba?.attempt_id as string;
+    expect(ba?.supervisor.container).toMatchObject({
+      gpu: "none",
+      network: "egress",
+      environment: gen,
+    });
+    const buildArgs = readFileSync(join(w.f.dir, `ak-job-${gen}.args`), "utf8");
+    const pdir = svc.containers.projectDir("lab");
+    expect(buildArgs).toContain(`${join(pdir, "envs", gen)}:/opt/ablationkit/env:rw`);
+    expect(buildArgs).toContain(`${join(pdir, "uv-cache")}:/opt/ablationkit/uv-cache:rw`);
+    expect(buildArgs).not.toContain(":/opt/ablationkit/env-base:ro");
+    expect(buildArgs).toContain("HTTPS_PROXY=http://127.0.0.1:3128");
+    expect(buildArgs).not.toContain("--device");
+    const lock = new Bun.CryptoHasher("sha256").update("version = 1\n").digest("hex");
+    expect(svc.containers.environment("lab")).toMatchObject({
+      generation: gen,
+      lock_sha256: lock,
+      built_by: { job_id: b.body.job_id, attempt_id: gen },
+    });
+    const built = (await svc.audit.read(-1, 10_000)).filter(
+      (e) => e.action === "agent.container.environment.built",
+    );
+    expect(built.map((e) => e.target)).toEqual([gen]);
+
+    // The build's allowlist is the environment's, not the agents'.
+    expect(svc.containers.environmentDecision("lab", "pypi.org", 443).ok).toBe(true);
+    expect(svc.containers.egressDecision("lab", undefined, "pypi.org", 443).ok).toBe(false);
+
+    // A job now reads that environment, without syncing; with gpu none it needs no GPU at all.
+    const cfg = svc.containers.config("lab");
+    svc.containers.setConfig("lab", { jobs: { ...cfg.jobs, gpu: "all" } }, "test");
+    const gpuJob = await submit(timed({ command: ["python", "train.py"], environment: "uv" }));
+    expect(gpuJob.status).toBe(409);
+    expect(gpuJob.body.error?.["code"]).toBe("container_gpu_unavailable");
+    const ok = await submit(timed(uvJob));
+    expect(ok.status).toBe(201);
+    await w.settled(ok.body.job_id);
+    const oa = svc.jobs.latestAttempt(svc.jobs.get(ok.body.job_id) as never);
+    expect(oa?.supervisor.container).toMatchObject({
+      gpu: "none",
+      network: "none",
+      environment: gen,
+    });
+    const jobArgs = readFileSync(join(w.f.dir, `ak-job-${oa?.attempt_id}.args`), "utf8");
+    expect(jobArgs).toContain(`${join(pdir, "envs", gen)}:/opt/ablationkit/env:ro`);
+    expect(jobArgs).toContain(`${join(pdir, "python")}:/opt/ablationkit/python:ro`);
+    expect(jobArgs).not.toContain("uv-cache");
+    expect(jobArgs).not.toContain("--device");
+    expect(jobArgs).toContain("CUDA_VISIBLE_DEVICES=");
+    expect(jobArgs).toContain("--no-sync");
+
+    // uv.lock changed: refused until the environment is built again.
+    writeFileSync(join(w.repo, "uv.lock"), "version = 2\n");
+    const stale = await submit(timed(uvJob));
+    expect(stale.status).toBe(409);
+    expect(stale.body.error?.["code"]).toBe("environment_stale");
+    // The next build starts from the current one; on success the old copy goes.
+    const b2 = await submit({ build_environment: true });
+    expect(await w.settled(b2.body.job_id)).toBe("succeeded");
+    const gen2 = svc.jobs.latestAttempt(svc.jobs.get(b2.body.job_id) as never)
+      ?.attempt_id as string;
+    const build2 = readFileSync(join(w.f.dir, `ak-job-${gen2}.args`), "utf8");
+    expect(build2).toContain(`${join(pdir, "envs", gen)}:/opt/ablationkit/env-base:ro`);
+    expect(svc.containers.environment("lab")?.generation).toBe(gen2);
+    expect(readdirSync(join(pdir, "envs"))).toEqual([gen2]);
+    expect((await submit(timed(uvJob))).status).toBe(201);
+    // A failed build changes nothing and leaves no copy behind.
+    writeFileSync(join(w.f.dir, "build.exit"), "1");
+    const b3 = await submit({ build_environment: true });
+    expect(await w.settled(b3.body.job_id)).toBe("failed");
+    expect(svc.containers.environment("lab")?.generation).toBe(gen2);
+    expect(readdirSync(join(pdir, "envs"))).toEqual([gen2]);
+
+    // Builds are for contained agents; hosts for them are the researcher's to allow.
+    const plain = await w.cl.agentSession("lab");
+    const outside = await w.cl.json<{ error: Json }>(
+      w.cl.agent("/api/v1/projects/lab/jobs", {
+        token: plain.token,
+        body: { build_environment: true },
+      }),
+    );
+    expect(outside.status).toBe(400);
+    expect(outside.body.error["code"]).toBe("environment_build_needs_container");
+    const allowed = await w.human<{
+      environment: { allow: string[] };
+      egress: { allow: string[] };
+    }>("/api/v1/projects/lab/agent-containers/allow", {
+      body: { hosts: ["pypi.example.org"], list: "environment" },
+    });
+    expect(allowed.status).toBe(200);
+    expect(allowed.body.environment.allow).toContain("pypi.example.org");
+    expect(allowed.body.egress.allow).not.toContain("pypi.example.org");
+  });
+
+  test("a configuration and an environment from before ADR 0066 are brought up to date, on record", async () => {
+    const w = await setup();
+    const svc = w.cl.c.services;
+    const pdir = svc.containers.projectDir("lab");
+    const path = join(pdir, "config.json");
+    const { environment: _e, ...old } = JSON.parse(readFileSync(path, "utf8"));
+    old.egress.allow = [
+      "pypi.org",
+      "files.pythonhosted.org",
+      "github.com",
+      "my-papers.example.org",
+    ];
+    writeFileSync(path, JSON.stringify(old));
+    const cfg = svc.containers.config("lab");
+    expect(cfg.revision).toBe(old.revision + 1);
+    expect(cfg.egress.allow).toEqual(["github.com", "my-papers.example.org"]);
+    expect(cfg.environment?.allow).toContain("pypi.org");
+    expect(JSON.parse(readFileSync(path, "utf8")).environment).toBeDefined();
+    const audit = (await svc.audit.read(-1, 10_000))
+      .filter((e) => e.action === "agent.container.config.set")
+      .at(-1);
+    expect(audit?.details?.["moved_to_environment"]).toEqual([
+      "pypi.org",
+      "files.pythonhosted.org",
+    ]);
+    // The agents' environment from before: adopted as built from today's uv.lock.
+    writeFileSync(join(w.repo, "uv.lock"), "version = 1\n");
+    mkdirSync(join(pdir, "env"), { recursive: true });
+    writeFileSync(join(pdir, "env", "pyvenv.cfg"), "home = /usr/bin\n");
+    expect(svc.containers.environment("lab")).toMatchObject({
+      generation: "legacy",
+      adopted: true,
+    });
+    expect(svc.containers.generationDir("lab", "legacy")).toBe(join(pdir, "env"));
   });
 
   test("host code is refused for contained sessions unless the project allows it", async () => {

@@ -1,0 +1,52 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "project_id": "lab",
+      "generation": "j-0123456789ab-a1",
+      "lock_sha256": "5359b255ac68c0cabb8293952b38e00f0d1a570815cd87f19b61af702c071410",
+      "built_at": "2026-11-16T22:00:00Z",
+      "built_by": {
+        "job_id": "j-0123456789ab",
+        "attempt_id": "j-0123456789ab-a1"
+      }
+    },
+    {
+      "schema_version": 1,
+      "project_id": "lab",
+      "generation": "legacy",
+      "built_at": "2026-11-16T22:00:00Z",
+      "adopted": true
+    }
+  ],
+  "invalid": [
+    {
+      "reason": "generation is a path, not a name",
+      "value": {
+        "schema_version": 1,
+        "project_id": "lab",
+        "generation": "../env",
+        "lock_sha256": "5359b255ac68c0cabb8293952b38e00f0d1a570815cd87f19b61af702c071410",
+        "built_at": "2026-11-16T22:00:00Z",
+        "built_by": {
+          "job_id": "j-0123456789ab",
+          "attempt_id": "j-0123456789ab-a1"
+        }
+      }
+    },
+    {
+      "reason": "lock_sha256 is not a SHA-256",
+      "value": {
+        "schema_version": 1,
+        "project_id": "lab",
+        "generation": "j-0123456789ab-a1",
+        "lock_sha256": "XYZ",
+        "built_at": "2026-11-16T22:00:00Z",
+        "built_by": {
+          "job_id": "j-0123456789ab",
+          "attempt_id": "j-0123456789ab-a1"
+        }
+      }
+    }
+  ]
+}

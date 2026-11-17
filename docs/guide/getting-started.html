@@ -255,7 +255,7 @@ args = ["mcp"]</code></pre>
       Run your agent in a container
      </h2>
      <p>
-      Optionally, AblationKit can run your harness for you in a rootless Podman container, so that what the agent itself does is bounded too. The container has no GPU (its GPU work runs as jobs, which the compute limit counts), no network except the hosts the project allows, and no view of AblationKit's own home. Its local jobs run in job containers that do get the GPU. Your agent still uses the same
+      Optionally, AblationKit can run your harness for you in a rootless Podman container, so that what the agent itself does is bounded too. The container has no GPU, no Python environment of the project's (everything that runs the project's code, tests included, runs as a job, which the compute limit counts), no network except the hosts the project allows, and no view of AblationKit's own home. Its jobs run in job containers that get the GPU unless they ask for none; the agent installs packages with an environment build, itself a job, and the jobs read what it installed. Your agent still uses the same
       <code>
        ablationkit_*
       </code>
@@ -388,7 +388,11 @@ args = ["mcp"]</code></pre>
         <code>
          ablationkit agent allow HOST
         </code>
-        adds a host to the project's allowlist.
+        adds a host to the project's allowlist. Package indexes are not on it: the agent installs nothing itself. When an environment build is refused a host (a private index),
+        <code>
+         ablationkit agent allow --environment HOST
+        </code>
+        lets environment builds reach it.
         <code>
          ablationkit agent config edit
         </code>

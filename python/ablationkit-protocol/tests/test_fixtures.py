@@ -72,6 +72,7 @@ FILES = {
     "ResearchDirection": "research-direction.v1.json",
     "ContainerConfig": "container-config.v1.json",
     "ContainerSessionRecord": "container-session-record.v1.json",
+    "ContainerEnvironment": "container-environment.v1.json",
     "EgressRecord": "egress-record.v1.json",
 }
 

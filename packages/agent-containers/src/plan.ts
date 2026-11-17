@@ -9,9 +9,14 @@
  * `PYTHONPATH` mean the same inside and out. Nothing else of this machine is mounted: not the
  * coordinator's home, not the login socket, not `~/.ssh`.
  *
- * The agent container has no GPU. The way out is the session's run directory, mounted read-only
- * at `/run/ablationkit`: the agent socket (the agent API, for `ablationkit mcp`), the egress proxy
+ * The agent container has no GPU and no project environment (ADR 0066): what needs the
+ * environment runs as a job. The way out is the session's run directory, mounted read-only at
+ * `/run/ablationkit`: the agent socket (the agent API, for `ablationkit mcp`), the egress proxy
  * and the credential routes, which the container's init forwards to `127.0.0.1` ports.
+ *
+ * Job containers get the project's environment read-only. An environment build is the one job
+ * that writes it: `uv sync` into a new copy, starting from the current one, with the uv cache, the
+ * Python installs and the environment allowlist.
  */
 import type { ContainerHarness } from "@ablationkit/protocol";
 import { HARNESSES, harnessArgv } from "./harness.ts";
@@ -23,14 +28,6 @@ export { CONTAINER, CONTAINER_PATH, CREDENTIAL_PORT, EGRESS_PORT } from "./paths
 export interface Mask {
   readonly path: string;
   readonly kind: "dir" | "file";
-}
-
-export interface ContainerDirs {
-  /** This machine's run directory for the session or attempt, mounted read-only. */
-  readonly run?: string;
-  readonly env: string;
-  readonly uvCache: string;
-  readonly python: string;
 }
 
 export interface ContainerTools {
@@ -45,8 +42,9 @@ export interface AgentContainerInput {
   readonly checkout: string;
   /** AblationKit's install (this source tree), mounted read-only at its own path. */
   readonly tree: string;
-  readonly tools: ContainerTools & { readonly harness?: string };
-  readonly dirs: ContainerDirs & { readonly run: string; readonly home: string };
+  readonly tools: { readonly bun: string; readonly harness?: string };
+  /** The session's run directory (mounted read-only) and the agent's home. */
+  readonly dirs: { readonly run: string; readonly home: string };
   readonly limits: { readonly cpus: number; readonly memory_mb: number; readonly pids_max: number };
   readonly masks: readonly Mask[];
   /** Absolute paths in the checkout mounted read-only over it. */
@@ -63,7 +61,20 @@ export interface JobContainerInput {
   readonly checkout: string;
   readonly tree: string;
   readonly tools: ContainerTools;
-  readonly dirs: ContainerDirs & { readonly spool: string };
+  readonly dirs: {
+    readonly spool: string;
+    /** The attempt's run directory (its egress proxy), mounted read-only. */
+    readonly run?: string;
+    /** The project's environment: read-only, or the new copy an environment build writes. */
+    readonly env?: string;
+    /** An environment build's starting point: the current environment. */
+    readonly envBase?: string;
+    readonly python: string;
+    /** The uv cache: environment builds only. */
+    readonly uvCache?: string;
+  };
+  /** An environment build (ADR 0066): writes `dirs.env`; everything else reads it. */
+  readonly build?: boolean;
   /** Other read-only directories the job needs at their own paths (extension SDK roots). */
   readonly extraReadOnly: readonly string[];
   readonly masks: readonly Mask[];
@@ -138,13 +149,17 @@ function proxyEnv(): Record<string, string> {
   };
 }
 
-function uvEnv(): Record<string, string> {
+function uvEnv(build: boolean): Record<string, string> {
   return {
     UV_PROJECT_ENVIRONMENT: CONTAINER.env,
-    UV_CACHE_DIR: CONTAINER.uvCache,
     UV_PYTHON_INSTALL_DIR: CONTAINER.python,
-    // The cache and the environment are different mounts: copy, never hard-link across them.
-    UV_LINK_MODE: "copy",
+    ...(build
+      ? {
+          UV_CACHE_DIR: CONTAINER.uvCache,
+          // The cache and the environment are different mounts: copy, never hard-link across them.
+          UV_LINK_MODE: "copy",
+        }
+      : {}),
   };
 }
 
@@ -155,11 +170,13 @@ function toolMounts(tools: ContainerTools): string[] {
   ];
 }
 
-function envDirs(dirs: ContainerDirs): string[] {
+function envDirs(dirs: JobContainerInput["dirs"], build: boolean): string[] {
+  const mode = build ? "rw" : "ro";
   return [
-    ...bind(dirs.env, CONTAINER.env, "rw"),
-    ...bind(dirs.uvCache, CONTAINER.uvCache, "rw"),
-    ...bind(dirs.python, CONTAINER.python, "rw"),
+    ...(dirs.env ? bind(dirs.env, CONTAINER.env, mode) : []),
+    ...(build && dirs.envBase ? bind(dirs.envBase, CONTAINER.envBase, "ro") : []),
+    ...(build && dirs.uvCache ? bind(dirs.uvCache, CONTAINER.uvCache, "rw") : []),
+    ...bind(dirs.python, CONTAINER.python, mode),
   ];
 }
 
@@ -190,7 +207,6 @@ export function agentContainerArgs(i: AgentContainerInput): string[] {
       PATH: `${CONTAINER.run}/bin:${CONTAINER_PATH}`,
       TERM: "xterm-256color",
       ...proxyEnv(),
-      ...uvEnv(),
       ABLATIONKIT_CONTAINED: "1",
       ABLATIONKIT_SESSION: i.sessionId,
       ABLATIONKIT_PROJECT: i.projectId,
@@ -209,7 +225,6 @@ export function agentContainerArgs(i: AgentContainerInput): string[] {
       : []),
     ...bind(i.dirs.run, CONTAINER.run, "ro"),
     ...bind(i.dirs.home, CONTAINER.home, "rw"),
-    ...envDirs(i.dirs),
     "--workdir",
     i.checkout,
     i.image,
@@ -224,6 +239,7 @@ export function agentContainerArgs(i: AgentContainerInput): string[] {
 export function jobContainerArgs(i: JobContainerInput): string[] {
   const l = i.limits;
   const egress = i.network === "egress" && i.dirs.run !== undefined;
+  const build = i.build === true;
   return [
     "run",
     ...common(i.name),
@@ -242,7 +258,7 @@ export function jobContainerArgs(i: JobContainerInput): string[] {
     ...envArgs({
       HOME: "/tmp",
       PATH: CONTAINER_PATH,
-      ...uvEnv(),
+      ...uvEnv(build),
       ...(egress ? proxyEnv() : { UV_OFFLINE: "1", HF_HUB_OFFLINE: "1" }),
       ...i.env,
     }),
@@ -254,13 +270,57 @@ export function jobContainerArgs(i: JobContainerInput): string[] {
     ...toolMounts(i.tools),
     ...bind(i.dirs.spool, i.dirs.spool, "rw"),
     ...(egress && i.dirs.run ? bind(i.dirs.run, CONTAINER.run, "ro") : []),
-    ...envDirs(i.dirs),
+    ...envDirs(i.dirs, build),
     "--workdir",
     i.cwd,
     i.image,
     ...(egress ? [`${CONTAINER.bin}/bun`, initScript(i.tree), "--job", "--"] : []),
     ...i.argv,
   ];
+}
+
+/**
+ * What an environment build runs (ADR 0066): copy the current environment into the new one (a
+ * reflink where the filesystem has them), then `uv sync`, which locks first when `pyproject.toml`
+ * changed and writes `uv.lock` into the checkout. `args` go to `uv sync` (`--extra cuda`).
+ */
+export function environmentBuildArgv(checkout: string, args: readonly string[]): string[] {
+  const script = [
+    "set -e",
+    `if [ -e ${CONTAINER.envBase}/pyvenv.cfg ]; then`,
+    `  echo "AblationKit: starting from the current environment"`,
+    `  cp -a --reflink=auto ${CONTAINER.envBase}/. ${CONTAINER.env}/`,
+    "fi",
+    'project="$1"',
+    "shift",
+    `exec ${CONTAINER.bin}/uv sync --project "$project" "$@"`,
+  ].join("\n");
+  return ["/bin/sh", "-c", script, "environment-build", checkout, ...args];
+}
+
+/**
+ * Stand-ins for the package tools in an agent container's PATH (ADR 0066): the container has no
+ * project environment and no package index, and these say what to do instead.
+ */
+export function agentToolShims(): Record<string, string> {
+  const text = (name: string) =>
+    [
+      "#!/bin/sh",
+      "# Written by AblationKit (ADR 0066).",
+      "cat >&2 <<'EOF'",
+      `${name}: not available in an AblationKit agent container. It has no project environment and`,
+      "cannot reach package indexes: AblationKit runs and records the project's code as jobs.",
+      "- To add or change packages: edit pyproject.toml, then build the environment with",
+      "  ablationkit_job environment (uv sync in a job; it relocks and writes uv.lock). Wait for it",
+      "  with ablationkit_wait.",
+      "- To run code that needs the environment, tests and quick checks included: submit it with",
+      '  ablationkit_job submit (environment "uv"; gpu "none" for CPU work, so it runs beside',
+      "  GPU jobs without touching the GPU).",
+      "EOF",
+      "exit 127",
+      "",
+    ].join("\n");
+  return Object.fromEntries(["uv", "uvx", "pip", "pip3"].map((n) => [n, text(n)]));
 }
 
 /** The `ablationkit` command inside a container: the mounted CLI, run by the mounted bun. */
