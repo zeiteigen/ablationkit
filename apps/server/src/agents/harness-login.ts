@@ -14,6 +14,9 @@
  * container's copy is deleted.
  *
  * The agent can read the copy (it uses it): that is the researcher's choice, stated in ADR 0063.
+ * The container's side lives in the agent's home, which the agent writes and keeps between
+ * sessions: it is read and written only through `AgentHome`, which never follows a link the agent
+ * left there onto this machine's files.
  */
 import { createHash } from "node:crypto";
 import {
@@ -28,6 +31,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
+import { AgentHome } from "./agent-home.ts";
 
 export interface LoginSource {
   /** The Claude Code configuration directory (`~/.claude`, or a `CLAUDE_CONFIG_DIR`). */
@@ -78,7 +82,17 @@ function readJsonFile(path: string): Json | undefined {
   }
 }
 
-/** A Claude login file as Claude Code writes it, or undefined when it is not one. */
+function parseJson(text: string | undefined): Json | undefined {
+  if (text === undefined) return undefined;
+  try {
+    const v = JSON.parse(text);
+    return isObject(v) ? v : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** A Claude login file on this machine, or undefined when it is not one. */
 function readLogin(path: string): Read | undefined {
   let text: string;
   try {
@@ -86,6 +100,12 @@ function readLogin(path: string): Read | undefined {
   } catch {
     return undefined;
   }
+  return parseLogin(text);
+}
+
+/** A Claude login as Claude Code writes it, or undefined when it is not one. */
+function parseLogin(text: string | undefined): Read | undefined {
+  if (text === undefined) return undefined;
   let v: unknown;
   try {
     v = JSON.parse(text);
@@ -127,8 +147,7 @@ function writeAtomic(path: string, text: string, mode: number): void {
   }
 }
 
-function accountOf(globalConfig: string): string | undefined {
-  const c = readJsonFile(globalConfig);
+function accountOf(c: Json | undefined): string | undefined {
   const a = c && isObject(c["oauthAccount"]) ? c["oauthAccount"]["accountUuid"] : undefined;
   return typeof a === "string" ? a : undefined;
 }
@@ -150,9 +169,12 @@ export interface LoginSyncOptions {
   readonly counts?: { readonly synced_back: number; readonly synced_in: number };
 }
 
+/** Where the container's copy lives in the agent's home. */
+const BOX_CREDENTIALS = ".claude/.credentials.json";
+const BOX_CONFIG = ".claude.json";
+
 export class ClaudeLoginSync {
-  readonly boxCredentials: string;
-  readonly boxConfig: string;
+  private readonly box: AgentHome;
   syncedBack: number;
   syncedIn: number;
   stopped: string | undefined;
@@ -166,11 +188,10 @@ export class ClaudeLoginSync {
   }
 
   constructor(private readonly o: LoginSyncOptions) {
-    this.boxCredentials = join(o.home, ".claude", ".credentials.json");
-    this.boxConfig = join(o.home, ".claude.json");
+    this.box = new AgentHome(o.home);
     this.syncedBack = o.counts?.synced_back ?? 0;
     this.syncedIn = o.counts?.synced_in ?? 0;
-    this.account = accountOf(o.source.globalConfig);
+    this.account = accountOf(readJsonFile(o.source.globalConfig));
     this.subscription = readLogin(o.source.credentials)?.oauth.subscriptionType;
   }
 
@@ -186,8 +207,8 @@ export class ClaudeLoginSync {
   copyIn(): boolean {
     const host = readLogin(this.o.source.credentials);
     if (!host) return false;
-    writeAtomic(this.boxCredentials, host.text, 0o600);
-    const box = readJsonFile(this.boxConfig) ?? {};
+    this.box.write(BOX_CREDENTIALS, host.text, 0o600);
+    const box = parseJson(this.box.read(BOX_CONFIG)) ?? {};
     const src = readJsonFile(this.o.source.globalConfig) ?? {};
     const projects = isObject(box["projects"]) ? box["projects"] : {};
     const project = isObject(projects[this.o.checkout]) ? projects[this.o.checkout] : {};
@@ -203,9 +224,9 @@ export class ClaudeLoginSync {
         [this.o.checkout]: { ...(project as Json), hasTrustDialogAccepted: true },
       },
     };
-    writeAtomic(this.boxConfig, `${JSON.stringify(next, null, 2)}\n`, 0o600);
+    this.box.write(BOX_CONFIG, `${JSON.stringify(next, null, 2)}\n`, 0o600);
     this.subscription = host.oauth.subscriptionType;
-    this.seen = { host: mtime(this.o.source.credentials), box: mtime(this.boxCredentials) };
+    this.seen = { host: mtime(this.o.source.credentials), box: this.box.mtime(BOX_CREDENTIALS) };
     return true;
   }
 
@@ -216,11 +237,11 @@ export class ClaudeLoginSync {
   sync(): "back" | "in" | undefined {
     if (this.stopped) return undefined;
     const hm = mtime(this.o.source.credentials);
-    const bm = mtime(this.boxCredentials);
+    const bm = this.box.mtime(BOX_CREDENTIALS);
     if (hm === this.seen.host && bm === this.seen.box) return undefined;
     this.seen = { host: hm, box: bm };
     const host = readLogin(this.o.source.credentials);
-    const box = readLogin(this.boxCredentials);
+    const box = parseLogin(this.box.read(BOX_CREDENTIALS));
     if (
       box &&
       host &&
@@ -232,7 +253,7 @@ export class ClaudeLoginSync {
         this.stop("the container's login is for another subscription");
         return undefined;
       }
-      const account = accountOf(this.boxConfig);
+      const account = accountOf(parseJson(this.box.read(BOX_CONFIG)));
       if (this.account && account && account !== this.account) {
         this.stop("the container signed in to another account");
         return undefined;
@@ -248,9 +269,9 @@ export class ClaudeLoginSync {
       return "back";
     }
     if (host && (!box || host.expiresAt > box.expiresAt)) {
-      writeAtomic(this.boxCredentials, host.text, 0o600);
+      this.box.write(BOX_CREDENTIALS, host.text, 0o600);
       this.syncedIn++;
-      this.seen.box = mtime(this.boxCredentials);
+      this.seen.box = this.box.mtime(BOX_CREDENTIALS);
       this.o.audit("agent.container.login.synced", {
         direction: "in",
         login: fingerprint(host.oauth.refreshToken as string),
@@ -264,7 +285,7 @@ export class ClaudeLoginSync {
   end(): void {
     this.seen = { host: -1, box: -1 };
     this.sync();
-    rmSync(this.boxCredentials, { force: true });
+    this.box.remove(BOX_CREDENTIALS);
   }
 
   private stop(reason: string): void {

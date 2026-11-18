@@ -38,7 +38,6 @@ import {
   realpathSync,
   rmSync,
   statSync,
-  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { homedir } from "node:os";
@@ -47,8 +46,8 @@ import {
   type AgentContainerInput,
   agentContainerArgs,
   agentToolShims,
-  CONTAINER,
   CLAUDE_MANAGED_SETTINGS_FILE,
+  CONTAINER,
   CREDENTIAL_PORT,
   claudeManagedSettings,
   claudeMcpConfig,
@@ -96,6 +95,7 @@ import type { RuntimePaths } from "../config.ts";
 import { HttpError } from "../http.ts";
 import type { Services } from "../services.ts";
 import { compact } from "../state/audit.ts";
+import { AgentHome } from "./agent-home.ts";
 import { CredentialProxy, type EgressDecision, EgressProxy } from "./egress.ts";
 import { GUARDED_PROJECT_PATHS } from "./guard.ts";
 import { ClaudeLoginSync, claudeLoginSource } from "./harness-login.ts";
@@ -834,41 +834,29 @@ export class ContainerService {
    * resets it), the researcher's Git identity, and AblationKit's Agent Skills linked in.
    */
   private prepareHome(home: string, input: StartInput): void {
-    const profile = join(home, ".profile");
-    let text = "";
-    try {
-      text = readFileSync(profile, "utf8");
-    } catch {
-      // A new home.
-    }
+    // The agent writes its home and keeps it between sessions: never follow a link it left there.
+    const h = new AgentHome(home);
+    const text = h.read(".profile") ?? "";
     if (!text.includes(`${CONTAINER.run}/bin`))
-      appendFileSync(
-        profile,
+      h.append(
+        ".profile",
         `${text && !text.endsWith("\n") ? "\n" : ""}# Written by AblationKit (ADR 0061): a login shell's /etc/profile resets PATH.\nexport PATH="${CONTAINER.run}/bin:${CONTAINER.bin}:$PATH"\n[ -n "$BASH_VERSION" ] && [ -f "$HOME/.bashrc" ] && . "$HOME/.bashrc"\n`,
-        { mode: 0o600 },
       );
-    const gitconfig = join(home, ".gitconfig");
-    if (!existsSync(gitconfig) && (input.git?.name || input.git?.email)) {
+    if (!h.exists(".gitconfig") && (input.git?.name || input.git?.email)) {
       const clean = (s: string) => s.replace(/[\r\n"\\]/g, "").slice(0, 200);
-      writeFileSync(
-        gitconfig,
+      h.write(
+        ".gitconfig",
         `[user]\n${input.git.name ? `\tname = ${clean(input.git.name)}\n` : ""}${input.git.email ? `\temail = ${clean(input.git.email)}\n` : ""}`,
-        { mode: 0o600 },
       );
     }
     const skillsDir = HARNESSES[input.harness].skillsDir;
     const skills = join(this.tree, "skills");
     if (!skillsDir || !isDir(skills)) return;
-    const into = join(home, skillsDir);
-    mkdirSync(into, { recursive: true, mode: 0o700 });
+    h.mkdir(skillsDir);
     for (const name of readdirSync(skills)) {
-      const dst = join(into, name);
-      if (exists(dst)) continue;
-      try {
-        symlinkSync(realOr(join(skills, name)), dst);
-      } catch {
-        // A skill the agent's home already has differently: keep the agent's.
-      }
+      // A skill the agent's home already has, as anything: keep the agent's.
+      if (!h.exists(`${skillsDir}/${name}`))
+        h.symlink(realOr(join(skills, name)), `${skillsDir}/${name}`);
     }
   }
 
