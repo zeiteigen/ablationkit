@@ -341,7 +341,7 @@ args = ["mcp"]</code></pre>
         <a href="operations.html#permissions">
          agent permissions
         </a>
-        ). A job runs the checkout as it was when the agent submitted it. On this workstation it reads your ignored data in place, read-only, and writes only into its own copy, which is deleted when it ends. What it keeps is what it collects as artifacts. A later job takes those back as
+        ). A job runs the checkout as it was when the agent submitted it. On this workstation it reads your ignored data in place, read-only, and writes only into its own copy (where it declares outputs inside an ignored folder, such as <code>outputs/</code>, it adds new files beside the earlier ones, which stay read-only), which is deleted when it ends. What it keeps is what it collects as artifacts. A later job takes those back as
         <code>
          inputs
         </code>

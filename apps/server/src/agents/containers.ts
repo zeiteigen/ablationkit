@@ -41,7 +41,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { dirname, isAbsolute, join, normalize, relative, resolve } from "node:path";
 import {
   type AgentContainerInput,
   agentContainerArgs,
@@ -225,6 +225,49 @@ function realOr(p: string): string {
   } catch {
     return p;
   }
+}
+
+/** The fixed directories at the start of a glob (`outputs/**\/*.pt` → `outputs`). */
+function globPrefix(glob: string): string {
+  const parts: string[] = [];
+  for (const p of glob.split("/")) {
+    if (p === "" || p === "." || /[*?[\]{}!]/.test(p)) break;
+    parts.push(p);
+  }
+  return parts.join("/");
+}
+
+/** The most read-only mounts one job container takes for the checkout's ignored entries. */
+const MAX_IGNORED_MOUNTS = 512;
+
+/**
+ * The read-only mounts, relative to the checkout, for its ignored entries in a job's copy (ADR
+ * 0068). An entry the job writes in (its `artifact_paths`, its `metrics_file`, an input's `to`) is
+ * opened one level at a time along that path instead: the directories on it are the copy's own and
+ * writable, what was already beside them stays read-only, and what the job writes is new.
+ */
+export function ignoredMounts(
+  checkout: string,
+  ignored: readonly string[],
+  writes: readonly string[],
+): string[] {
+  const out: string[] = [];
+  const on = (rel: string) => writes.filter((w) => w === rel || w.startsWith(`${rel}/`));
+  const visit = (rel: string): void => {
+    if (out.length >= MAX_IGNORED_MOUNTS) return;
+    const paths = on(rel);
+    if (!paths.length) {
+      out.push(rel);
+      return;
+    }
+    // The job writes the entry itself: the copy's, not mounted.
+    if (paths.includes(rel)) return;
+    const abs = join(checkout, rel);
+    if (!isDir(abs)) return;
+    for (const name of readdirSync(abs).sort()) visit(`${rel}/${name}`);
+  };
+  for (const e of ignored) visit(e);
+  return out;
 }
 
 /** The last `max` bytes of a file as text (whole lines). */
@@ -1935,11 +1978,19 @@ export class ContainerService {
       build || job.gpu === "none" ? "none" : cfg.jobs.gpu === "all" && rt.gpu_cdi ? "all" : "none";
     // The attempt's copy of the job's source at the checkout's path (ADR 0068), with the checkout's
     // ignored data, earlier outputs and its Git read-only over it, then the job's inputs from
-    // earlier runs at their places; hidden paths stay masked.
+    // earlier runs at their places; hidden paths stay masked. Where the job writes (its artifacts,
+    // its metrics file, its inputs' places) stays the copy's, writable.
+    const writes = [
+      ...job.artifact_paths.map(globPrefix),
+      ...(job.metrics_file ? [job.metrics_file] : []),
+      ...(a.source?.inputs ?? []).map((i) => i.to),
+    ]
+      .map((w) => normalize(w).replace(/\/+$/, ""))
+      .filter((w) => w !== "" && w !== "." && !w.startsWith(".."));
     const source = a.source
       ? {
           dir: a.source.dir,
-          readOnly: [".git", ...a.source.ignored]
+          readOnly: [".git", ...ignoredMounts(checkout, a.source.ignored, writes)]
             .map((rel) => join(checkout, rel))
             .filter((p) => exists(p) && within(checkout, p)),
           inputs: a.source.inputs
