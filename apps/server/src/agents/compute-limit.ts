@@ -27,6 +27,7 @@ import {
 import { readJson, writeJsonAtomic } from "@ablationkit/core";
 import {
   type ComputeLimitState,
+  type ComputeTarget,
   type ComputeWeights,
   validateComputeLimitState,
   validateComputeWeights,
@@ -93,6 +94,15 @@ export interface AgentTargetView {
 }
 
 const fmt = (h: number): string => String(Math.round(h * 100) / 100);
+
+/** What of a policy's `jobs` decides an agent's pool. */
+interface AgentJobsPolicy {
+  readonly run_local: { readonly decision: string };
+  readonly submit_remote: {
+    readonly decision: string;
+    readonly allowed_targets: readonly string[];
+  };
+}
 
 export class ComputeLimitService {
   private doc: ComputeWeights = { schema_version: 1, weights: {} };
@@ -304,47 +314,59 @@ export class ComputeLimitService {
    * AblationKit tries them: this machine if `jobs.run_local` allows, then the remote targets
    * `jobs.submit_remote` allows. The agent never picks among them.
    */
-  pool(projectId: string): AgentTargetView[] {
-    return this.agentTargets(this.o.svc().policy.current(projectId).jobs);
+  pool(projectId: string): { target_id: string; slots: number }[] {
+    // Placement asks once per queued job each pass: only IDs and slots, no occupancy or probe.
+    return this.poolTargets(this.o.svc().policy.current(projectId).jobs).map((t) => ({
+      target_id: t.id,
+      slots: this.slotsOf(t.id),
+    }));
   }
 
-  /** The targets `jobs` lets an agent use: this machine if run_local allows, then remote ones. */
-  private agentTargets(jobs: {
-    readonly run_local: { readonly decision: string };
-    readonly submit_remote: {
-      readonly decision: string;
-      readonly allowed_targets: readonly string[];
-    };
-  }): AgentTargetView[] {
+  /**
+   * The targets `jobs` lets an agent use, in the order they are tried: this machine, then the
+   * remote targets (with their records).
+   */
+  private poolTargets(jobs: AgentJobsPolicy): { id: string; remote?: ComputeTarget }[] {
+    return [
+      ...(jobs.run_local.decision === "allow" ? [{ id: LOCAL_TARGET }] : []),
+      ...(jobs.submit_remote.decision === "allow"
+        ? this.o
+            .svc()
+            .targets.list()
+            .filter((t) => targetAllowed(jobs.submit_remote.allowed_targets, t.target_id, t.kind))
+            .map((t) => ({ id: t.target_id, remote: t }))
+        : []),
+    ];
+  }
+
+  /** The pool with what the Compute page shows of each target: weight, slots, busy, limits. */
+  private agentTargets(jobs: AgentJobsPolicy): AgentTargetView[] {
     const svc = this.o.svc();
-    const out: AgentTargetView[] = [];
     const busy = svc.jobs.occupancy();
-    if (jobs.run_local.decision === "allow") {
-      const probe = svc.jobs.probe();
-      out.push({
-        target_id: LOCAL_TARGET,
-        label: "this workstation",
-        kind: "local",
-        weight: weightValue(this.weightOf(LOCAL_TARGET)),
-        slots: this.slotsOf(LOCAL_TARGET),
-        busy: busy.get(LOCAL_TARGET) ?? 0,
-        limits: probe.enforcement,
-        ...(probe.reason ? { limits_reason: probe.reason } : {}),
-      });
-    }
-    if (jobs.submit_remote.decision === "allow")
-      for (const t of svc.targets.list())
-        if (targetAllowed(jobs.submit_remote.allowed_targets, t.target_id, t.kind))
-          out.push({
-            target_id: t.target_id,
-            label: t.label ?? t.target_id,
-            kind: t.kind,
-            weight: weightValue(this.weightOf(t.target_id)),
-            slots: this.slotsOf(t.target_id),
-            busy: busy.get(t.target_id) ?? 0,
-            limits: "reported_per_attempt",
-          });
-    return out;
+    return this.poolTargets(jobs).map(({ id, remote }): AgentTargetView => {
+      const common = {
+        target_id: id,
+        weight: weightValue(this.weightOf(id)),
+        slots: this.slotsOf(id),
+        busy: busy.get(id) ?? 0,
+      };
+      if (!remote) {
+        const probe = svc.jobs.probe();
+        return {
+          ...common,
+          label: "this workstation",
+          kind: "local",
+          limits: probe.enforcement,
+          ...(probe.reason ? { limits_reason: probe.reason } : {}),
+        };
+      }
+      return {
+        ...common,
+        label: remote.label ?? id,
+        kind: remote.kind,
+        limits: "reported_per_attempt",
+      };
+    });
   }
 
   allUsage(): ProjectComputeUsage[] {
