@@ -118,4 +118,4 @@ These do not hold:
 - The checkout is bind-mounted, so the files a session changed include your own edits made meanwhile.
 - A job on this machine reads the checkout's ignored files as they are when it runs, not as they were when it was submitted: only the source is a snapshot.
 - An agent outside an agent container is your operator (ADR 0062): its jobs on this machine still run in the checkout itself, and take no `inputs`.
-- HTTPS egress is recorded by host only.
+- HTTPS egress is recorded by host only. It is tunnelled: the proxy checks the host a `CONNECT` names, not the name the TLS session asks for inside it, so a front end serving many names at one address can reach the others. Plain HTTP goes to the host that was checked (its `Host` is rewritten to it), one request per connection, with a `Content-Length` body; chunked uploads are refused (411).

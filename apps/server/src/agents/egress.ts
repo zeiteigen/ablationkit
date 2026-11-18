@@ -181,21 +181,47 @@ export class EgressProxy {
       refuse(client, 400, "Bad Request", `invalid host ${host.slice(0, 200)}`);
       return;
     }
-    // Origin form, one request per connection, no proxy headers forwarded.
-    const headers = lines
-      .slice(1)
-      .filter((l) => !/^(proxy-connection|proxy-authorization|connection|keep-alive):/i.test(l));
+    // One request per connection, to the host that was checked: its Host is that host, its body
+    // is what Content-Length says, and nothing the client sends after it reaches the upstream.
+    const fields = lines.slice(1);
+    if (fields.some((l) => /[\r\n]/.test(l))) {
+      refuse(client, 400, "Bad Request", "a header line with a bare CR or LF");
+      return;
+    }
+    if (fields.some((l) => /^transfer-encoding\s*:/i.test(l))) {
+      refuse(client, 411, "Length Required", "plain HTTP through this proxy needs Content-Length");
+      return;
+    }
+    const lengths = fields
+      .filter((l) => /^content-length\s*:/i.test(l))
+      .map((l) => l.slice(l.indexOf(":") + 1).trim());
+    if (lengths.some((v) => !/^\d{1,15}$/.test(v)) || new Set(lengths).size > 1) {
+      refuse(client, 400, "Bad Request", "an invalid Content-Length");
+      return;
+    }
+    const length = lengths.length ? Number(lengths[0]) : 0;
+    // Origin form, no proxy or hop-by-hop headers forwarded.
+    const headers = fields.filter(
+      (l) =>
+        !/^(host|proxy-connection|proxy-authorization|connection|keep-alive|upgrade)\s*:/i.test(l),
+    );
     const request = [
       `${method} ${url.pathname}${url.search} ${version}`,
+      `Host: ${url.host}`,
       ...headers,
       "Connection: close",
       "",
       "",
     ].join("\r\n");
-    await this.tunnel(client, host, port, Buffer.concat([Buffer.from(request, "latin1"), rest]), {
-      method: method.slice(0, 16),
-      path: url.pathname.slice(0, 2000),
-    });
+    const body = rest.subarray(0, length);
+    await this.tunnel(
+      client,
+      host,
+      port,
+      Buffer.concat([Buffer.from(request, "latin1"), body]),
+      { method: method.slice(0, 16), path: url.pathname.slice(0, 2000) },
+      length - body.length,
+    );
   }
 
   private async tunnel(
@@ -204,6 +230,8 @@ export class EgressProxy {
     port: number,
     first: Buffer,
     http: { method: string; path: string } | undefined,
+    /** Plain HTTP: the request body bytes still to come from the client; nothing after them. */
+    remaining = 0,
   ): Promise<void> {
     const rec = { ...this.base(http ? "http" : "connect", host, port), ...(http ?? {}) };
     const decision = this.o.allowed(host, port);
@@ -241,24 +269,33 @@ export class EgressProxy {
     upstream.setTimeout(IDLE_MS, () => upstream.destroy());
     upstream.once("connect", () => {
       established = true;
+      upstream.on("data", (c: Buffer) => {
+        down += c.length;
+      });
+      upstream.pipe(client);
       if (http) {
         up += first.length;
         upstream.write(first);
+        let left = remaining;
+        client.on("data", (c: Buffer) => {
+          // The rest of this request's body; a second request on the connection is dropped.
+          if (left <= 0) return;
+          const part = c.subarray(0, left);
+          left -= part.length;
+          up += part.length;
+          upstream.write(part);
+        });
       } else {
         client.write("HTTP/1.1 200 Connection Established\r\n\r\n");
         if (first.length) {
           up += first.length;
           upstream.write(first);
         }
+        client.on("data", (c: Buffer) => {
+          up += c.length;
+        });
+        client.pipe(upstream);
       }
-      client.on("data", (c: Buffer) => {
-        up += c.length;
-      });
-      upstream.on("data", (c: Buffer) => {
-        down += c.length;
-      });
-      client.pipe(upstream);
-      upstream.pipe(client);
       client.resume();
     });
     upstream.on("error", (e) => {

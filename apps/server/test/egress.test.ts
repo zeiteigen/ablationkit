@@ -114,6 +114,47 @@ describe("egress proxy", () => {
     });
   });
 
+  test("plain HTTP goes to the checked host: its Host is that host, one request only", async () => {
+    // Everything the upstream is sent, until the proxy closes it.
+    const got: string[] = [];
+    const server: Server = createServer((s) => {
+      let buf = "";
+      s.on("data", (c) => {
+        buf += c.toString();
+        if (buf.includes("\r\n\r\n") && buf.endsWith("body")) s.end("HTTP/1.1 200 OK\r\n\r\n");
+      });
+      s.on("close", () => got.push(buf));
+    });
+    await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
+    cleanup.push(() => server.close());
+    const port = (server.address() as { port: number }).port;
+    const { p, socket } = proxy({ allow: ["example.org"], isPublic: true });
+    await p.start();
+    const reply = await through(
+      socket,
+      `POST http://example.org:${port}/a HTTP/1.1\r\nHost: not-allowed.example\r\nContent-Length: 4\r\n\r\nbody` +
+        `GET /secret HTTP/1.1\r\nHost: not-allowed.example\r\n\r\n`,
+    );
+    expect(reply).toContain("200 OK");
+    await settle();
+    expect(got).toHaveLength(1);
+    expect(got[0]).toContain(`Host: example.org:${port}\r\n`);
+    expect(got[0]).not.toContain("not-allowed");
+    expect(got[0]).not.toContain("/secret");
+    expect(got[0]).toEndWith("\r\n\r\nbody");
+  });
+
+  test("chunked bodies, odd Content-Length and bare line breaks are refused", async () => {
+    const { p, socket } = proxy({ allow: ["example.org"], isPublic: true });
+    await p.start();
+    const send = (head: string) =>
+      through(socket, `POST http://example.org/a HTTP/1.1\r\n${head}\r\n\r\n`);
+    expect(await send("Transfer-Encoding: chunked")).toStartWith("HTTP/1.1 411");
+    expect(await send("Content-Length: 4\r\nContent-Length: 5")).toStartWith("HTTP/1.1 400");
+    expect(await send("Content-Length: -1")).toStartWith("HTTP/1.1 400");
+    expect(await send("X-A: b\nHost: evil.example")).toStartWith("HTTP/1.1 400");
+  });
+
   test("a host off the allowlist is refused with the reason, and recorded", async () => {
     const { p, socket, records } = proxy({ allow: [] });
     await p.start();
