@@ -1800,10 +1800,6 @@ export class ContainerService {
     return job.container !== undefined && job.target_id === undefined;
   }
 
-  /**
-   * Before a contained job's attempt starts: the runtime, the image, the GPU and the evaluation it
-   * names are there. A refusal here comes back to the submitter; nothing has started.
-   */
   /** Paths relative to the checkout no job of the project may see (ADR 0068: not in its source). */
   hiddenPaths(job: JobRecord): string[] {
     const checkout = realOr(this.o.svc().registry.require(job.project_id).path);
@@ -1813,6 +1809,10 @@ export class ContainerService {
       .map((p) => relative(checkout, p));
   }
 
+  /**
+   * Before a contained job's attempt starts: the runtime, the image, the GPU and the evaluation it
+   * names are there. A refusal here comes back to the submitter; nothing has started.
+   */
   checkJob(job: JobRecord): void {
     if (!this.contained(job)) return;
     const cfg = this.config(job.project_id);

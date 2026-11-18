@@ -96,12 +96,18 @@ export async function stageInputs(
       let single = false;
       if (!found.length && base) {
         const parent = base.includes("/") ? base.slice(0, base.lastIndexOf("/")) : "";
-        const page = await client.listArtifacts(runId, parent || undefined);
-        const f = page.items.find((x) => x.path === base && !x.is_dir);
-        if (f) {
-          found.push({ path: f.path, size: f.file_size ?? 0 });
-          single = true;
-        }
+        // The file among its parent's entries, on whichever page it falls.
+        let token: string | undefined;
+        do {
+          const page = await client.listArtifacts(runId, parent || undefined, token);
+          const f = page.items.find((x) => x.path === base && !x.is_dir);
+          if (f) {
+            found.push({ path: f.path, size: f.file_size ?? 0 });
+            single = true;
+            break;
+          }
+          token = page.next_page_token;
+        } while (token);
       }
       if (!found.length)
         throw new HttpError(
