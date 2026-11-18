@@ -477,53 +477,57 @@ export const AGENT_JOB_ROUTES: readonly Route<AgentHandler>[] = [
         .pool(pid)
         .filter((t) => !localOnly || t.target_id === "local")
         .map((t) => t.target_id);
-      let weight: number;
-      try {
-        // The pool is what the policy allows: an empty one is the policy's refusal.
-        if (!pool.length) {
-          const policy = c.svc.policy.current(pid);
-          const reasons = [
-            ...decide(policy, "jobs.run_local").reasons,
-            ...(localOnly
-              ? []
-              : policy.jobs.submit_remote.decision === "allow"
-                ? ["jobs.submit_remote.allowed_targets matches no configured compute target"]
-                : decide(policy, "jobs.submit_remote").reasons),
-          ];
-          throw new HttpError(
-            403,
-            "policy_denied",
-            `${localOnly ? "this runs only on this machine" : "the project's pool is empty"}: ${reasons.join("; ")}. The researcher changes it in Project settings → Agent permissions`,
-            {
-              action: localOnly ? "jobs.run_local" : "jobs.submit_remote",
-              policy_revision: policy.revision,
-              reasons,
-            },
-          );
+      // Admission checks the compute limit against what is used and reserved; the job reserves
+      // its share only when enqueued, so it is admitted again after any await before that.
+      const admitJob = (): number => {
+        try {
+          // The pool is what the policy allows: an empty one is the policy's refusal.
+          if (!pool.length) {
+            const policy = c.svc.policy.current(pid);
+            const reasons = [
+              ...decide(policy, "jobs.run_local").reasons,
+              ...(localOnly
+                ? []
+                : policy.jobs.submit_remote.decision === "allow"
+                  ? ["jobs.submit_remote.allowed_targets matches no configured compute target"]
+                  : decide(policy, "jobs.submit_remote").reasons),
+            ];
+            throw new HttpError(
+              403,
+              "policy_denied",
+              `${localOnly ? "this runs only on this machine" : "the project's pool is empty"}: ${reasons.join("; ")}. The researcher changes it in Project settings → Agent permissions`,
+              {
+                action: localOnly ? "jobs.run_local" : "jobs.submit_remote",
+                policy_revision: policy.revision,
+                reasons,
+              },
+            );
+          }
+          // The compute limit (ADR 0037) is held through each attempt's time limit.
+          const runtime = input.limits?.runtime_max_sec;
+          if (runtime === undefined)
+            throw new HttpError(
+              400,
+              "time_limit_required",
+              "an agent's job needs a time limit (`limits.runtime_max_sec`; `runtime_max_sec` on the `ablationkit_job submit` tool): it is how the project's compute limit is held",
+            );
+          return c.svc.compute.admit(pid, pool, runtime);
+        } catch (e) {
+          if (e instanceof HttpError) {
+            agentAudit(
+              c,
+              "job.submit",
+              "denied",
+              pool.join(",") || "none",
+              { command: input.command[0], code: e.code, ...e.extra },
+              e.message,
+            );
+            if (e.code === "compute_limit_reached") c.svc.containers.computeLimitRefused(c.token);
+          }
+          throw e;
         }
-        // The compute limit (ADR 0037) is held through each attempt's time limit.
-        const runtime = input.limits?.runtime_max_sec;
-        if (runtime === undefined)
-          throw new HttpError(
-            400,
-            "time_limit_required",
-            "an agent's job needs a time limit (`limits.runtime_max_sec`; `runtime_max_sec` on the `ablationkit_job submit` tool): it is how the project's compute limit is held",
-          );
-        weight = c.svc.compute.admit(pid, pool, runtime);
-      } catch (e) {
-        if (e instanceof HttpError) {
-          agentAudit(
-            c,
-            "job.submit",
-            "denied",
-            pool.join(",") || "none",
-            { command: input.command[0], code: e.code, ...e.extra },
-            e.message,
-          );
-          if (e.code === "compute_limit_reached") c.svc.containers.computeLimitRefused(c.token);
-        }
-        throw e;
-      }
+      };
+      let weight = admitJob();
       // What earlier runs produced, downloaded now (ADR 0068). A job that would run in the checkout
       // itself (outside an agent container, on this machine) has nowhere to put them.
       let staged: { dir: string; inputs: JobInput[] } | undefined;
@@ -545,6 +549,9 @@ export const AGENT_JOB_ROUTES: readonly Route<AgentHandler>[] = [
       }
       let job: JobRecord;
       try {
+        // Other jobs may have been admitted and enqueued while the inputs downloaded: admit again,
+        // with nothing awaited between this and the reservation the job makes.
+        if (staged) weight = admitJob();
         job = c.svc.jobs.enqueue({
           ...input,
           compute_weight_hundredths: weight,

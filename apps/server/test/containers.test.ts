@@ -675,6 +675,57 @@ describe("agent container sessions", () => {
     expect(outside.body.error["code"]).toBe("inputs_need_a_copy");
   }, 30_000);
 
+  test("jobs whose inputs download at once are admitted against one another's reservations", async () => {
+    const w = await setup();
+    const s = (await w.start()).body;
+    const token = w.tokenOf(s.session_id);
+    const submit = (body: Json) =>
+      w.cl.json<Json & { job_id: string; error?: Json }>(
+        w.cl.agent("/api/v1/projects/lab/jobs", {
+          token,
+          body: { environment: "none", ...body },
+        }),
+      );
+    const train = await submit({
+      command: ["sh", "-c", "mkdir -p out && echo weights > out/ckpt.txt"],
+      artifact_paths: ["out/ckpt.txt"],
+      run_name: "train-1",
+      limits: { runtime_max_sec: 60 },
+    });
+    expect(await w.settled(train.body.job_id)).toBe("succeeded");
+    await w.until("the checkpoint in MLflow", () => {
+      const a = w.cl.c.services.jobs.latestAttempt(w.cl.c.services.jobs.require(train.body.job_id));
+      return (a?.artifacts.length ?? 0) > 0;
+    });
+    const cur = (await w.human<{ policy: ProjectActionPolicy }>("/api/v1/projects/lab/policy")).body
+      .policy;
+    const {
+      schema_version: _s,
+      project_id: _p,
+      revision: _r,
+      created_at: _c,
+      created_by: _b,
+      ...rest
+    } = cur;
+    await w.human("/api/v1/projects/lab/policy/revisions", {
+      body: { policy: { ...rest, compute: { ...rest.compute, limit_hours: 3 } } },
+    });
+    // Each needs two hours; only one fits in the three.
+    const both = await Promise.all(
+      [0, 1].map(() =>
+        submit({
+          command: ["sleep", "30"],
+          inputs: [{ run: "train-1", path: "out/ckpt.txt" }],
+          limits: { runtime_max_sec: 7200 },
+        }),
+      ),
+    );
+    expect(both.map((r) => r.status).sort()).toEqual([201, 403]);
+    expect(both.find((r) => r.status === 403)?.body.error?.["code"]).toBe("compute_limit_reached");
+    const ok = both.find((r) => r.status === 201);
+    await w.cl.agent(`/api/v1/jobs/${ok?.body.job_id}/cancel`, { token, body: {} });
+  }, 30_000);
+
   test("an agent container has no environment; environment builds make the one jobs read (ADR 0066)", async () => {
     const w = await setup();
     const svc = w.cl.c.services;
