@@ -925,6 +925,24 @@ describe("agent container sessions", () => {
     expect(again.status).not.toBe(403);
   });
 
+  test("a read-only path at or inside a mask is never bound over it", async () => {
+    const w = await setup();
+    mkdirSync(join(w.repo, ".ablationkit", "research"), { recursive: true });
+    const put = await w.human("/api/v1/projects/lab/agent-containers/config", {
+      method: "PUT",
+      body: { read_only: ["data", ".ablationkit/research"] },
+    });
+    expect(put.status).toBe(200);
+    const s = (await w.start()).body;
+    const argsFile = join(w.f.dir, `ak-agent-${s.session_id}.args`);
+    await w.until("podman run", () => existsSync(argsFile));
+    const joined = readFileSync(argsFile, "utf8");
+    const research = join(w.repo, ".ablationkit", "research");
+    expect(joined).toContain(`type=tmpfs,destination=${research}`);
+    expect(joined).not.toContain(`${research}:${research}:ro`);
+    expect(joined).toContain(`${w.repo}/data:${w.repo}/data:ro`);
+  });
+
   test("pause, resume and stop; the session records what changed and its token ends", async () => {
     const w = await setup();
     const s = (await w.start()).body;

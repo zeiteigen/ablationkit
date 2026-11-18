@@ -253,8 +253,9 @@ export function agentContainerArgs(i: AgentContainerInput): string[] {
       ...i.env,
     }),
     ...bind(i.checkout, i.checkout, "rw"),
-    ...maskArgs(i.masks),
+    // Masks after the read-only binds, as in a job container (the caller keeps them apart).
     ...i.readOnly.flatMap((p) => bind(p, p, "ro")),
+    ...maskArgs(i.masks),
     ...bind(i.tree, i.tree, "ro"),
     ...toolMounts(i.tools),
     ...(i.tools.harness && h.binary

@@ -227,6 +227,11 @@ function realOr(p: string): string {
   }
 }
 
+/** Is `p` at or inside one of `masks` (a hidden path, never bound over)? */
+function masked(p: string, masks: readonly Mask[]): boolean {
+  return masks.some((m) => within(m.path, p));
+}
+
 /** The fixed directories at the start of a glob (`outputs/**\/*.pt` → `outputs`). */
 function globPrefix(glob: string): string {
   const parts: string[] = [];
@@ -694,10 +699,11 @@ export class ContainerService {
     this.prepareHome(home, input);
     const loginSync = this.loginFor(input, sid, pid, checkout);
 
+    const masks = this.masks(checkout, cfg, [], true);
+    // Nothing is bound at or inside a mask: equal destinations have no order in Podman.
     const readOnly = cfg.read_only
       .map((p) => resolveConfigPath(checkout, p))
-      .filter((p) => exists(p) && within(checkout, p));
-    const masks = this.masks(checkout, cfg, [], true);
+      .filter((p) => exists(p) && within(checkout, p) && !masked(p, masks));
     const credEnv: Record<string, string> = {};
     for (const c of cfg.credentials)
       for (const [k, v] of Object.entries(c.env))
@@ -1987,18 +1993,18 @@ export class ContainerService {
     ]
       .map((w) => normalize(w).replace(/\/+$/, ""))
       .filter((w) => w !== "" && w !== "." && !w.startsWith(".."));
+    const masks = this.masks(checkout, cfg, evalMounts);
     const source = a.source
       ? {
           dir: a.source.dir,
           readOnly: [".git", ...ignoredMounts(checkout, a.source.ignored, writes)]
             .map((rel) => join(checkout, rel))
-            .filter((p) => exists(p) && within(checkout, p)),
+            .filter((p) => exists(p) && within(checkout, p) && !masked(p, masks)),
           inputs: a.source.inputs
             .map((i) => ({ src: i.src, dst: join(checkout, i.to) }))
             .filter((i) => exists(i.src) && within(checkout, i.dst)),
         }
       : undefined;
-    const masks = this.masks(checkout, cfg, evalMounts);
     // Every mount point inside the copy is made here, as this user: one Podman made would belong
     // to another uid of the user namespace, and the copy could not be removed afterwards.
     if (source) {

@@ -148,6 +148,17 @@ describe("configuration", () => {
     expect(p).toContain("not a variable name");
   });
 
+  test("a path both hidden and read-only is a problem", () => {
+    const c = defaultContainerConfig("demo", "2026-11-16T00:00:00Z");
+    const p = (hidden: string[], read_only: string[]) =>
+      configProblems({ ...c, hidden, read_only }).filter((x) => x.includes("is hidden"));
+    expect(p(["eval"], ["eval"])).toHaveLength(1);
+    expect(p(["eval/"], ["./eval/heldout"])).toHaveLength(1);
+    // Read-only around a hidden path is fine: the deeper mask wins.
+    expect(p(["data/private"], ["data"])).toEqual([]);
+    expect(p(["evaluation"], ["eval"])).toEqual([]);
+  });
+
   test("paths resolve against the checkout", () => {
     expect(resolveConfigPath("/w/proj/", "eval/data")).toBe("/w/proj/eval/data");
     expect(resolveConfigPath("/w/proj", "/data/x/")).toBe("/data/x");
@@ -182,6 +193,10 @@ describe("podman command lines", () => {
   test("the agent container has no network, GPU, privileges or coordinator home", () => {
     const a = agentContainerArgs(base);
     const s = a.join(" ");
+    // Masks come after the read-only binds, as in a job container.
+    expect(a.indexOf("/w/proj/data:/w/proj/data:ro")).toBeLessThan(
+      a.findIndex((x) => x.includes("destination=/w/proj/eval")),
+    );
     expect(a[0]).toBe("run");
     expect(s).toContain("--network none");
     expect(s).toContain("--userns keep-id");

@@ -136,6 +136,14 @@ export function configProblems(c: ContainerConfig): string[] {
   for (const p of c.read_only)
     if (!relativeInside(p))
       out.push(`read_only: ${JSON.stringify(p)} must be a path inside the checkout, without ..`);
+  // A path both hidden and read-only would be mounted over its own mask.
+  const bare = (p: string) => p.replace(/^(\.\/)+/, "").replace(/\/+$/, "");
+  for (const p of c.read_only)
+    for (const h of c.hidden)
+      if (relativeInside(p) && relativeInside(h) && within(bare(h), bare(p)))
+        out.push(
+          `read_only: ${JSON.stringify(p)} is hidden (${JSON.stringify(h)}): a hidden path is never mounted`,
+        );
   const names = new Set<string>();
   for (const e of c.evaluations) {
     if (names.has(e.name)) out.push(`evaluations: ${e.name} is defined twice`);
