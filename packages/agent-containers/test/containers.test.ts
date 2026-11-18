@@ -343,6 +343,41 @@ describe("podman command lines", () => {
     ]);
   });
 
+  test("paths with ':' or ',' in them are mounted as Podman reads them", () => {
+    const j = jobContainerArgs({
+      name: "ak-job-j-abc-a1",
+      image: base.image,
+      checkout: base.checkout,
+      source: {
+        dir: "/work/a1",
+        readOnly: ["/w/proj/logs/run_10:00:00.log", '/w/proj/a,"b"'],
+        inputs: [],
+      },
+      tree: base.tree,
+      tools: { bun: "/host/bun" },
+      dirs: { env: "/e", python: "/p", spool: "/s/j-abc-a1" },
+      extraReadOnly: [],
+      masks: [{ path: "/w/proj/eval,x", kind: "dir" }],
+      evaluationMounts: [],
+      gpu: "none",
+      network: "none",
+      limits: { runtime_max_sec: 600 },
+      env: {},
+      cwd: "/w/proj",
+      argv: ["true"],
+    });
+    const flag = (v: string) => j[j.indexOf(v) - 1];
+    // ':' cannot go through --volume.
+    const log = "/w/proj/logs/run_10:00:00.log";
+    expect(flag(`type=bind,src=${log},dst=${log},ro`)).toBe("--mount");
+    // ',' and '"' can, unquoted; in --mount (a tmpfs mask) the field is CSV-quoted.
+    expect(flag('/w/proj/a,"b":/w/proj/a,"b":ro')).toBe("--volume");
+    expect(
+      flag('type=tmpfs,"destination=/w/proj/eval,x",tmpfs-mode=0555,tmpfs-size=1m,notmpcopyup'),
+    ).toBe("--mount");
+    expect(j).toContain("/work/a1:/w/proj:rw");
+  });
+
   test("a job container with egress runs under the init with the proxy", () => {
     const j = jobContainerArgs({
       name: "ak-job-j-abc-a1",

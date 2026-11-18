@@ -135,8 +135,19 @@ function common(name: string): string[] {
   ];
 }
 
+/** One field of a `--mount` value, which Podman reads as CSV: quoted when it must be. */
+function csvField(f: string): string {
+  return /[",\r\n]/.test(f) ? `"${f.replace(/"/g, '""')}"` : f;
+}
+
+/**
+ * A bind mount. `--volume` splits on ':', so a path with one in it (a timestamped log, say) goes
+ * as `--mount`, whose CSV fields take any path quoted.
+ */
 function bind(src: string, dst: string, mode: "ro" | "rw"): string[] {
-  return ["--volume", `${src}:${dst}:${mode}`];
+  if (!src.includes(":") && !dst.includes(":")) return ["--volume", `${src}:${dst}:${mode}`];
+  const fields = ["type=bind", `src=${src}`, `dst=${dst}`, ...(mode === "ro" ? ["ro"] : [])];
+  return ["--mount", fields.map(csvField).join(",")];
 }
 
 /**
@@ -147,7 +158,12 @@ function bind(src: string, dst: string, mode: "ro" | "rw"): string[] {
 function maskArgs(masks: readonly Mask[]): string[] {
   return masks.flatMap((m) =>
     m.kind === "dir"
-      ? ["--mount", `type=tmpfs,destination=${m.path},tmpfs-mode=0555,tmpfs-size=1m,notmpcopyup`]
+      ? [
+          "--mount",
+          ["type=tmpfs", `destination=${m.path}`, "tmpfs-mode=0555", "tmpfs-size=1m", "notmpcopyup"]
+            .map(csvField)
+            .join(","),
+        ]
       : bind("/dev/null", m.path, "ro"),
   );
 }
