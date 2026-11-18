@@ -31,6 +31,11 @@ function tmp(): string {
   return d;
 }
 
+/** A writing Git command for setting up a checkout (`readGit` only reads). */
+function setupGit(cwd: string, args: string[]): number | null {
+  return Bun.spawnSync(["git", ...args], { cwd, stdout: "ignore", stderr: "ignore" }).exitCode;
+}
+
 /** A user home with the default coordinator home in it, and a checkout. */
 function world(opts: { git?: boolean } = {}): { user: string; home: string; checkout: string } {
   const user = tmp();
@@ -39,9 +44,9 @@ function world(opts: { git?: boolean } = {}): { user: string; home: string; chec
   const checkout = join(user, "lab");
   mkdirSync(join(checkout, ".ablationkit"), { recursive: true });
   if (opts.git) {
-    expect(readGit(checkout, ["init", "-q"]).code).toBe(0);
+    expect(setupGit(checkout, ["init", "-q"])).toBe(0);
     // The researcher's global ignore file must not decide these tests.
-    expect(readGit(checkout, ["config", "core.excludesFile", "/dev/null"]).code).toBe(0);
+    expect(setupGit(checkout, ["config", "core.excludesFile", "/dev/null"])).toBe(0);
   }
   return { user, home, checkout };
 }
@@ -345,7 +350,7 @@ describe("Git hygiene", () => {
     const other = world({ git: true });
     mkdirSync(join(other.checkout, ".codex"));
     writeFileSync(codexFile(other.checkout), 'model = "o3"\n');
-    readGit(other.checkout, ["add", ".codex/config.toml"]);
+    setupGit(other.checkout, ["add", ".codex/config.toml"]);
     const codex = byHarness(
       applyAgentGuard(other.checkout, other.home, { userHome: other.user }),
       "codex",
