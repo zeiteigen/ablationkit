@@ -394,6 +394,34 @@ describe("agent container sessions", () => {
     expect(existsSync(box)).toBe(false);
   });
 
+  test("two Claude Code sessions share the home: the first to end leaves the login to the other", async () => {
+    const user = h.tmp("ak-user-");
+    mkdirSync(join(user, ".claude"));
+    const login = JSON.stringify({
+      claudeAiOauth: {
+        accessToken: "sk-ant-oat01-A",
+        refreshToken: "sk-ant-ort01-A",
+        expiresAt: 1000,
+        subscriptionType: "max",
+      },
+    });
+    writeFileSync(join(user, ".claude", ".credentials.json"), login);
+    const w = await setup({ userHome: user });
+    const a = (await w.start({ label: "first" })).body;
+    const b = (await w.start({ label: "second" })).body;
+    const home = join(w.cl.c.services.containers.projectDir("lab"), "home-claude-code");
+    const box = join(home, ".claude", ".credentials.json");
+    await w.human(`/api/v1/agent-containers/${a.session_id}/stop`, { body: {} });
+    await w.until("the first to end", () => w.sessionOf(a.session_id).state === "exited");
+    // Never deleted under the second (which would have had to copy it in again).
+    await Bun.sleep(300);
+    expect(readFileSync(box, "utf8")).toBe(login);
+    expect(w.sessionOf(b.session_id).login?.synced_in).toBe(0);
+    await w.human(`/api/v1/agent-containers/${b.session_id}/stop`, { body: {} });
+    await w.until("the second to end", () => w.sessionOf(b.session_id).state === "exited");
+    expect(existsSync(box)).toBe(false);
+  });
+
   test("remote_control: false starts Claude Code without Remote Control (ADR 0067)", async () => {
     const w = await setup();
     const s = (await w.start({ remote_control: false, label: "quiet" })).body;

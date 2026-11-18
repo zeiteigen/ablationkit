@@ -281,11 +281,14 @@ export class ClaudeLoginSync {
     return undefined;
   }
 
-  /** The session ended: a last renewal is carried back, then the container's copy is deleted. */
-  end(): void {
+  /**
+   * The session ended: a last renewal is carried back, then the container's copy is deleted,
+   * unless `keep` (another live session runs in the same home and signs in with it).
+   */
+  end(keep = false): void {
     this.seen = { host: -1, box: -1 };
     this.sync();
-    this.box.remove(BOX_CREDENTIALS);
+    if (!keep) this.box.remove(BOX_CREDENTIALS);
   }
 
   private stop(reason: string): void {

@@ -1358,18 +1358,32 @@ export class ContainerService {
     }
   }
 
+  /** Does another live session run in `s`'s home (the same project and harness)? */
+  private homeShared(s: ContainerSessionRecord): boolean {
+    for (const o of this.sessions.values())
+      if (
+        o.session_id !== s.session_id &&
+        o.project_id === s.project_id &&
+        o.harness === s.harness &&
+        LIVE_STATES.has(o.state)
+      )
+        return true;
+    return false;
+  }
+
   private finalize(
     s: ContainerSessionRecord,
     how: { exit?: number; lost?: boolean; error?: string },
   ): void {
     const svc = this.o.svc();
-    // A last renewal is carried back, then the container's copy of the login is deleted.
+    // A last renewal is carried back, then the container's copy of the login is deleted, unless
+    // another live session of this harness on the project shares the home and signs in with it.
     const login =
       this.live.get(s.session_id)?.login ??
       (s.login
         ? this.loginSync(s.session_id, s.project_id, s.harness, s.checkout, s.login.source, s.login)
         : undefined);
-    login?.end();
+    login?.end(this.homeShared(s));
     const loginRecord = login ? this.loginRecord(s, login) : s.login;
     this.unlisten(s.session_id);
     const end = this.snapshot(s.checkout, this.currentEnvDir(s.project_id));
