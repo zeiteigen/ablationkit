@@ -87,6 +87,7 @@ import type {
   TokenRecord,
 } from "@ablationkit/protocol";
 import {
+  TERMINAL_ATTEMPT_STATES,
   validateContainerConfig,
   validateContainerEnvironment,
   validateContainerSessionRecord,
@@ -1362,11 +1363,9 @@ export class ContainerService {
       }
       const a = this.o.svc().jobs.attempt(id);
       const job = a ? this.o.svc().jobs.get(a.job_id) : undefined;
-      if (
-        a &&
-        job &&
-        !["succeeded", "failed", "cancelled", "timed_out", "lost", "unknown"].includes(a.state)
-      ) {
+      // Only a live attempt gets its proxy back: an ended one's (OOM-killed included) would be
+      // left listening, its end already past.
+      if (a && job && !TERMINAL_ATTEMPT_STATES.includes(a.state)) {
         if (a.supervisor.container?.network === "egress")
           this.attemptEgress(job, id, job.container?.build_environment === true);
       } else rmSync(this.runDir(id), { recursive: true, force: true });
