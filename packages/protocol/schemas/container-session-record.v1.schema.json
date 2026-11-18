@@ -533,7 +533,7 @@
     },
     "login": {
       "title": "ContainerLogin",
-      "description": "The researcher's Claude Code login, copied into the container at start and kept in step with the source while the session runs (whichever side renews it, the fresher token is carried to the other); the container's copy is deleted when the session ends.",
+      "description": "The researcher's Claude Code login, copied into the container at start; while the session runs a renewal made on this machine is carried in, and one made in the container is never carried back (ADR 0063). The container's copy is deleted when the session ends.",
       "additionalProperties": false,
       "type": "object",
       "required": [
@@ -556,7 +556,7 @@
         },
         "synced_back": {
           "minimum": 0,
-          "description": "Renewals made in the container and carried back to the source.",
+          "description": "Renewals made in the container and carried back to the source: none since ADR 0063 was amended (a renewal made inside stays there); earlier sessions' counts.",
           "type": "integer"
         },
         "synced_in": {
@@ -566,7 +566,7 @@
         },
         "stopped": {
           "maxLength": 500,
-          "description": "Why keeping the two in step stopped (another account signed in).",
+          "description": "Sessions from before ADR 0063 was amended: why carrying renewals back stopped (another account signed in).",
           "type": "string"
         }
       }

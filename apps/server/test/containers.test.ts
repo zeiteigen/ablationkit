@@ -330,7 +330,7 @@ describe("agent container sessions", () => {
     expect(audit).toContain("run the baseline");
   });
 
-  test("Claude Code starts with the researcher's login, kept in step both ways, deleted at the end (ADR 0063)", async () => {
+  test("Claude Code starts with the researcher's login, renewals carried in, never back, deleted at the end (ADR 0063)", async () => {
     const user = h.tmp("ak-user-");
     const login = (token: string, expiresAt: number, subscriptionType = "max") =>
       JSON.stringify({
@@ -361,35 +361,35 @@ describe("agent container sessions", () => {
       projects: { [w.repo]: { hasTrustDialogAccepted: true } },
     });
     const sid = s.session_id;
-    // Renewed in the container: carried back, the replaced one backed up.
+    // Renewed in the container: it stays there, this machine's login is never written.
     writeFileSync(box, login("B", 2000));
-    await w.until(
-      "the renewal carried back",
-      () => readFileSync(host, "utf8") === login("B", 2000),
+    await w.until("the renewal noticed", () =>
+      readdirSync(join(w.cl.c.services.paths.home, "audit")).some((x) =>
+        readFileSync(join(w.cl.c.services.paths.home, "audit", x), "utf8").includes(
+          "agent.container.login.renewed_inside",
+        ),
+      ),
     );
-    const backups = join(w.cl.c.services.paths.home, "containers", "login-backups");
-    expect(readdirSync(backups).map((f) => readFileSync(join(backups, f), "utf8"))).toEqual([
-      login("A", 1000),
-    ]);
-    // Renewed on this machine: carried in.
-    writeFileSync(host, login("C", 3000));
-    await w.until("the renewal carried in", () => readFileSync(box, "utf8") === login("C", 3000));
-    await w.until("the counts", () => w.sessionOf(sid).login?.synced_in === 1);
-    expect(w.sessionOf(sid).login).toMatchObject({ synced_back: 1, synced_in: 1 });
-    // Signed in to another account inside: nothing more is carried back.
+    expect(readFileSync(host, "utf8")).toBe(login("A", 1000));
+    expect(existsSync(join(w.cl.c.services.paths.home, "containers", "login-backups"))).toBe(false);
+    // Whatever account the container's settings claim, nothing goes back.
     writeFileSync(
       join(home, ".claude.json"),
-      JSON.stringify({ ...cfg, oauthAccount: { accountUuid: "acct-2" } }),
+      JSON.stringify({ ...cfg, oauthAccount: { accountUuid: "acct-1" } }),
     );
-    writeFileSync(box, login("D", 4000));
-    await w.until("the sync to stop", () => w.sessionOf(sid).login?.stopped !== undefined);
-    expect(w.sessionOf(sid).login?.stopped).toContain("another account");
-    expect(readFileSync(host, "utf8")).toBe(login("C", 3000));
+    writeFileSync(box, login("X", 9000));
+    await Bun.sleep(300);
+    expect(readFileSync(host, "utf8")).toBe(login("A", 1000));
+    // Renewed on this machine: carried in.
+    writeFileSync(host, login("C", 10_000));
+    await w.until("the renewal carried in", () => readFileSync(box, "utf8") === login("C", 10_000));
+    await w.until("the counts", () => w.sessionOf(sid).login?.synced_in === 1);
+    expect(w.sessionOf(sid).login).toMatchObject({ synced_back: 0, synced_in: 1 });
     // The session ends: the container's copy is gone, this machine's login stays.
     await w.human(`/api/v1/agent-containers/${sid}/stop`, { body: {} });
     await w.until("the session to end", () => w.sessionOf(sid).state === "exited");
     expect(existsSync(box)).toBe(false);
-    expect(readFileSync(host, "utf8")).toBe(login("C", 3000));
+    expect(readFileSync(host, "utf8")).toBe(login("C", 10_000));
     // --no-login: nothing copied.
     const own = (await w.start({ login: { copy: false } })).body;
     expect(own.login).toBeUndefined();

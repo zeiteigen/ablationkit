@@ -4,14 +4,14 @@
  * Claude Code's onboarding done there, on the same account, with the checkout trusted, so a
  * contained Claude Code starts signed in.
  *
- * Claude Code renews its access token every few hours, and the refresh token most likely rotates:
- * two copies renewing on their own would sign one another out. So while the session runs the two
- * files are kept in step: whichever side renewed (the later `expiresAt`), the fresher login is
- * carried to the other within a monitor tick, and Claude Code, which reloads the file when its
- * modification time changes, picks it up. A login is carried back to this machine only when it
- * parses as a Claude login, renews the same subscription and the container is still signed in to
- * the same account; the file it replaces is backed up first. When the session ends the
- * container's copy is deleted.
+ * While the session runs, a renewal made on this machine (the later `expiresAt`) is carried in
+ * within a monitor tick, and Claude Code, which reloads the file when its modification time
+ * changes, picks it up. One made in the container stays there: it is never written to this
+ * machine. The coordinator cannot tell which account a renewed login belongs to (all it could read
+ * is the container's own settings, which the agent writes), so carrying it back would let an agent
+ * replace the researcher's login, with another account's among others. It is audited once
+ * (`agent.container.login.renewed_inside`): if Claude's refresh tokens rotate, this machine's copy
+ * may then need signing in again. When the session ends the container's copy is deleted.
  *
  * The agent can read the copy (it uses it): that is the researcher's choice, stated in ADR 0063.
  * The container's side lives in the agent's home, which the agent writes and keeps between
@@ -19,18 +19,8 @@
  * left there onto this machine's files.
  */
 import { createHash } from "node:crypto";
-import {
-  chmodSync,
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  renameSync,
-  rmSync,
-  statSync,
-  writeFileSync,
-} from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { AgentHome } from "./agent-home.ts";
 
 export interface LoginSource {
@@ -134,24 +124,6 @@ function mtime(path: string): number {
   }
 }
 
-/** Write a file the way a reader never sees half of: a temporary file renamed over it. */
-function writeAtomic(path: string, text: string, mode: number): void {
-  mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
-  const tmp = `${path}.ablationkit-${process.pid}.tmp`;
-  try {
-    writeFileSync(tmp, text, { mode });
-    chmodSync(tmp, mode);
-    renameSync(tmp, path);
-  } finally {
-    rmSync(tmp, { force: true });
-  }
-}
-
-function accountOf(c: Json | undefined): string | undefined {
-  const a = c && isObject(c["oauthAccount"]) ? c["oauthAccount"]["accountUuid"] : undefined;
-  return typeof a === "string" ? a : undefined;
-}
-
 const fingerprint = (s: string) => createHash("sha256").update(s).digest("hex").slice(0, 12);
 
 export interface LoginSyncOptions {
@@ -160,10 +132,7 @@ export interface LoginSyncOptions {
   readonly home: string;
   /** The checkout, trusted for Claude Code in the container. */
   readonly checkout: string;
-  /** Where replaced logins of this machine are backed up (the last five kept). */
-  readonly backupDir: string;
-  readonly now: () => Date;
-  /** Recorded for each renewal carried across. */
+  /** Recorded for each renewal carried in, and once for each one made in the container. */
   readonly audit: (action: string, details: Record<string, unknown>) => void;
   /** Counts so far (after a coordinator restart). */
   readonly counts?: { readonly synced_back: number; readonly synced_in: number };
@@ -175,12 +144,12 @@ const BOX_CONFIG = ".claude.json";
 
 export class ClaudeLoginSync {
   private readonly box: AgentHome;
-  syncedBack: number;
+  /** Logins carried back to this machine: none since ADR 0063 was amended; kept on the record. */
+  readonly syncedBack: number;
   syncedIn: number;
-  stopped: string | undefined;
-  private account: string | undefined;
-  private subscription: unknown;
   private seen = { host: 0, box: 0 };
+  /** The fingerprint of the last renewal made in the container, audited once. */
+  private renewedInside: string | undefined;
 
   /** The configuration directory the login comes from. */
   get source(): string {
@@ -191,8 +160,6 @@ export class ClaudeLoginSync {
     this.box = new AgentHome(o.home);
     this.syncedBack = o.counts?.synced_back ?? 0;
     this.syncedIn = o.counts?.synced_in ?? 0;
-    this.account = accountOf(readJsonFile(o.source.globalConfig));
-    this.subscription = readLogin(o.source.credentials)?.oauth.subscriptionType;
   }
 
   /** Is there a login to copy? */
@@ -225,17 +192,15 @@ export class ClaudeLoginSync {
       },
     };
     this.box.write(BOX_CONFIG, `${JSON.stringify(next, null, 2)}\n`, 0o600);
-    this.subscription = host.oauth.subscriptionType;
     this.seen = { host: mtime(this.o.source.credentials), box: this.box.mtime(BOX_CREDENTIALS) };
     return true;
   }
 
   /**
-   * Keep the two in step: the fresher login (the later `expiresAt`) is carried to the other side.
-   * Returns which way one went, if any.
+   * A renewal on this machine (the later `expiresAt`) is carried into the container; one made in
+   * the container stays there and is audited once. Returns "in" when one was carried.
    */
-  sync(): "back" | "in" | undefined {
-    if (this.stopped) return undefined;
+  sync(): "in" | undefined {
     const hm = mtime(this.o.source.credentials);
     const bm = this.box.mtime(BOX_CREDENTIALS);
     if (hm === this.seen.host && bm === this.seen.box) return undefined;
@@ -248,25 +213,12 @@ export class ClaudeLoginSync {
       box.expiresAt > host.expiresAt &&
       box.oauth.refreshToken !== host.oauth.refreshToken
     ) {
-      // Renewed in the container: carried back only on the same subscription and account.
-      if (box.oauth.subscriptionType !== this.subscription) {
-        this.stop("the container's login is for another subscription");
-        return undefined;
+      const login = fingerprint(box.oauth.refreshToken as string);
+      if (login !== this.renewedInside) {
+        this.renewedInside = login;
+        this.o.audit("agent.container.login.renewed_inside", { login });
       }
-      const account = accountOf(parseJson(this.box.read(BOX_CONFIG)));
-      if (this.account && account && account !== this.account) {
-        this.stop("the container signed in to another account");
-        return undefined;
-      }
-      this.backup(host.text);
-      writeAtomic(this.o.source.credentials, box.text, 0o600);
-      this.syncedBack++;
-      this.seen.host = mtime(this.o.source.credentials);
-      this.o.audit("agent.container.login.synced", {
-        direction: "back",
-        login: fingerprint(box.oauth.refreshToken as string),
-      });
-      return "back";
+      return undefined;
     }
     if (host && (!box || host.expiresAt > box.expiresAt)) {
       this.box.write(BOX_CREDENTIALS, host.text, 0o600);
@@ -282,29 +234,11 @@ export class ClaudeLoginSync {
   }
 
   /**
-   * The session ended: a last renewal is carried back, then the container's copy is deleted,
-   * unless `keep` (another live session runs in the same home and signs in with it).
+   * The session ended: the container's copy is deleted, unless `keep` (another live session runs
+   * in the same home and signs in with it).
    */
   end(keep = false): void {
-    this.seen = { host: -1, box: -1 };
-    this.sync();
     if (!keep) this.box.remove(BOX_CREDENTIALS);
-  }
-
-  private stop(reason: string): void {
-    this.stopped = reason;
-    this.o.audit("agent.container.login.stopped", { reason });
-  }
-
-  private backup(text: string): void {
-    mkdirSync(this.o.backupDir, { recursive: true, mode: 0o700 });
-    const at = this.o.now().toISOString().replace(/[:.]/g, "-");
-    writeFileSync(join(this.o.backupDir, `credentials-${at}.json`), text, { mode: 0o600 });
-    const old = readdirSync(this.o.backupDir)
-      .filter((f) => f.startsWith("credentials-"))
-      .sort();
-    for (const f of old.slice(0, Math.max(0, old.length - 5)))
-      rmSync(join(this.o.backupDir, f), { force: true });
   }
 }
 

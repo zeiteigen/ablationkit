@@ -171,7 +171,7 @@ Tests marked with a script name need that script (`bun run test:web`, `bun run t
 
 **Control:** Credential routes: the container calls `http://127.0.0.1:3129/<name>/…` and the proxy forwards it with the secret, read from the coordinator's environment or a file at each request; job containers get only the job's and the SDK's environment, not the coordinator's. **Level:** enforced.
 
-**Limit:** Only for tools that take a configurable endpoint. Claude Code's login is copied into the container by default (ADR 0063): readable by the agent, and a renewal made there is carried back to `~/.claude` (same subscription and account only, the replaced file backed up), so a hostile agent could replace the researcher's login with a broken one. `--no-login` keeps a separate login.
+**Limit:** Only for tools that take a configurable endpoint. Claude Code's login is copied into the container by default (ADR 0063): readable by the agent, which cannot write the researcher's: a renewal made there is never carried back to `~/.claude`, so a rotated refresh token can leave the host's copy needing a new sign-in. `--no-login` keeps a separate login.
 
 - `egress.test.ts`: the secret is added on the way out
 

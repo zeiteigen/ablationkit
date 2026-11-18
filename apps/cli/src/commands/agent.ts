@@ -271,7 +271,7 @@ export async function agentCommand(argv: readonly string[], ctx: CliContext): Pr
     if (s.harness === "claude-code") {
       ctx.out(
         s.login
-          ? `  login: yours, copied from ${s.login.source} and kept in step while it runs\n`
+          ? `  login: yours, copied from ${s.login.source}; your renewals carried in, never back\n`
           : "  login: none copied (sign in inside the container)\n",
       );
       ctx.out(

@@ -110,8 +110,6 @@ describe("the Claude login sync in a home the agent linked", () => {
       source: claudeLoginSource(host, "/nonexistent"),
       home,
       checkout: "/work",
-      backupDir: join(host, "backups"),
-      now: () => new Date(),
       audit: () => {},
     });
     expect(sync.copyIn()).toBe(true);
@@ -128,8 +126,6 @@ describe("the Claude login sync in a home the agent linked", () => {
       source: claudeLoginSource(host, "/nonexistent"),
       home,
       checkout: "/work",
-      backupDir: join(host, "backups"),
-      now: () => new Date(),
       audit: () => {},
     });
     sync.copyIn();

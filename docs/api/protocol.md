@@ -916,7 +916,7 @@ Schema: [`container-session-record.v1.schema.json`](../../packages/protocol/sche
 | `files_changed` | array of object | no | Between the start and end snapshots, from Git: the bind-mounted checkout also shows the researcher's own edits made meanwhile. |
 | `packages_changed` | object | no |  |
 | `commands` | array of object | no | Shell commands as the harness's own transcript recorded them (the agent can write its home, so this is its account, not the coordinator's record). |
-| `login` | object | no | The researcher's Claude Code login, copied into the container at start and kept in step with the source while the session runs (whichever side renews it, the fresher token is carried to the other); the container's copy is deleted when the session ends. |
+| `login` | object | no | The researcher's Claude Code login, copied into the container at start; while the session runs a renewal made on this machine is carried in, and one made in the container is never carried back (ADR 0063). The container's copy is deleted when the session ends. |
 | `control` | array of object | yes |  |
 
 ## EgressRecord (v1)
@@ -1379,7 +1379,7 @@ Schema: [`source-build-record.v1.schema.json`](../../packages/protocol/schemas/s
 | `ContainerEnvironmentConfig` | object |  | The project's environment builds (ADR 0066): `uv sync` in a job container of its own, the only place agents' packages are installed. Absent: AblationKit's defaults. |
 | `ContainerHarness` | undefined |  | What runs in the agent container: Claude Code, Codex, or a plain shell (to set the container up or look around). |
 | `ContainerJobs` | object |  |  |
-| `ContainerLogin` | object |  | The researcher's Claude Code login, copied into the container at start and kept in step with the source while the session runs (whichever side renews it, the fresher token is carried to the other); the container's copy is deleted when the session ends. |
+| `ContainerLogin` | object |  | The researcher's Claude Code login, copied into the container at start; while the session runs a renewal made on this machine is carried in, and one made in the container is never carried back (ADR 0063). The container's copy is deleted when the session ends. |
 | `ContainerPackagesChanged` | object |  |  |
 | `ContainerSessionId` | string | `^c-[a-f0-9]{12}$` | An agent container session: `c-` and twelve hex digits. |
 | `ContainerSessionState` | undefined |  | `exited`: the harness ended (its exit code is recorded). `failed`: the container did not start. `lost`: the container was gone without an exit being recorded. |

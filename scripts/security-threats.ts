@@ -319,7 +319,7 @@ export const AREAS: readonly Area[] = [
         level: "enforced",
         proofs: [srv("egress", "the secret is added on the way out")],
         limit:
-          "Only for tools that take a configurable endpoint. Claude Code's login is copied into the container by default (ADR 0063): readable by the agent, and a renewal made there is carried back to `~/.claude` (same subscription and account only, the replaced file backed up), so a hostile agent could replace the researcher's login with a broken one. `--no-login` keeps a separate login.",
+          "Only for tools that take a configurable endpoint. Claude Code's login is copied into the container by default (ADR 0063): readable by the agent, which cannot write the researcher's: a renewal made there is never carried back to `~/.claude`, so a rotated refresh token can leave the host's copy needing a new sign-in. `--no-login` keeps a separate login.",
       },
     ],
   },

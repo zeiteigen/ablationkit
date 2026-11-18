@@ -380,7 +380,8 @@ export const ContainerSessionRecord = Type.Object(
           copied_at: Timestamp,
           synced_back: Type.Integer({
             minimum: 0,
-            description: "Renewals made in the container and carried back to the source.",
+            description:
+              "Renewals made in the container and carried back to the source: none since ADR 0063 was amended (a renewal made inside stays there); earlier sessions' counts.",
           }),
           synced_in: Type.Integer({
             minimum: 0,
@@ -389,14 +390,15 @@ export const ContainerSessionRecord = Type.Object(
           stopped: Type.Optional(
             Type.String({
               maxLength: 500,
-              description: "Why keeping the two in step stopped (another account signed in).",
+              description:
+                "Sessions from before ADR 0063 was amended: why carrying renewals back stopped (another account signed in).",
             }),
           ),
         },
         {
           title: "ContainerLogin",
           description:
-            "The researcher's Claude Code login, copied into the container at start and kept in step with the source while the session runs (whichever side renews it, the fresher token is carried to the other); the container's copy is deleted when the session ends.",
+            "The researcher's Claude Code login, copied into the container at start; while the session runs a renewal made on this machine is carried in, and one made in the container is never carried back (ADR 0063). The container's copy is deleted when the session ends.",
           additionalProperties: false,
         },
       ),

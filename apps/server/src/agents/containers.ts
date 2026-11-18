@@ -926,8 +926,6 @@ export class ContainerService {
       source: claudeLoginSource(from, this.userHome),
       home: join(this.projectDir(pid), `home-${harness}`),
       checkout,
-      backupDir: join(this.root, "login-backups"),
-      now: this.o.now,
       audit: (action, details) =>
         this.o.svc().audit.record({
           actor: { kind: "system" },
@@ -970,7 +968,6 @@ export class ContainerService {
       ...s.login,
       synced_back: sync.syncedBack,
       synced_in: sync.syncedIn,
-      stopped: sync.stopped ?? s.login.stopped,
     }) as ContainerSessionRecord["login"];
   }
 
@@ -1389,12 +1386,10 @@ export class ContainerService {
       // While the container lives its session does not go idle (a paused or thinking agent).
       const t = this.o.svc().tokens.get(s.token_id);
       if (t) this.o.svc().tokens.touch(t);
-      // The researcher's login, renewed on either side, is carried to the other (ADR 0063).
-      if (live.login) {
-        const before = s.login?.stopped;
-        const moved = live.login.sync();
+      // The researcher's login, renewed on this machine, is carried in (ADR 0063).
+      if (live.login?.sync()) {
         const login = this.loginRecord(s, live.login);
-        if (login && (moved || live.login.stopped !== before)) this.save({ ...s, login });
+        if (login) this.save({ ...s, login });
       }
       if (live.ticks % DEEP_EVERY !== 0) continue;
       if (!this.tmuxAlive(s.session_id)) {
