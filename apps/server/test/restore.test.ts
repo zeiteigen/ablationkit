@@ -113,6 +113,16 @@ async function populated() {
   );
   mkdirSync(join(venv, "bin"), { recursive: true });
   writeFileSync(join(venv, "bin", "python"), "#!/bin/sh\n");
+  // An ended job's source snapshot is left out; a queued one's is kept (it still runs it).
+  for (const [id, state] of [
+    ["j-ended", "succeeded"],
+    ["j-waits", "queued"],
+  ] as const) {
+    const jd = join(paths.stateDir, "lab", "jobs", id);
+    mkdirSync(join(jd, "source"), { recursive: true });
+    writeFileSync(join(jd, "source", "train.py"), "print('x')\n");
+    writeFileSync(join(jd, "job.json"), JSON.stringify({ state }));
+  }
   const b = await call<{ backup_id: string; path: string }>("/api/v1/backups", { body: {} });
   expect(b.status).toBe(201);
   return { fake, home, repo, cl, call, token, note: note.body.record.record_id, backup: b.body };
@@ -133,6 +143,9 @@ describe("backup and restore", () => {
     const listed = manifest.files.map((f: { path: string }) => f.path);
     expect(listed).toContain("coordinator/targets/box.json");
     expect(listed.some((p: string) => p.includes("/venv/"))).toBe(false);
+    expect(listed.some((p: string) => p.includes("/j-ended/source/"))).toBe(false);
+    expect(listed).toContain("coordinator/state/lab/jobs/j-ended/job.json");
+    expect(listed).toContain("coordinator/state/lab/jobs/j-waits/source/train.py");
     expect(manifest.projects).toEqual([{ project_id: "lab", path: a.repo }]);
     await stopAll(); // the workstation is gone; only the backup and a fresh clone remain
     const fake = new FakeMlflow().start();

@@ -276,6 +276,9 @@ export class JobService {
   private watchdog: ReturnType<typeof setInterval> | undefined;
   private placing = false;
   private placeAgain = false;
+  /** When ended jobs' files were last pruned, and the jobs already pruned. */
+  private prunedAt = 0;
+  private readonly pruned = new Set<string>();
   readonly loadProblems: string[] = [];
 
   constructor(private readonly o: JobServiceOptions) {}
@@ -593,17 +596,22 @@ export class JobService {
     }));
   }
 
-  /** Inputs of jobs that ended a week ago go (a retry after that has none). */
-  private pruneInputs(): void {
-    const before = this.o.now().getTime() - 7 * 24 * 3600 * 1000;
-    for (const j of this.jobs.values())
-      if (
-        j.inputs?.length &&
-        j.state !== "queued" &&
-        isTerminal(j.state) &&
-        Date.parse(j.updated_at) < before
-      )
-        rmSync(this.inputsDir(j), { recursive: true, force: true });
+  /**
+   * What jobs that ended a week ago keep goes: their source snapshot and their inputs (a retry
+   * after that has neither, and says so). Checked hourly, each job once.
+   */
+  private pruneEnded(): void {
+    const now = this.o.now().getTime();
+    if (now - this.prunedAt < 3600 * 1000) return;
+    this.prunedAt = now;
+    const before = now - 7 * 24 * 3600 * 1000;
+    for (const j of this.jobs.values()) {
+      if (this.pruned.has(j.job_id) || !isTerminal(j.state) || Date.parse(j.updated_at) >= before)
+        continue;
+      this.pruned.add(j.job_id);
+      for (const dir of [this.inputsDir(j), this.sourceDir(j)])
+        if (existsSync(dir)) rmSync(dir, { recursive: true, force: true });
+    }
   }
 
   /** Where a job's source snapshot lives (ADR 0068). */
@@ -2067,7 +2075,7 @@ export class JobService {
       }
       // A policy, a slot count or a target changed: queued jobs may be placeable.
       this.schedule();
-      this.pruneInputs();
+      this.pruneEnded();
     }, this.o.watchdogMs ?? WATCHDOG_MS);
   }
 

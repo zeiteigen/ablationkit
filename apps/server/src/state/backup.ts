@@ -30,8 +30,10 @@ import { hostname } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { readJson, writeJsonAtomic } from "@ablationkit/core";
 import {
+  type AttemptState,
   type BackupFile,
   type BackupManifest,
+  TERMINAL_ATTEMPT_STATES,
   validateBackupManifest,
   validateMlflowSidecarState,
 } from "@ablationkit/protocol";
@@ -68,10 +70,32 @@ export const BACKUP_EXCLUSIONS: readonly string[] = [
   "spool/: undelivered local collector data; local attempts do not survive a restart, and what was delivered is in state/ and MLflow",
   "bundles/: staged run bundles, already on their targets",
   "work/: agents' jobs' working copies of their source, and their inputs (downloaded again from MLflow)",
+  "state/*/jobs/*/source/ of ended jobs: agents' jobs' source snapshots (ADR 0068); the attempt's run records what it ran, and a retry after a restore says the source is gone",
   "builds/: Level 2 builds; a restored coordinator runs the original install",
   "operations/: per-run scratch of the operations bridge",
   "project checkouts: source and Git history stay in each repository; research/ and .ablationkit/ are copied",
 ];
+
+/** `state/<project>/jobs/<job>/source`, relative to the state directory: project and job IDs. */
+const JOB_SOURCE = /^([^/]+)\/jobs\/([^/]+)\/source(\/|$)/;
+
+/** Is `rel` (in the state directory) the source snapshot of a job that has ended? */
+function endedJobSource(stateDir: string, rel: string, ended: Map<string, boolean>): boolean {
+  const m = JOB_SOURCE.exec(rel);
+  if (!m) return false;
+  const job = join(stateDir, m[1] as string, "jobs", m[2] as string, "job.json");
+  let v = ended.get(job);
+  if (v === undefined) {
+    try {
+      const state = (JSON.parse(readFileSync(job, "utf8")) as { state?: unknown }).state;
+      v = TERMINAL_ATTEMPT_STATES.includes(state as AttemptState);
+    } catch {
+      v = false;
+    }
+    ended.set(job, v);
+  }
+  return v;
+}
 
 /** `state/<project>/extensions/<ext>/builds/<eb>/venv`, relative to the state directory. */
 const EXTENSION_VENV = /^[^/]+\/extensions\/[^/]+\/builds\/eb-[0-9a-f]{16}\/venv(\/|$)/;
@@ -153,7 +177,12 @@ export class BackupService {
       copy(paths.settings, "coordinator/settings.json");
       copy(paths.registry, "coordinator/registry.json");
       copy(join(paths.home, "auth"), "coordinator/auth");
-      copy(paths.stateDir, "coordinator/state", (rel) => !EXTENSION_VENV.test(rel));
+      const ended = new Map<string, boolean>();
+      copy(
+        paths.stateDir,
+        "coordinator/state",
+        (rel) => !EXTENSION_VENV.test(rel) && !endedJobSource(paths.stateDir, rel, ended),
+      );
       copy(paths.outboxDir, "coordinator/tracking/outbox");
       copy(paths.auditDir, "coordinator/audit");
       copy(paths.eventsDir, "coordinator/events");
