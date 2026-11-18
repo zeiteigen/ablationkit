@@ -15,6 +15,7 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import type { CoordinatorSettings, ProjectActionPolicy } from "@ablationkit/protocol";
+import { OutboxFullError } from "@ablationkit/tracking-mlflow";
 import { FakeMlflow } from "@ablationkit/tracking-mlflow/testing";
 import { Harness } from "./helpers.ts";
 
@@ -379,6 +380,39 @@ describe("agent job submission (ADR 0037)", () => {
     expect(job.source).toBeUndefined();
     expect(existsSync(cl.c.services.jobs.sourceDir(job))).toBe(false);
   });
+
+  test("a queued job placed while the tracking outbox is full stays queued for the next pass", async () => {
+    const { cl, agent, mint } = await setup();
+    const { token } = await mint();
+    const submit = () =>
+      agent<{ job_id: string; state: string }>(token, "/api/v1/projects/lab/jobs", {
+        body: { command: ["sleep", "30"], environment: "none", limits: { runtime_max_sec: 120 } },
+      });
+    const first = await submit();
+    const second = await submit();
+    expect(second.body.state).toBe("queued");
+    const jobs = cl.c.services.jobs;
+    const tracking = cl.c.services.tracking;
+    const until = async (what: string, ok: () => boolean) => {
+      for (let i = 0; i < 400 && !ok(); i++) await Bun.sleep(25);
+      if (!ok()) throw new Error(`timed out waiting for ${what}`);
+    };
+    await until("the first job running", () => jobs.require(first.body.job_id).state === "running");
+    const startRun = tracking.startRun.bind(tracking);
+    tracking.startRun = () => {
+      throw new OutboxFullError({ maxOps: 1, maxBytes: 1 }, { ops: 1, bytes: 1 });
+    };
+    await agent(token, `/api/v1/jobs/${first.body.job_id}/cancel`, { body: {} });
+    await until("the slot to free", () =>
+      (jobs.require(second.body.job_id).placement?.waiting ?? "").includes("outbox is full"),
+    );
+    expect(jobs.require(second.body.job_id).state).toBe("queued");
+    tracking.startRun = startRun;
+    jobs.schedule();
+    await until("the job placed", () => jobs.require(second.body.job_id).state !== "queued");
+    expect(jobs.require(second.body.job_id).state).not.toBe("failed");
+    await agent(token, `/api/v1/jobs/${second.body.job_id}/cancel`, { body: {} });
+  }, 30_000);
 
   test("an agent cancels only the jobs it submitted", async () => {
     const { human, agent, mint } = await setup();

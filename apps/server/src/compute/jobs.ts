@@ -820,10 +820,14 @@ export class JobService {
     job: JobRecord,
     src: JobPlacementSource,
     busy: ReadonlyMap<string, number>,
-  ): { target: string; slot: boolean } | { waiting: string } {
-    const pool = src
+    refused: ReadonlySet<string> = new Set(),
+  ): { target: string; slot: boolean } | { waiting: string; refused?: true } {
+    const all = src
       .pool(job.project_id)
       .filter((t) => !job.placement?.local_only || t.target_id === "local");
+    const pool = all.filter((t) => !refused.has(t.target_id));
+    // Every target of the pool refused it this pass.
+    if (all.length && !pool.length) return { waiting: "", refused: true };
     if (!pool.length)
       return {
         waiting: job.placement?.local_only
@@ -856,20 +860,30 @@ export class JobService {
         const busy = this.occupancy();
         for (const job of this.queued()) {
           if (!this.o.registry.get(job.project_id)) continue;
-          const c = this.choose(job, src, busy);
-          if ("waiting" in c) {
-            if (job.placement?.waiting !== c.waiting) {
-              const next: JobRecord = {
-                ...job,
-                placement: { ...(job.placement as JobPlacement), waiting: c.waiting },
-              };
-              this.saveJob(next);
-              this.publishJob(next);
+          // A target that refuses the job is passed over for the next with a free slot; it
+          // fails only when every target of its pool refused it, and a refusal that is the
+          // coordinator's for now (503: tracking backpressure) leaves it queued for the next pass.
+          const refused = new Set<string>();
+          const errors: string[] = [];
+          for (;;) {
+            const c = this.choose(job, src, busy, refused);
+            if ("waiting" in c) {
+              if (c.refused) this.failPlacement(job, errors.join("; "));
+              else this.wait(job, [...errors, c.waiting].join("; "));
+              break;
             }
-            continue;
+            const r = this.place(job, c.target, src.weightOf(c.target));
+            if (r.started) {
+              if (c.slot) busy.set(c.target, (busy.get(c.target) ?? 0) + 1);
+              break;
+            }
+            if (r.transient) {
+              this.wait(job, r.error);
+              break;
+            }
+            refused.add(c.target);
+            errors.push(r.error);
           }
-          if (c.slot) busy.set(c.target, (busy.get(c.target) ?? 0) + 1);
-          this.place(job, c.target, src.weightOf(c.target));
         }
       } while (this.placeAgain);
     } finally {
@@ -877,8 +891,52 @@ export class JobService {
     }
   }
 
-  /** Start a queued job on `target`; one that cannot start there fails, saying why. */
-  private place(job: JobRecord, target: string, weight: number): void {
+  /** A queued job waits, saying what for (saved only when that changed). */
+  private wait(job: JobRecord, waiting: string): void {
+    const now = this.require(job.job_id);
+    if (now.state !== "queued" || now.placement?.waiting === waiting) return;
+    const next: JobRecord = {
+      ...now,
+      placement: { ...(now.placement as JobPlacement), waiting: waiting.slice(0, 2000) },
+    };
+    this.saveJob(next);
+    this.publishJob(next);
+  }
+
+  /** Every target of its pool refused the job: it fails, saying why. */
+  private failPlacement(job: JobRecord, error: string): void {
+    const ts = this.o.now().toISOString();
+    const { waiting: _w, ...rest } = this.require(job.job_id).placement as JobPlacement;
+    const failed: JobRecord = {
+      ...this.require(job.job_id),
+      state: "failed",
+      placement: { ...rest, error: error.slice(0, 2000) },
+      updated_at: ts,
+    };
+    this.saveJob(failed);
+    this.publishJob(failed);
+    this.o.log(`job ${job.job_id}: ${error}`);
+    this.o.audit.record({
+      actor: { kind: "system" },
+      listener: "internal",
+      action: "job.place",
+      outcome: "error",
+      project_id: job.project_id,
+      target: job.job_id,
+      details: { error: error.slice(0, 500) },
+    });
+  }
+
+  /**
+   * Start a queued job on `target`. When it cannot start there it stays as it was, queued, and
+   * the reason comes back: `transient` when it is the coordinator's for now (a 503), else the
+   * target's refusal.
+   */
+  private place(
+    job: JobRecord,
+    target: string,
+    weight: number,
+  ): { started: true } | { started: false; transient: boolean; error: string } {
     const ts = this.o.now().toISOString();
     const { waiting: _w, ...rest } = job.placement as JobPlacement;
     // A job from an agent on the host placed here runs in the checkout itself, not its snapshot:
@@ -900,25 +958,21 @@ export class JobService {
           ...(job.limits.runtime_max_sec ? { runtimeSec: job.limits.runtime_max_sec } : {}),
         });
       this.saveJob(placed);
-      if (inPlace) rmSync(this.sourceDir(job), { recursive: true, force: true });
       this.launchAttempt(placed);
     } catch (e) {
+      // An attempt already recorded carries the failure itself.
+      if (this.require(job.job_id).attempts.length > job.attempts.length) return { started: true };
+      // Back in the queue as it was (its snapshot kept), for the next target or the next pass.
+      this.saveJob(job);
       const error = `could not start on ${target}: ${(e as Error).message}`.slice(0, 2000);
-      const failed: JobRecord = {
-        ...placed,
-        state: "failed",
-        placement: { ...(placed.placement as JobPlacement), error },
-        updated_at: ts,
-      };
-      this.saveJob(failed);
-      this.publishJob(failed);
-      this.o.log(`job ${job.job_id}: ${error}`);
+      return { started: false, transient: e instanceof HttpError && e.status === 503, error };
     }
+    if (inPlace) rmSync(this.sourceDir(job), { recursive: true, force: true });
     this.o.audit.record({
       actor: { kind: "system" },
       listener: "internal",
       action: "job.place",
-      outcome: this.require(job.job_id).state === "failed" ? "error" : "allowed",
+      outcome: "allowed",
       project_id: job.project_id,
       target: job.job_id,
       details: {
@@ -926,6 +980,7 @@ export class JobService {
         waited_sec: Math.round((Date.parse(ts) - Date.parse(job.created_at)) / 1000),
       },
     });
+    return { started: true };
   }
 
   /** Take a queued job out of the queue: it ends `cancelled`, never having run. */
