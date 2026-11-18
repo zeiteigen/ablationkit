@@ -316,11 +316,13 @@ describe("agent container sessions", () => {
     expect(sent.body).toMatchObject({ chars: 16, keys: ["Escape", "Enter"] });
     const keys = readFileSync(`${s.attach?.[2]}.keys`, "utf8");
     expect(keys).toContain("-t agent -l -- run the baseline");
-    expect(keys).toContain("-t agent Escape Enter");
-    const bad = await w.human(`/api/v1/agent-containers/${s.session_id}/input`, {
-      body: { keys: ["Enter; rm -rf /"] },
-    });
-    expect(bad.status).toBe(400);
+    expect(keys).toContain("-t agent -- Escape Enter");
+    for (const k of ["Enter; rm -rf /", "-X", "-R"]) {
+      const bad = await w.human(`/api/v1/agent-containers/${s.session_id}/input`, {
+        body: { keys: [k] },
+      });
+      expect(bad.status).toBe(400);
+    }
     const audit = readdirSync(join(w.cl.c.services.paths.home, "audit"))
       .map((x) => readFileSync(join(w.cl.c.services.paths.home, "audit", x), "utf8"))
       .join("");

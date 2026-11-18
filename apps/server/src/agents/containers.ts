@@ -1126,7 +1126,8 @@ export class ContainerService {
     const keys = what.keys ?? [];
     if (text.length > 16_384)
       throw new HttpError(400, "invalid_request", "`text` is at most 16384 characters");
-    if (keys.length > 64 || keys.some((k) => !/^[A-Za-z0-9-]{1,24}$/.test(k)))
+    // A key name never starts with '-' (tmux would read it as an option of send-keys).
+    if (keys.length > 64 || keys.some((k) => !/^[A-Za-z0-9][A-Za-z0-9-]{0,23}$/.test(k)))
       throw new HttpError(
         400,
         "invalid_request",
@@ -1153,7 +1154,7 @@ export class ContainerService {
         );
     };
     if (text) send(["-l", "--", text]);
-    if (keys.length) send(keys as string[]);
+    if (keys.length) send(["--", ...keys]);
     this.o.svc().audit.record({
       actor: { kind: "human", id: by },
       listener: "human",
