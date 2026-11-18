@@ -117,5 +117,5 @@ These do not hold:
 - Your Claude Code login is in the container while it runs, readable by the agent. A renewal it makes is carried back to `~/.claude`, so a hostile agent could replace your login with a broken one; a backup is kept. Use `--no-login` to keep a separate login.
 - The checkout is bind-mounted, so the files a session changed include your own edits made meanwhile.
 - A job on this machine reads the checkout's ignored files as they are when it runs, not as they were when it was submitted: only the source is a snapshot.
-- An agent outside an agent container is your operator (ADR 0062): its jobs on this machine still run in the checkout itself, and take no `inputs`.
+- An agent outside an agent container is your operator (ADR 0062): its jobs on this machine still run in the checkout itself, and take no `inputs`. Its source is copied only when the pool has a remote target, and a source too large to copy keeps the job on this machine.
 - HTTPS egress is recorded by host only. It is tunnelled: the proxy checks the host a `CONNECT` names, not the name the TLS session asks for inside it, so a front end serving many names at one address can reach the others. Plain HTTP goes to the host that was checked (its `Host` is rewritten to it), one request per connection, with a `Content-Length` body; chunked uploads are refused (411).

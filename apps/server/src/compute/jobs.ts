@@ -543,17 +543,25 @@ export class JobService {
     if (input.target_id !== undefined)
       throw new HttpError(400, "invalid_request", "a queued job is placed, not given a target");
     const built = this.build(input);
+    const pool = this.o.placement?.()?.pool(built.project_id) ?? [];
+    const local = pool.some((t) => t.target_id === "local");
     // What would stop it on this machine is a refusal now, not a failure once placed.
-    if (
-      this.o
-        .placement?.()
-        ?.pool(built.project_id)
-        .some((t) => t.target_id === "local")
-    )
-      this.preflightLocal(built);
-    // Its source as it is now, run wherever it is placed; an environment build writes the
-    // checkout's own lock, so it runs there (ADR 0066).
-    let job = built.container?.build_environment ? built : this.snapshot(built);
+    if (local) this.preflightLocal(built);
+    // Its source as it is now, run wherever it is placed (ADR 0068). An environment build writes
+    // the checkout's own lock, so it runs there (ADR 0066). A job from an agent on the host runs
+    // on this machine in the checkout itself: its source is taken only for the remote targets of
+    // its pool, and one too large for them keeps it on this machine.
+    let job = built;
+    if (built.container) {
+      if (!built.container.build_environment) job = this.snapshot(built);
+    } else if (!built.placement?.local_only && pool.some((t) => t.target_id !== "local")) {
+      try {
+        job = this.snapshot(built);
+      } catch (e) {
+        if (!(local && e instanceof HttpError && e.code === "source_too_large")) throw e;
+        job = { ...built, placement: { ...(built.placement as JobPlacement), local_only: true } };
+      }
+    }
     if (input.staged_inputs?.inputs.length) {
       const into = this.inputsDir(job);
       mkdirSync(join(this.o.paths.workDir, "inputs"), { recursive: true, mode: 0o700 });
@@ -865,8 +873,12 @@ export class JobService {
   private place(job: JobRecord, target: string, weight: number): void {
     const ts = this.o.now().toISOString();
     const { waiting: _w, ...rest } = job.placement as JobPlacement;
+    // A job from an agent on the host placed here runs in the checkout itself, not its snapshot:
+    // the attempt records what it ran.
+    const inPlace = target === "local" && !job.container && job.source !== undefined;
+    const { source: _source, ...unsourced } = job;
     const placed: JobRecord = {
-      ...job,
+      ...(inPlace ? unsourced : job),
       ...(target === "local" ? {} : { target_id: target }),
       ...(job.submitted_by.kind === "agent" ? { compute_weight_hundredths: weight } : {}),
       placement: { ...rest, placed_at: ts, target },
@@ -880,6 +892,7 @@ export class JobService {
           ...(job.limits.runtime_max_sec ? { runtimeSec: job.limits.runtime_max_sec } : {}),
         });
       this.saveJob(placed);
+      if (inPlace) rmSync(this.sourceDir(job), { recursive: true, force: true });
       this.launchAttempt(placed);
     } catch (e) {
       const error = `could not start on ${target}: ${(e as Error).message}`.slice(0, 2000);

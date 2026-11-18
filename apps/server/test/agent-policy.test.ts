@@ -5,7 +5,14 @@
  * agents' jobs (ADR 0068). A refusal names the policy field and is audited.
  */
 import { afterEach, describe, expect, test } from "bun:test";
-import { chmodSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import type { CoordinatorSettings, ProjectActionPolicy } from "@ablationkit/protocol";
 import { FakeMlflow } from "@ablationkit/tracking-mlflow/testing";
@@ -356,6 +363,22 @@ describe("agent job submission (ADR 0037)", () => {
     for (const j of [second, check, fourth])
       await agent(token, `/api/v1/jobs/${j.body.job_id}/cancel`, { body: {} });
   }, 30_000);
+
+  test("a host agent's job on a pool of this machine alone takes no snapshot: it runs in the checkout", async () => {
+    const { cl, agent, mint } = await setup();
+    const { token } = await mint();
+    const r = await agent<{ job_id: string; source?: unknown }>(
+      token,
+      "/api/v1/projects/lab/jobs",
+      {
+        body: { command: ["true"], environment: "none", limits: { runtime_max_sec: 60 } },
+      },
+    );
+    expect(r.status).toBe(201);
+    const job = cl.c.services.jobs.require(r.body.job_id);
+    expect(job.source).toBeUndefined();
+    expect(existsSync(cl.c.services.jobs.sourceDir(job))).toBe(false);
+  });
 
   test("an agent cancels only the jobs it submitted", async () => {
     const { human, agent, mint } = await setup();
